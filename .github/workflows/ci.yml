@@ -32,8 +32,8 @@ jobs:
         # (package.json engines, bin/agent-master-3000.mjs). 26 is the current release.
         node: ['22.13.0', '22', '24', '26']
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: ${{ matrix.node }}
           cache: npm
@@ -52,8 +52,8 @@ jobs:
       matrix:
         node: ['22.13.0', '26']
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: ${{ matrix.node }}
           cache: npm
@@ -73,7 +73,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - run: docker compose -f sandbox/compose.yml build test
       # -T: no TTY on a runner. The `test` service has no network at all.
       - run: docker compose -f sandbox/compose.yml run --rm -T test
@@ -85,7 +85,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       # Everything runs in the image, sealed off from the network (see
       # sandbox/compose.e2e.yml), so the runner needs no Node of its own.
       - run: docker compose -f sandbox/compose.e2e.yml build e2e
