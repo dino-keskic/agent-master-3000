@@ -1,5 +1,6 @@
 import { BoardTask, TaskLogItem } from '../types.js';
 import { sessionTranscript } from './logs.js';
+import { listTaskSessions } from './sessions.js';
 
 /**
  * The transcript the drawer shows for the session on screen, including the
@@ -52,7 +53,7 @@ export function drawerTranscript(
   blankStart?: BlankSessionStart
 ): TaskLogItem[] {
   if (blankSessionPending(task, blankStart)) return [];
-  const logs = sessionTranscript(task.logs, sessionId, fetchedLogs);
+  const logs = sessionTranscript(task.logs, sessionId, fetchedLogs, listTaskSessions(task));
   const initial = initialPromptLog(task);
   if (!initial || logs.some((log) => log.type === 'user_say')) return logs;
   return [initial, ...logs];

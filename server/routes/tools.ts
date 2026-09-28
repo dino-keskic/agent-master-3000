@@ -20,8 +20,9 @@ export function registerToolRoutes(app: Express, { orchestrator }: RouteContext)
     const task = taskStore.getTask(req.params.id);
     if (!task) return res.status(404).json({ error: 'Task not found' });
     const sessionId = typeof req.query.session === 'string' ? req.query.session : undefined;
-    const link = sessionId ? listTaskSessions(task).find((item) => item.sessionId === sessionId) : undefined;
-    const logs = sessionTranscript(task.logs, sessionId, link?.logs);
+    const links = listTaskSessions(task);
+    const link = sessionId ? links.find((item) => item.sessionId === sessionId) : undefined;
+    const logs = sessionTranscript(task.logs, sessionId, link?.logs, links);
 
     res.json(
       await sessionToolInventory({

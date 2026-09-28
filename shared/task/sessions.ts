@@ -83,6 +83,26 @@ export function sessionRunSettings(
 }
 
 /**
+ * The model and agent to show for a session, given what OpenCode's database
+ * recorded for it. OpenCode writes a session's model when it is created —
+ * its own default, whatever the board then switches it to — and only records
+ * the switch with the first message. Until the session has one, the board's
+ * own answer (the session's pick, else the task's) is the true one; after,
+ * what OpenCode recorded is what actually ran.
+ */
+export function recordedRunSettings(
+  task: Pick<BoardTask, 'model' | 'agent' | 'thinkingLevel'>,
+  link: Pick<TaskSessionLink, 'model' | 'agent' | 'chosen'>,
+  recorded: { model?: string; agent?: string; tokenCount?: number }
+): { model?: string; agent?: string } {
+  if ((recorded.tokenCount ?? 0) > 0) {
+    return { model: recorded.model || link.model, agent: recorded.agent || link.agent };
+  }
+  const own = sessionRunSettings(task, link.chosen);
+  return { model: own.model || link.model, agent: own.agent || link.agent };
+}
+
+/**
  * The pick to record for a session, as only what differs from the task. A
  * session running the task's own settings stores nothing, so changing the
  * task's model still carries it — the pick is a deliberate departure, not a

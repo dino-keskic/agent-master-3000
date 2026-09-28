@@ -2,7 +2,7 @@ import { clipText, lastLogText } from '../../shared/sessions/list.js';
 import { isPlaceholderSessionTitle } from '../../shared/format.js';
 import { AcpSessionSummary } from '../../shared/sessions/types.js';
 import { BoardTask, TaskSessionLink } from '../../shared/types.js';
-import { listTaskSessions } from '../../shared/task/sessions.js';
+import { listTaskSessions, recordedRunSettings } from '../../shared/task/sessions.js';
 import { billedSessionCost, totalSessionCost } from '../../shared/sessions/cost.js';
 import { modelInfoForSession } from './models.js';
 import { CwdProbe, matchProjectName, probeDirectories, worktreeLabel } from './projects.js';
@@ -24,13 +24,14 @@ function enrichSessionLinks(task: BoardTask, sessionsById: Map<string, AcpSessio
     const live = sessionsById.get(link.sessionId);
     if (!live) return link;
     const billed = billedSessionCost(link, live.cost, live.inheritedCost);
+    const runsOn = recordedRunSettings(task, link, live);
     return {
       ...link,
       title: !isPlaceholderSessionTitle(live.title) ? live.title : (link.title || live.title),
       cost: billed > 0 ? billed : undefined,
       tokenCount: live.tokenCount ?? link.tokenCount,
-      model: live.model || link.model,
-      agent: live.agent || link.agent,
+      model: runsOn.model,
+      agent: runsOn.agent,
       contextTokens: live.contextTokens ?? link.contextTokens,
       contextLimit: live.contextLimit ?? link.contextLimit,
       updatedAt: Math.max(link.updatedAt || 0, Date.parse(live.updatedAt) || 0) || link.updatedAt

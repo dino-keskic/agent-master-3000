@@ -8,6 +8,7 @@ import {
   busySessionCount,
   isSessionBusy,
   listTaskSessions,
+  recordedRunSettings,
   liveTaskSessions,
   sessionChoiceOf,
   settingsTargetFor,
@@ -332,4 +333,18 @@ test('a setting changed in a side chat stays in that side chat', () => {
   assert.strictEqual(settingsTargetFor(task, 'ses_main'), 'task', "the task's own conversation is the task");
   assert.strictEqual(settingsTargetFor(task, undefined), 'task', 'and so is the composer with nothing on screen');
   assert.strictEqual(settingsTargetFor(task, 'ses_fork'), 'session');
+});
+
+test('recordedRunSettings: a session with no messages shows the board pick, not OpenCode default', () => {
+  const task = { model: 'copilot/opus', agent: 'build', thinkingLevel: 'default' as const };
+  const recorded = { model: 'copilot/luna', agent: 'CEO', tokenCount: 0 };
+  assert.deepStrictEqual(recordedRunSettings(task, {}, recorded), { model: 'copilot/opus', agent: 'build' });
+  assert.deepStrictEqual(
+    recordedRunSettings(task, { chosen: { model: 'copilot/mini' } }, recorded),
+    { model: 'copilot/mini', agent: 'build' }
+  );
+  assert.deepStrictEqual(
+    recordedRunSettings(task, {}, { ...recorded, tokenCount: 12 }),
+    { model: 'copilot/luna', agent: 'CEO' }
+  );
 });

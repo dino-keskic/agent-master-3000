@@ -218,16 +218,50 @@ function unionLogs(previous: TaskLogItem[], incoming: TaskLogItem[], max: number
 }
 
 /**
- * Live board logs for one session. Untagged entries (column moves, permission
- * notices) belong in every view; a task from before per-session logs has no
- * tags at all, and showing an empty transcript would be worse than showing
- * everything it has.
+ * Which session an untagged log (a column move, a permission notice, a row from
+ * before logs were tagged at all) was written in: the main session that was
+ * current then — the latest one started at or before it, else the first.
+ * A side session owns none; it only sees what was untagged after it started.
  */
-export function logsForSession(logs: TaskLogItem[] | undefined, sessionId: string | undefined): TaskLogItem[] {
+function untaggedOwner(timestamp: number, mains: TaskSessionLink[]): string | undefined {
+  let owner = mains[0]?.sessionId;
+  for (const link of mains) {
+    if ((link.createdAt || 0) <= timestamp) owner = link.sessionId;
+  }
+  return owner;
+}
+
+/**
+ * Live board logs for one session: its own, and the untagged ones written
+ * while it was the one in use. Without that rule every untagged row showed in
+ * every session, and a blank session opened on a task with a long untagged
+ * past showed all of it.
+ *
+ * Without `links`, or for a session that is not one of them (a subagent), the
+ * old rule stands: untagged entries belong in every view, and a task with no
+ * tags at all shows everything rather than nothing.
+ */
+export function logsForSession(
+  logs: TaskLogItem[] | undefined,
+  sessionId: string | undefined,
+  links?: readonly TaskSessionLink[]
+): TaskLogItem[] {
   const all = logs || [];
   if (!sessionId) return all;
-  if (!all.some((log) => log.sessionId)) return all;
-  return all.filter((log) => !log.sessionId || log.sessionId === sessionId);
+  const viewed = links?.find((link) => link.sessionId === sessionId);
+  if (!links || !viewed) {
+    if (!all.some((log) => log.sessionId)) return all;
+    return all.filter((log) => !log.sessionId || log.sessionId === sessionId);
+  }
+  const mains = links
+    .filter((link) => link.kind === 'main')
+    .sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
+  const isMain = viewed.kind === 'main';
+  return all.filter((log) => {
+    if (log.sessionId) return log.sessionId === sessionId;
+    if (!isMain) return log.timestamp >= (viewed.createdAt || 0);
+    return untaggedOwner(log.timestamp, mains) === sessionId;
+  });
 }
 
 /**
@@ -288,9 +322,10 @@ function stampAttribution(logs: TaskLogItem[], history?: TaskLogItem[]): TaskLog
 export function sessionTranscript(
   logs: TaskLogItem[] | undefined,
   sessionId: string | undefined,
-  history?: TaskLogItem[]
+  history?: TaskLogItem[],
+  links?: readonly TaskSessionLink[]
 ): TaskLogItem[] {
-  return stampAttribution(mergeSessionTranscript(logsForSession(logs, sessionId), history), history);
+  return stampAttribution(mergeSessionTranscript(logsForSession(logs, sessionId, links), history), history);
 }
 
 function mergeLink(previous: TaskSessionLink | undefined, incoming: TaskSessionLink, max: number): TaskSessionLink {
