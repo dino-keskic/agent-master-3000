@@ -21,6 +21,7 @@ import { BoardLoadingScreen } from '../components/loading/BoardLoadingScreen';
 import { useBoardLoadState } from '../components/loading/useBoardLoadState';
 import { ProjectFilterBar } from '../components/header/ProjectFilterBar';
 import { WelcomeScreen } from '../components/onboarding/WelcomeScreen';
+import { ConfigStaleNotice } from '../components/setup/ConfigStaleNotice';
 import { useSetup } from '../components/setup/useSetup';
 
 /**
@@ -156,6 +157,7 @@ export const App: React.FC = () => {
       />
 
       <main className="flex-1 max-w-[2200px] w-full mx-auto p-7" id="board">
+        {board.configStale && <ConfigStaleNotice onRestarted={() => void board.refresh()} />}
         <ProjectFilterBar
           chips={filter.chips}
           total={tasks.length}

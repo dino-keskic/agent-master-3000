@@ -46,7 +46,7 @@ if (options.config) process.env.AGENT_MASTER_CONFIG = path.resolve(options.confi
 if (options.paths) {
   // Only the path code: loading the server would open the board.
   const [{ setupReport }, { formatSetupReport, setupSeverity }] = await Promise.all([
-    import('./setup/locations.js'),
+    import('./setup/configLayers.js'),
     import('../shared/setup/report.js')
   ]);
   const report = setupReport();

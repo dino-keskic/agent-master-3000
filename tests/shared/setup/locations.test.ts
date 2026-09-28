@@ -28,7 +28,8 @@ test('with nothing set, every location is where OpenCode puts it', () => {
   const locs = resolveLocations({}, ctx());
   assert.deepStrictEqual(locs.dataDir, { value: '/home/me/.local/share/agent-master-3000', source: 'default' });
   assert.deepStrictEqual(locs.opencodeBin, { value: 'opencode', source: 'default' });
-  assert.strictEqual(locs.opencodeConfigDir.value, '/home/me/.config/opencode');
+  // The extra folder: nothing unless someone sets one. The global one is always read.
+  assert.deepStrictEqual(locs.opencodeConfigDir, { value: '', source: 'default' });
   assert.strictEqual(locs.opencodeDb.value, '/home/me/.local/share/opencode/opencode.db');
   assert.strictEqual(locs.opencodeModels.value, '/home/me/.cache/opencode/models.json');
 });
@@ -59,7 +60,7 @@ test('the old OPENCODE_MODELS spelling still counts, after OPENCODE_MODELS_PATH'
 test('extra OpenCode environment moves its defaults too', () => {
   const locs = resolveLocations({ opencodeEnv: { XDG_DATA_HOME: '/xd', XDG_CONFIG_HOME: '/xc' } }, ctx());
   assert.strictEqual(locs.opencodeDb.value, '/xd/opencode/opencode.db');
-  assert.strictEqual(locs.opencodeConfigDir.value, '/xc/opencode');
+  assert.deepStrictEqual(opencodeConfigDirs(locs, { opencodeEnv: { XDG_CONFIG_HOME: '/xc' } }, ctx()), ['/xc/opencode']);
   // The board's own data folder follows the board's environment, not OpenCode's.
   assert.strictEqual(locs.dataDir.value, '/home/me/.local/share/agent-master-3000');
 });
@@ -71,7 +72,7 @@ test('OpenCode is handed only what the setup file moved', () => {
   assert.deepStrictEqual(opencodeChildEnv({}, resolveLocations({}, ctx())), {});
 });
 
-test('config files: the global three, the extra folder two, then OPENCODE_CONFIG', () => {
+test('config files in merge order: the global three, OPENCODE_CONFIG, then the extra folder two', () => {
   const g = '/home/me/.config/opencode';
   assert.deepStrictEqual(opencodeConfigFiles(resolveLocations({}, ctx()), {}, ctx()), [
     `${g}/config.json`,
@@ -80,10 +81,13 @@ test('config files: the global three, the extra folder two, then OPENCODE_CONFIG
   ]);
   const env = { OPENCODE_CONFIG_DIR: '/extra', OPENCODE_CONFIG: '/one.json' };
   assert.deepStrictEqual(opencodeConfigFiles(resolveLocations({}, ctx(env)), {}, ctx(env)).slice(3), [
+    '/one.json',
     '/extra/opencode.json',
-    '/extra/opencode.jsonc',
-    '/one.json'
+    '/extra/opencode.jsonc'
   ]);
+  // OPENCODE_CONFIG_DIR naming the global folder adds nothing.
+  const same = { OPENCODE_CONFIG_DIR: `${g}/` };
+  assert.strictEqual(opencodeConfigFiles(resolveLocations({}, ctx(same)), {}, ctx(same)).length, 3);
 });
 
 test('config folders: global always, the extra one only when it differs', () => {

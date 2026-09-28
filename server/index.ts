@@ -5,7 +5,8 @@ import http from 'http';
 import { WebSocketServer } from 'ws';
 import { registerAcpEvents } from './turns/acpEvents.js';
 import { CLIENT_DIR, IS_BUNDLED, listenAddress } from './app/appPaths.js';
-import { setToolPolicySource } from './acp/transport.js';
+import { setConfigStampSource, setToolPolicySource } from './acp/transport.js';
+import { currentConfigStamp, setBoardConfigSource } from './setup/configLayers.js';
 import { BoardPoller } from './board/poller.js';
 import { serveClient } from './http/clientStatic.js';
 import { createApp, useErrorHandler } from './http/app.js';
@@ -33,6 +34,12 @@ import { TurnRegistry } from './turns/registry.js';
 
 // The agent process is created lazily, and it reads the tool policy at spawn.
 setToolPolicySource(() => taskStore.getSettings().toolPolicy || {});
+// Which projects' OpenCode config the board reads models in and watches for edits.
+setBoardConfigSource(() => {
+  const { projects, defaultCwd, toolPolicy } = taskStore.getSettings();
+  return { projects, defaultCwd, toolPolicy };
+});
+setConfigStampSource(currentConfigStamp);
 // The overlay labels a task with the project its folder is in; without this it
 // would have nothing to match against until the first poll comes back.
 rememberProjects(taskStore.getSettings().projects);

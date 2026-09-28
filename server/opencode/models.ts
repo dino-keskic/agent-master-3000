@@ -1,7 +1,8 @@
 import fs from 'fs';
 import { parseJsonc } from '../../shared/jsonc.js';
 import { ModelPrice } from '../../shared/sessions/cost.js';
-import { opencodeConfigFilePaths, opencodeModelsPath } from '../setup/locations.js';
+import { mergedConfigFilePaths } from '../setup/configLayers.js';
+import { opencodeModelsPath } from '../setup/locations.js';
 
 export interface ModelInfo extends ModelPrice {
   provider: string;
@@ -151,11 +152,12 @@ export function overlayConfigLimits(
 /**
  * OpenCode's model list, with the context limits from every config file it
  * merges laid over it in the same order — so a limit set in the extra config
- * folder beats the global one, as it does for the agent.
+ * folder beats the global one, as it does for the agent, and a model a project
+ * defines for itself has its limit too.
  */
 export function loadModelCatalog(
   catalogPath = opencodeModelsPath(),
-  configPaths: readonly string[] = opencodeConfigFilePaths()
+  configPaths: readonly string[] = mergedConfigFilePaths()
 ): Map<string, ModelInfo> {
   const key = [catalogPath, ...configPaths].map((file) => `${file}:${fileMtime(file)}`).join('|');
   if (cached && cachedKey === key) return cached;

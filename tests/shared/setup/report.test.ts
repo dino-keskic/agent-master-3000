@@ -96,6 +96,14 @@ test('the source reads as the variable that set it', () => {
   assert.strictEqual(sourceLabel({ source: 'env', envVar: 'OPENCODE_DB' }), 'from $OPENCODE_DB');
   assert.strictEqual(sourceLabel({ source: 'config' }), 'set in the setup file');
   assert.strictEqual(sourceLabel({ source: 'detected' }), 'found');
+  assert.strictEqual(sourceLabel({ source: 'default', value: '' }), 'not set');
+});
+
+test('the extra config folder is optional: unset is fine, and says the global folder is still read', () => {
+  const unset = assessLocation('opencodeConfigDir', { exists: false, unset: true });
+  assert.strictEqual(unset.severity, 'ok');
+  assert.match(unset.note, /global folder/);
+  assert.match(assessLocation('opencodeConfigDir', { exists: true, kind: 'dir' }).note, /on top of the global/);
 });
 
 test('--paths prints every location with its mark, and what is pending', () => {
@@ -108,7 +116,11 @@ test('--paths prints every location with its mark, and what is pending', () => {
     opencodeEnv: { HTTPS_PROXY: 'x' },
     binCandidates: [],
     dataDirInUse: '/d',
-    pendingMove: { from: '/old', to: '/d' }
+    pendingMove: { from: '/old', to: '/d' },
+    configLayers: [
+      { kind: 'global', title: 'Global', path: '/h/.config/opencode', files: ['/h/.config/opencode/opencode.json'], note: 'Always loaded, for every project.' },
+      { kind: 'board', title: 'Board tool policy', path: '', files: [], note: 'Nothing set.' }
+    ]
   };
   const text = formatSetupReport(report);
   assert.match(text, /^Setup file: \/c\/config\.json/);
@@ -116,4 +128,6 @@ test('--paths prints every location with its mark, and what is pending', () => {
   assert.match(text, /✗ OpenCode program: opencode\n {4}default — Missing\./);
   assert.match(text, /Extra OpenCode environment: HTTPS_PROXY/);
   assert.match(text, /copied from \/old/);
+  assert.match(text, /OpenCode config, in the order it is merged:\n {2}Global: \/h\/\.config\/opencode\n {4}\/h\/\.config\/opencode\/opencode\.json\n {4}Always loaded/);
+  assert.match(text, /\n {2}Board tool policy\n {4}Nothing set\./);
 });

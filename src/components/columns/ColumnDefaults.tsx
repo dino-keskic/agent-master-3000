@@ -42,7 +42,7 @@ export const ColumnDefaults: React.FC<ColumnDefaultsProps> = ({ column, models, 
       size="xs"
       label="Model"
       value={keepValue(column.model)}
-      data={[{ value: KEEP, label: 'Keep current model' }, ...models.map((m) => ({ value: m.id, label: m.name }))]}
+      data={[{ value: KEEP, label: 'Keep current model' }, ...models.map((m) => ({ value: m.id, label: m.scope ? `${m.name} (${m.scope})` : m.name }))]}
       onChange={(val) => onPatch({ model: fromKeep(val) })}
       searchable
       // Mantine seeds the search box with the current label; without this the

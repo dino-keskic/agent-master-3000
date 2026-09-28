@@ -60,8 +60,8 @@ export function registerToolRoutes(app: Express, { orchestrator }: RouteContext)
    * while work is in flight — restarting drops every running turn — unless the
    * caller insists.
    */
-  app.post('/api/agent/restart', (req: Request, res: Response) => {
-    const busy = taskStore.getTasks().filter((task) => orchestrator.hasBusyWork(task));
+  app.post('/api/agent/restart', route(async (req: Request, res: Response) => {
+    const busy = orchestrator.busyTasks();
     if (busy.length > 0 && req.body?.force !== true) {
       return res.status(409).json({
         error: `${busy.length} session${busy.length === 1 ? '' : 's'} still running`,
@@ -69,8 +69,8 @@ export function registerToolRoutes(app: Express, { orchestrator }: RouteContext)
       });
     }
 
-    acpManager.restartAgent();
+    await acpManager.restartAgent();
     clearToolCatalogCache();
     res.json({ restarted: true });
-  });
+  }));
 }

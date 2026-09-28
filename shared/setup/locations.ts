@@ -1,4 +1,5 @@
 import path from 'path';
+import { CONFIG_FILES, GLOBAL_FILES } from './configLayers.js';
 import { LOCATION_KEYS, LocationKey, LocationSource } from './report.js';
 
 /**
@@ -9,8 +10,10 @@ import { LOCATION_KEYS, LocationKey, LocationSource } from './report.js';
  * The defaults follow OpenCode's own rules (checked against 1.18 in the
  * sandbox), so the board reads what the agent writes:
  *
- * - config: `$XDG_CONFIG_HOME/opencode`. `OPENCODE_CONFIG_DIR` adds a folder
- *   on top of it rather than replacing it, and `OPENCODE_CONFIG` adds a file.
+ * - config: `$XDG_CONFIG_HOME/opencode`, always. `OPENCODE_CONFIG_DIR` adds a
+ *   folder on top of it rather than replacing it, and `OPENCODE_CONFIG` adds a
+ *   file — so the location called `opencodeConfigDir` here is that *extra*
+ *   folder, empty when there is none. `configLayers.ts` lists them all.
  * - sessions: `$XDG_DATA_HOME/opencode/opencode.db`, or
  *   `opencode-<channel>.db` beside it for a non-release build. `OPENCODE_DB`
  *   overrides it, relative to that folder when it is not absolute.
@@ -164,7 +167,9 @@ export function resolveLocations(config: BoardConfig, ctx: PathContext, found: D
     opencodeBin: pick('opencodeBin', () =>
       found.bin ? { value: found.bin, source: 'detected' } : { value: 'opencode', source: 'default' }
     ),
-    opencodeConfigDir: pick('opencodeConfigDir', () => ({ value: globalConfigDir(ocEnv, home), source: 'default' })),
+    // No default: the global folder is loaded anyway, and naming it here made
+    // it look like the one folder OpenCode reads.
+    opencodeConfigDir: pick('opencodeConfigDir', () => ({ value: '', source: 'default' })),
     opencodeDb: pick('opencodeDb', () =>
       found.channelDb
         ? { value: found.channelDb, source: 'detected' }
@@ -201,28 +206,34 @@ export function opencodeChildEnv(config: BoardConfig, locations: Locations): Rec
   return out;
 }
 
+/** The extra config folder, when one is set and it is not the global folder under another name. */
+export function extraConfigDir(locations: Locations, config: BoardConfig, ctx: Pick<PathContext, 'env' | 'home'>): string | undefined {
+  const extra = locations.opencodeConfigDir.value;
+  if (!extra) return undefined;
+  const global = globalConfigDir(opencodeEnvFor(config, ctx.env), ctx.home);
+  return path.resolve(extra) === path.resolve(global) ? undefined : extra;
+}
+
 /**
- * The config files OpenCode merges, in its order, as far as the board cares:
- * the global folder's three names, the extra folder's two, then
- * `OPENCODE_CONFIG`. Project files are the agent's business, not the board's.
+ * The config files every session loads, in OpenCode's merge order: the global
+ * folder's three names, `OPENCODE_CONFIG`, then the extra folder's two. Project
+ * files come between the last two, per project (`configLayers.ts`).
  */
 export function opencodeConfigFiles(locations: Locations, config: BoardConfig, ctx: Pick<PathContext, 'env' | 'home'>): string[] {
   const ocEnv = opencodeEnvFor(config, ctx.env);
   const global = globalConfigDir(ocEnv, ctx.home);
-  const files = ['config.json', 'opencode.json', 'opencode.jsonc'].map((name) => path.join(global, name));
-  const extra = locations.opencodeConfigDir.value;
-  if (path.resolve(extra) !== path.resolve(global)) {
-    files.push(path.join(extra, 'opencode.json'), path.join(extra, 'opencode.jsonc'));
-  }
+  const files: string[] = GLOBAL_FILES.map((name) => path.join(global, name));
   if (ocEnv.OPENCODE_CONFIG) files.push(path.resolve(ocEnv.OPENCODE_CONFIG));
+  const extra = extraConfigDir(locations, config, ctx);
+  if (extra) files.push(...CONFIG_FILES.map((name) => path.join(extra, name)));
   return files;
 }
 
 /** The folders OpenCode loads agents, commands and skills from: the global one, then the extra one. */
 export function opencodeConfigDirs(locations: Locations, config: BoardConfig, ctx: Pick<PathContext, 'env' | 'home'>): string[] {
   const global = globalConfigDir(opencodeEnvFor(config, ctx.env), ctx.home);
-  const extra = locations.opencodeConfigDir.value;
-  return path.resolve(extra) === path.resolve(global) ? [global] : [global, extra];
+  const extra = extraConfigDir(locations, config, ctx);
+  return extra ? [global, extra] : [global];
 }
 
 /**

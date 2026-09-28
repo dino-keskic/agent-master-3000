@@ -8,8 +8,8 @@ import { errorField, errorMessage } from '../../shared/errors.js';
 import { LOCATION_KEYS, LocationKey, SetupPatch, SetupSaveResult } from '../../shared/setup/report.js';
 import { acpManager } from '../acp/client.js';
 import { route } from '../http/app.js';
-import { checkLocation, saveSetup, setupReport } from '../setup/locations.js';
-import { taskStore } from '../board/taskStore.js';
+import { setupReport } from '../setup/configLayers.js';
+import { checkLocation, saveSetup } from '../setup/locations.js';
 import { clearToolCatalogCache } from '../toolCatalog/index.js';
 import { RouteContext } from './context.js';
 
@@ -96,11 +96,11 @@ export function registerSetupRoutes(app: Express, { orchestrator }: RouteContext
     let agent: SetupSaveResult['agent'] = 'unchanged';
     if (outcome.agentChanged) {
       clearToolCatalogCache();
-      const busy = taskStore.getTasks().some((task) => orchestrator.hasBusyWork(task));
+      const busy = orchestrator.busyTasks().length > 0;
       if (busy) {
         agent = 'busy';
       } else {
-        acpManager.restartAgent();
+        void acpManager.restartAgent();
         agent = 'restarted';
       }
     }

@@ -25,6 +25,8 @@ export interface BoardData {
   settings: GlobalSettings;
   models: OpenCodeModel[];
   agents: OpenCodeAgent[];
+  /** An OpenCode config file changed, and the running agent has not re-read it (see `ConfigStaleNotice`). */
+  configStale: boolean;
   isConnected: boolean;
   /** True once the first board load has landed; everything above it is real. */
   hasLoaded: boolean;
@@ -59,6 +61,7 @@ export function useBoardData(): BoardData {
   const [settings, setSettings] = useState<GlobalSettings>(INITIAL_SETTINGS);
   const [models, setModels] = useState<OpenCodeModel[]>([]);
   const [agents, setAgents] = useState<OpenCodeAgent[]>([]);
+  const [configStale, setConfigStale] = useState(false);
   // The load is a fact about the board, not only a toast: until it has landed
   // the settings and tasks below are placeholders, and the screen has to say so.
   const [hasLoaded, setHasLoaded] = useState(false);
@@ -80,6 +83,7 @@ export function useBoardData(): BoardData {
       setProjects(data.settings.projects);
       setModels(data.models);
       setAgents(data.agents);
+      setConfigStale(!!data.configStale);
       // The lists in a board response are the default model's; file them under it
       // so a dropdown sitting next to a different model does not borrow them.
       rememberModelOptions(data.settings.defaultModel, data);
@@ -134,6 +138,7 @@ export function useBoardData(): BoardData {
     settings,
     models,
     agents,
+    configStale,
     isConnected,
     hasLoaded,
     loadError,

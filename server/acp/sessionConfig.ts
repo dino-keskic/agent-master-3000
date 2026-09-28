@@ -1,6 +1,7 @@
 import { OpenCodeAgent, OpenCodeModel } from '../../shared/sessions/types.js';
 import { BoardTask, SessionChoice } from '../../shared/types.js';
 import { sessionRunSettings } from '../../shared/task/sessions.js';
+import { mergeFolderModels } from '../../shared/agent/modelScope.js';
 import {
   ConfigOption,
   findOption,
@@ -59,6 +60,13 @@ export function describeConfigOptions(options: ConfigOption[]): AcpConfigOptions
   };
 }
 
+interface Probe {
+  id: string;
+  baseOptions: ConfigOption[];
+  /** One read at a time per probe: each read switches its model. */
+  queue: Promise<unknown>;
+}
+
 /**
  * The composer's model/agent/thinking settings, pushed onto OpenCode sessions.
  *
@@ -69,10 +77,14 @@ export function describeConfigOptions(options: ConfigOption[]): AcpConfigOptions
  */
 export class SessionConfigurator {
   private readonly cache = new Map<string, { result: AcpConfigOptionsResult; fetchedAt: number }>();
-  /** A throwaway session that exists only to read the option lists from. */
-  private probeSessionId: string | null = null;
-  private probeBaseOptions: ConfigOption[] = [];
-  private probeQueue: Promise<unknown> = Promise.resolve();
+  /** Each model's raw lists, as a live session last reported them. */
+  private readonly learned = new Map<string, { options: ConfigOption[]; fetchedAt: number }>();
+  /**
+   * Throwaway sessions that exist only to read the option lists from, one per
+   * folder: a project's own `opencode.json` adds models for sessions in that
+   * project and nowhere else.
+   */
+  private readonly probes = new Map<string, Promise<Probe>>();
 
   constructor(
     private readonly transport: AcpTransport,
@@ -80,17 +92,22 @@ export class SessionConfigurator {
     private readonly emit: (taskId: string, event: AcpEvent) => void
   ) {}
 
-  /** The agent process is gone; its probe session and cached lists went with it. */
+  /** The agent process is gone; its probe sessions and cached lists went with it. */
   reset(): void {
-    this.probeSessionId = null;
-    this.probeBaseOptions = [];
+    this.probes.clear();
     this.cache.clear();
+    this.learned.clear();
   }
 
   // --- reading what is on offer ---
 
-  async fetchOptions(modelId?: string): Promise<AcpConfigOptionsResult> {
-    const cacheKey = modelId || '__default__';
+  /**
+   * What `modelId` offers — or, without one, the default model's — with the
+   * model list merged across `folders`. A model some folders lack is read in
+   * the first folder that has it.
+   */
+  async fetchOptions(modelId?: string, folders: readonly string[] = [process.cwd()]): Promise<AcpConfigOptionsResult> {
+    const cacheKey = `${modelId || '__default__'}\0${folders.join('\0')}`;
     const cached = this.cache.get(cacheKey);
     if (cached && Date.now() - cached.fetchedAt < CONFIG_CACHE_TTL_MS) return cached.result;
 
@@ -98,8 +115,15 @@ export class SessionConfigurator {
     // OpenCode answers a probe mid-stream in milliseconds. The timeout only
     // keeps a wedged agent from stalling the board; stale lists beat none.
     try {
-      const options = await this.readOptionsInTurn(modelId);
-      const result = describeConfigOptions(options);
+      const opened = await this.openAll(folders);
+      if (opened.length === 0) throw new Error('Could not create an ACP session to read configuration options');
+      const models = mergeFolderModels(
+        opened.map(({ folder, probe }) => ({ folder, models: describeConfigOptions(probe.baseOptions).models }))
+      );
+      const options = modelId
+        ? this.learnedOptions(modelId) ?? await this.readModel(opened, modelId)
+        : opened[0]!.probe.baseOptions;
+      const result = { ...describeConfigOptions(options), models };
       this.cache.set(cacheKey, { result, fetchedAt: Date.now() });
       this.learn(options);
       return result;
@@ -109,38 +133,65 @@ export class SessionConfigurator {
     }
   }
 
+  /** The probes for `folders` that could be opened, in the order given. A folder that fails is left out. */
+  private async openAll(folders: readonly string[]): Promise<{ folder: string; probe: Probe }[]> {
+    const settled = await Promise.all(
+      folders.map((folder) =>
+        this.probeFor(folder).then(
+          (probe) => ({ folder, probe }),
+          (e: Error) => {
+            console.warn(`[ACP] Could not read OpenCode's options in ${folder}: ${e.message}`);
+            return null;
+          }
+        )
+      )
+    );
+    return settled.filter((x): x is { folder: string; probe: Probe } => !!x);
+  }
+
+  private probeFor(folder: string): Promise<Probe> {
+    let probe = this.probes.get(folder);
+    if (!probe) {
+      probe = this.transport
+        .request('session/new', { cwd: folder, mcpServers: [] }, PROBE_TIMEOUT_MS)
+        .then((raw) => {
+          const created = sessionResultSchema.parse(raw);
+          if (!created.sessionId) throw new Error('OpenCode did not open a session');
+          return { id: created.sessionId, baseOptions: created.configOptions ?? [], queue: Promise.resolve() };
+        });
+      // A failed open is not remembered: the next read tries again.
+      probe.catch(() => this.probes.delete(folder));
+      this.probes.set(folder, probe);
+    }
+    return probe;
+  }
+
   /**
-   * One probe read at a time: each read switches the one probe session's model,
-   * so two dropdowns loading different models must not interleave.
+   * The raw options for `modelId`, from the first probe whose folder offers it.
+   * Reads on one probe are queued: two dropdowns loading different models
+   * must not interleave their switches.
    */
-  private readOptionsInTurn(modelId?: string): Promise<ConfigOption[]> {
-    const read = this.probeQueue.then(() => this.readOptions(modelId));
-    this.probeQueue = read.catch(() => undefined);
+  private readModel(opened: readonly { probe: Probe }[], modelId: string): Promise<ConfigOption[]> {
+    // The board may store `provider/id` where OpenCode lists a bare id, or the
+    // other way round.
+    const match = opened
+      .map(({ probe }) => ({ probe, target: resolveConfigValue(probe.baseOptions, 'model', modelId) }))
+      .find((m) => m.target);
+    if (!match?.target) return Promise.reject(new Error(`OpenCode does not list model "${modelId}"`));
+    const { probe, target } = match;
+    const read = probe.queue.then(() => this.switchProbe(probe, target));
+    probe.queue = read.catch(() => undefined);
     return read;
   }
 
-  /** The raw options for `modelId`, opening the probe session if needed. */
-  private async readOptions(modelId?: string): Promise<ConfigOption[]> {
-    if (!this.probeSessionId) {
-      const created = sessionResultSchema.parse(
-        await this.transport.request('session/new', { cwd: process.cwd(), mcpServers: [] }, PROBE_TIMEOUT_MS)
-      );
-      this.probeSessionId = created.sessionId ?? null;
-      if (this.probeSessionId) this.probeBaseOptions = created.configOptions ?? [];
-    }
-    if (!this.probeSessionId) {
-      throw new Error('Could not create an ACP session to read configuration options');
-    }
-    if (!modelId) return this.probeBaseOptions;
-
-    // Which agents and effort levels exist depends on the model, so the probe
-    // session is switched to it before its lists are read. The board may store
-    // `provider/id` where OpenCode lists a bare id, or the other way round.
-    const target = resolveConfigValue(this.probeBaseOptions, 'model', modelId);
-    if (!target) throw new Error(`OpenCode does not list model "${modelId}"`);
+  /**
+   * Which agents and effort levels exist depends on the model, so the probe
+   * session is switched to it before its lists are read.
+   */
+  private async switchProbe(probe: Probe, target: string): Promise<ConfigOption[]> {
     const updated = sessionResultSchema.parse(
       await this.transport.request('session/set_config_option', {
-        sessionId: this.probeSessionId,
+        sessionId: probe.id,
         configId: 'model',
         value: target
       }, PROBE_TIMEOUT_MS)
@@ -164,7 +215,12 @@ export class SessionConfigurator {
   private learn(options: ConfigOption[]): void {
     const model = findOption(options, 'model')?.currentValue;
     if (!model) return;
-    this.cache.set(model, { result: describeConfigOptions(options), fetchedAt: Date.now() });
+    this.learned.set(model, { options, fetchedAt: Date.now() });
+  }
+
+  private learnedOptions(modelId: string): ConfigOption[] | undefined {
+    const hit = this.learned.get(modelId);
+    return hit && Date.now() - hit.fetchedAt < CONFIG_CACHE_TTL_MS ? hit.options : undefined;
   }
 
   // --- making a session match the composer ---

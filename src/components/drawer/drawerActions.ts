@@ -20,6 +20,9 @@ export interface DrawerActionContext {
   cwd: string;
   /** Show a session in the drawer. Undefined selects the task's own again. */
   onViewSession: (sessionId: string | undefined) => void;
+  /** Show an empty transcript for a blank session until OpenCode opens it. */
+  onStartBlank: () => void;
+  onCancelBlank: () => void;
   onClearComposer: () => void;
   setCompacting: (value: boolean) => void;
   /** Resolves false when the server refused the prompt. */
@@ -100,18 +103,22 @@ export function drawerActions(ctx: DrawerActionContext): DrawerActions {
 
     async startSession(data) {
       const isFork = data.mode === 'fork';
+      // A blank session is empty from the click. It is linked only once
+      // OpenCode opens it, and until then the task's main session — with all
+      // its history — is the wrong thing to be looking at.
+      if (!isFork) ctx.onStartBlank();
       try {
         const updated = await api.startSession(task.id, {
           ...data,
           // Fork what is on screen, falling back to the task's own session.
           sourceSessionId: isFork ? (isLinked(sessionId) ? sessionId : task.sessionId) : undefined
         });
-        // The session appearing in the list and on screen says it started. A
+        // The fork appearing in the list and on screen says it started. A
         // blank one is linked a moment after this answer, as the task's main
-        // session, so the drawer follows the task's own rather than pinning
-        // the one this answer still names.
-        ctx.onViewSession(isFork ? updated.activeSessionId : undefined);
+        // session, and the drawer follows it there on its own.
+        if (isFork) ctx.onViewSession(updated.activeSessionId);
       } catch (e) {
+        if (!isFork) ctx.onCancelBlank();
         reportError(isFork ? 'Could not fork this session' : 'Could not start a new session', e);
       }
     },

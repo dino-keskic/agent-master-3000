@@ -20,7 +20,19 @@ export type { AcpEvent, AcpEventCallback } from './events.js';
 export type { AcpConfigOptionsResult } from './sessionConfig.js';
 export type { ImportSessionOptions, ImportedSessionConfig } from './sessions.js';
 export type { StartTurnOptions } from './turns.js';
-export { setToolPolicySource } from './transport.js';
+export { setConfigStampSource, setToolPolicySource } from './transport.js';
+
+/** Whether the agent's lists reflect OpenCode's config files as they are now. */
+export type ConfigFreshness = 'current' | 'restarted' | 'stale';
+
+/**
+ * The least time between two restarts the board makes on its own. A config
+ * file being saved over and over (an editor's autosave, a script) must not
+ * keep killing the agent.
+ */
+const AUTO_RESTART_GAP_MS = 30_000;
+/** How long a board load waits for the old agent to exit before reading from the new one. */
+const RESTART_WAIT_MS = 5_000;
 
 /**
  * The board's side of the Agent Client Protocol.
@@ -44,6 +56,8 @@ export class AcpManager {
   private readonly turns: TurnRunner;
   private eventCallback: AcpEventCallback | null = null;
   private folderResolver: ((taskId: string, sessionId: string) => string | undefined) | null = null;
+  private lastConfigRestart = 0;
+  private configRefresh: Promise<ConfigFreshness> | null = null;
 
   constructor() {
     const emit = (taskId: string, event: AcpEvent) => this.emit(taskId, event);
@@ -96,8 +110,36 @@ export class AcpManager {
     return this.transport.policyPending();
   }
 
-  public restartAgent(): void {
-    this.transport.restart();
+  /** True when an OpenCode config file changed after the running agent read them. */
+  public configPending(): boolean {
+    return this.transport.configPending();
+  }
+
+  /** Resolves once the old process is gone; the next request starts the new one. */
+  public restartAgent(): Promise<void> {
+    return this.transport.restart();
+  }
+
+  /**
+   * Make the agent read OpenCode's config again when a file changed since it
+   * started — the only way a new provider or agent reaches it. Never while
+   * work is running: a restart drops every turn, so then the lists are
+   * reported `stale` and the user decides. Loads arriving together share one
+   * restart.
+   */
+  public refreshConfig(busy: () => boolean): Promise<ConfigFreshness> {
+    if (this.configRefresh) return this.configRefresh;
+    if (!this.transport.configPending()) return Promise.resolve('current');
+    const working = busy() || this.registry.inFlightCount() > 0;
+    if (working || Date.now() - this.lastConfigRestart < AUTO_RESTART_GAP_MS) return Promise.resolve('stale');
+
+    this.lastConfigRestart = Date.now();
+    console.log('[ACP] OpenCode config changed since the agent started; restarting it to read the new config.');
+    const waited = new Promise<void>((resolve) => setTimeout(resolve, RESTART_WAIT_MS).unref());
+    this.configRefresh = Promise.race([this.transport.restart(), waited])
+      .then((): ConfigFreshness => 'restarted')
+      .finally(() => { this.configRefresh = null; });
+    return this.configRefresh;
   }
 
   public destroy(): void {
@@ -179,8 +221,9 @@ export class AcpManager {
     return this.registry.isImporting(taskId);
   }
 
-  public fetchConfigOptions(modelId?: string): Promise<AcpConfigOptionsResult> {
-    return this.config.fetchOptions(modelId);
+  /** What `modelId` offers, with the model list merged across `folders` (see `SessionConfigurator`). */
+  public fetchConfigOptions(modelId?: string, folders?: readonly string[]): Promise<AcpConfigOptionsResult> {
+    return this.config.fetchOptions(modelId, folders);
   }
 
   public listSessions(cwd?: string): Promise<AcpSessionSummary[]> {
@@ -285,7 +328,8 @@ export const acpManager = {
   setEventCallback: (cb: AcpEventCallback) => getAcpManager().setEventCallback(cb),
   setFolderResolver: (resolver: (taskId: string, sessionId: string) => string | undefined) =>
     getAcpManager().setFolderResolver(resolver),
-  fetchConfigOptions: (modelId?: string) => getAcpManager().fetchConfigOptions(modelId),
+  fetchConfigOptions: (modelId?: string, folders?: readonly string[]) =>
+    getAcpManager().fetchConfigOptions(modelId, folders),
   startTaskExecution: (task: BoardTask, promptMessage?: string, options?: StartTurnOptions) =>
     getAcpManager().startTaskExecution(task, promptMessage, options),
   compactSession: (task: BoardTask, sessionId?: string) => getAcpManager().compactSession(task, sessionId),
@@ -294,6 +338,8 @@ export const acpManager = {
   killBackgroundProcesses: (spec: ProcessKillSpec) => getAcpManager().killBackgroundProcesses(spec),
   agentPid: () => getAcpManager().agentPid(),
   toolPolicyPending: () => getAcpManager().toolPolicyPending(),
+  configPending: () => getAcpManager().configPending(),
+  refreshConfig: (busy: () => boolean) => getAcpManager().refreshConfig(busy),
   restartAgent: () => getAcpManager().restartAgent(),
   closeSession: (taskId: string) => getAcpManager().closeSession(taskId),
   stopTaskExecution: (taskId: string) => getAcpManager().cancelTurn(taskId),

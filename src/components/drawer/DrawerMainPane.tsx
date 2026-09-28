@@ -5,7 +5,6 @@ import { OpenCodeAgent, OpenCodeModel } from '../../../shared/sessions/types';
 import { BoardColumn, BoardTask, PermissionAnswer, TaskLogItem } from '../../../shared/types';
 import { PendingPrompt } from '../../../shared/turns/pendingPrompts';
 import { ViewedSession } from '../../../shared/task/viewedSession';
-import { sessionTranscript } from '../../../shared/task/logs';
 import { PendingRequestCard } from '../request/PendingRequestCard';
 import { AgentPlanBanner } from './AgentPlanBanner';
 import { DrawerTabs } from './DrawerTabs';
@@ -26,7 +25,8 @@ interface DrawerMainPaneProps {
   task: BoardTask;
   sessionId?: string;
   view: ViewedSession;
-  fetchedLogs?: TaskLogItem[];
+  /** The transcript on screen (`drawerTranscript`). */
+  logs: TaskLogItem[];
   /** Prompts sent from here that the transcript does not show yet. */
   pendingPrompts: PendingPrompt[];
   awaitingTranscript: boolean;
@@ -49,7 +49,7 @@ export const DrawerMainPane: React.FC<DrawerMainPaneProps> = ({
   task,
   sessionId,
   view,
-  fetchedLogs,
+  logs,
   pendingPrompts,
   awaitingTranscript,
   viewedCwd,
@@ -78,7 +78,7 @@ export const DrawerMainPane: React.FC<DrawerMainPaneProps> = ({
       task={task}
       sessionId={sessionId}
       view={view}
-      fetchedLogs={fetchedLogs}
+      logs={logs}
       pendingPrompts={pendingPrompts}
       awaitingTranscript={awaitingTranscript}
       viewedCwd={viewedCwd}
@@ -104,7 +104,7 @@ export const DrawerMainPane: React.FC<DrawerMainPaneProps> = ({
 
     <AgentPlanBanner
       task={task}
-      logs={sessionTranscript(task.logs, sessionId, fetchedLogs)}
+      logs={logs}
       running={view.busy || task.runState === 'running'}
       onStop={actions.stop}
     />

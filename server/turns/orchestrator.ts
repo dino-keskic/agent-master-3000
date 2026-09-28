@@ -249,6 +249,11 @@ export class TurnOrchestrator {
     return this.isTurnBusy(task.id);
   }
 
+  /** Every task with work running — what a restart of the agent would cut off. */
+  busyTasks(): BoardTask[] {
+    return taskStore.getTasks().filter((task) => this.hasBusyWork(task));
+  }
+
   // --- compaction ----------------------------------------------------------
 
   /**

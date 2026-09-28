@@ -1,5 +1,5 @@
 import { Express, Request, Response } from 'express';
-import { acpManager } from '../acp/client.js';
+import { AcpConfigOptionsResult, ConfigFreshness, acpManager } from '../acp/client.js';
 import { pickDefaultAgent } from '../../shared/agent/agents.js';
 import { liveTasks } from '../../shared/task/archive.js';
 import { route } from '../http/app.js';
@@ -7,17 +7,38 @@ import { stripLogs } from '../live/hub.js';
 import { hydrateTasks, withLiveStatus } from '../opencode/hydrate.js';
 import { boardSpend } from '../opencode/spend.js';
 import { taskStore } from '../board/taskStore.js';
+import { modelProbeFolders } from '../setup/configLayers.js';
+import { clearToolCatalogCache } from '../toolCatalog/index.js';
+import { TurnOrchestrator } from '../turns/orchestrator.js';
 import { RouteContext } from './context.js';
 import { requestCalendar } from './common.js';
 import { errorMessage } from '../../shared/errors.js';
+import { withModelScopes } from '../../shared/agent/modelScope.js';
+
+/**
+ * OpenCode's model, agent and effort lists as every board project sees them,
+ * read after the agent has caught up with any config file edited since it
+ * started. `configStale` says it could not: work is running, and a restart
+ * would cut it off.
+ */
+async function readConfig(
+  orchestrator: TurnOrchestrator,
+  modelId?: string
+): Promise<AcpConfigOptionsResult & { configStale?: true }> {
+  const freshness: ConfigFreshness = await acpManager.refreshConfig(() => orchestrator.busyTasks().length > 0);
+  // The tool catalog is read from a separate `opencode serve`, which has the same stale config.
+  if (freshness === 'restarted') clearToolCatalogCache();
+  const fetched = await acpManager.fetchConfigOptions(modelId, modelProbeFolders());
+  const config = { ...fetched, models: withModelScopes(fetched.models, taskStore.getSettings().projects) };
+  return freshness === 'stale' ? { ...config, configStale: true } : config;
+}
 
 /** The whole board in one response, plus the settings writes that shape it. */
-export function registerBoardRoutes(app: Express, { sync }: RouteContext): void {
+export function registerBoardRoutes(app: Express, { sync, orchestrator }: RouteContext): void {
   app.get('/api/config-options', route(async (req: Request, res: Response) => {
     try {
       const modelId = req.query.model as string | undefined;
-      const config = await acpManager.fetchConfigOptions(modelId);
-      res.json(config);
+      res.json(await readConfig(orchestrator, modelId));
     } catch (e) {
       res.status(500).json({ error: errorMessage(e) ?? String(e) });
     }
@@ -28,7 +49,7 @@ export function registerBoardRoutes(app: Express, { sync }: RouteContext): void 
     // Config is an ACP round-trip; overlap it with the OpenCode DB hydrate so
     // cost/context are not stuck behind session/new. Spend is the same class of
     // read — run it here so the header has this week's figure on first paint.
-    const configPromise = acpManager.fetchConfigOptions(state.settings.defaultModel);
+    const configPromise = readConfig(orchestrator, state.settings.defaultModel);
     const calendar = requestCalendar(req);
     const spendPromise = Promise.resolve().then(() =>
       boardSpend(state.settings.projects, Date.now(), calendar.locale, calendar.timeZone)
@@ -58,6 +79,7 @@ export function registerBoardRoutes(app: Express, { sync }: RouteContext): void 
       models: config.models,
       agents: config.agents,
       effortLevels: config.effortLevels,
+      configStale: config.configStale,
       spend
     });
   }));

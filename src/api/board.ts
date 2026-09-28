@@ -9,6 +9,8 @@ export interface BoardResponse extends BoardState {
   models: OpenCodeModel[];
   agents: OpenCodeAgent[];
   effortLevels: ThinkingLevelOption[];
+  /** An OpenCode config file changed, but work is running, so the agent has not re-read it yet. */
+  configStale?: boolean;
   spend?: SpendSummary;
 }
 
@@ -16,6 +18,7 @@ export interface ConfigOptionsResponse {
   models: OpenCodeModel[];
   agents: OpenCodeAgent[];
   effortLevels: ThinkingLevelOption[];
+  configStale?: boolean;
 }
 
 export const boardApi = {

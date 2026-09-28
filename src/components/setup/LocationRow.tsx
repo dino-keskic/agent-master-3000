@@ -97,23 +97,36 @@ export const LocationRow: React.FC<LocationRowProps> = ({ status, candidates = [
         <div className="flex-1 min-w-0 flex flex-col gap-0.5">
           <div className="flex items-center gap-2">
             <span className="text-sm font-medium text-ink">{info.title}</span>
-            <span className="chip" title={locked ? `Unset $${status.envVar} to change it here` : undefined}>
+            <span
+              className="chip"
+              title={locked ? `Set by $${status.envVar} in the environment the board was started from (a shell profile, for one). Unset it there to change it here.` : undefined}
+            >
               {locked && <Lock className="w-3 h-3 inline mr-1" />}
               {sourceLabel(status)}
             </span>
           </div>
-          <span className="text-log-sm font-mono text-ink-2 break-all">{status.value}</span>
+          {status.value ? (
+            <span className="text-log-sm font-mono text-ink-2 break-all">{status.value}</span>
+          ) : (
+            <span className="text-log-sm text-ink-4 italic">Not set</span>
+          )}
           <span className={`text-log-sm ${NOTE[status.severity]}`}>{status.note}</span>
         </div>
         {!editing && !locked && (
           <div className="flex gap-1 shrink-0">
             {status.source === 'config' && (
-              <Button size="xs" variant="ghost" loading={busy} onClick={() => void commit(null)} title="Go back to the default">
-                Default
+              <Button
+                size="xs"
+                variant="ghost"
+                loading={busy}
+                onClick={() => void commit(null)}
+                title={info.optional ? 'Stop using it' : 'Go back to the default'}
+              >
+                {info.optional ? 'Clear' : 'Default'}
               </Button>
             )}
             <Button size="xs" variant="secondary" onClick={begin}>
-              Change
+              {status.value ? 'Change' : 'Set'}
             </Button>
           </div>
         )}

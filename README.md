@@ -66,6 +66,26 @@ locked. To see what the board resolved without starting it:
 agent-master-3000 --paths
 ```
 
+### OpenCode config
+
+The board reads OpenCode's config the way OpenCode merges it, later layers
+winning, and **Settings** lists every layer with the files it found:
+
+1. the global folder, `~/.config/opencode` (`$XDG_CONFIG_HOME/opencode`) —
+   always loaded, whatever else is set;
+2. `OPENCODE_CONFIG`, one extra file;
+3. each project's `opencode.json(c)` and `.opencode/`, from the task's folder up
+   to its git root;
+4. `OPENCODE_CONFIG_DIR`, an optional extra folder loaded on top of the global
+   one, not instead of it;
+5. the board's own tool rules from **Settings → Tools**.
+
+Models are read in every board project, so a provider set up in one project's
+`opencode.json` is offered too, marked *(only in that project)*. OpenCode reads
+its config once when it starts; when a config file or agent changes, the board
+restarts the agent the next time nothing is running, and shows a notice with a
+**Restart now** button while a task is busy.
+
 ### From a checkout
 
 ```bash
@@ -122,8 +142,8 @@ environment wins over the [setup file](#where-things-are).
 | `OPENCODE_BIN` | found on `PATH` or in the usual install folders | OpenCode executable |
 | `ACP_COMMAND` | `opencode acp` | Command spawned for an ACP session |
 | `OPENCODE_DB` | OpenCode's default | The `opencode.db` sessions are read from (read-only) |
-| `OPENCODE_CONFIG_DIR` | OpenCode's default | An extra config folder: agents, commands, `opencode.json` |
-| `OPENCODE_CONFIG` | unset | An extra config file, read for model context limits |
+| `OPENCODE_CONFIG_DIR` | unset | An extra config folder loaded on top of the global one; see [OpenCode config](#opencode-config) |
+| `OPENCODE_CONFIG` | unset | An extra config file, merged after the global one |
 | `OPENCODE_MODELS_PATH` | OpenCode's cache | Model and pricing catalog used for spend (`OPENCODE_MODELS` also works) |
 | `JIRA_SITE` | unset | e.g. `acme.atlassian.net`. Turns on Jira mentions via `acli` |
 | `ACP_DEBUG` | off | `1` logs the raw ACP traffic, including transcript excerpts |

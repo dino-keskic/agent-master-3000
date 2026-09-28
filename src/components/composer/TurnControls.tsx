@@ -5,6 +5,7 @@ import { OpenCodeAgent, OpenCodeModel } from '../../../shared/sessions/types';
 import { PermissionMode } from '../../../shared/types';
 import { PERMISSION_MODES } from '../../../shared/agent/permissions';
 import { shortModelLabel, thinkingLevelOptions } from '../../../shared/format';
+import { modelOptionLabel } from '../../../shared/agent/modelScope';
 import { useModelOptions } from '../../app/modelOptions';
 import { InlineSelect } from '../ui/InlineSelect';
 
@@ -56,7 +57,7 @@ export const TurnControls: React.FC<TurnControlsProps> = ({
   // The agents and thinking levels on offer belong to the model in this very
   // row, not to whatever the board defaults to.
   const options = useModelOptions(model);
-  const listedModels = models.map((m) => ({ value: m.id, label: shortModelLabel(m.id, m.name), keywords: m.id }));
+  const listedModels = models.map((m) => ({ value: m.id, label: modelOptionLabel(m), keywords: m.id }));
   // Until the catalog loads — or when it lacks the task's model — the model in
   // use is still the model in use, not a missing one.
   const modelOptions =

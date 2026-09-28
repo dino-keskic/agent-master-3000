@@ -79,6 +79,14 @@ export interface OpenCodeModel {
   id: string;
   name: string;
   provider: string;
+  /**
+   * The project folders this model is offered in, when it is not offered in
+   * all of them — a provider from one project's `opencode.json`. Absent means
+   * everywhere.
+   */
+  onlyIn?: string[];
+  /** `onlyIn` as the pickers say it — "only in Billing API" — named by the server, which knows the projects. */
+  scope?: string;
 }
 
 export interface OpenCodeAgent {

@@ -16,7 +16,7 @@ import { BoardColumn, BoardTask, PermissionAnswer, ProjectFolder, PromptImage } 
 import { MAX_PANES } from '../../../shared/board/splitLayout';
 import { sessionCwd, taskSessionViews } from '../../../shared/task/sessions';
 import { resolveViewedSession, transcriptPending } from '../../../shared/task/viewedSession';
-import { sessionTranscript } from '../../../shared/task/logs';
+import { blankSessionPending, drawerTranscript } from '../../../shared/task/drawerTranscript';
 import { queuedForSession } from '../../../shared/turns/queue';
 
 interface TaskPanelProps {
@@ -110,9 +110,11 @@ export const TaskPanel: React.FC<TaskPanelProps> = ({
   const view = resolveViewedSession(task, sessionId, subagents);
   const viewedCwd = sessionCwd(task, view.viewed);
   const fetchedLogs = sessionId ? sideSessionLogs[sessionId] : undefined;
+  const startingBlank = blankSessionPending(task, state.blankStart);
+  const logs = drawerTranscript(task, sessionId, fetchedLogs, state.blankStart);
   const pending = usePendingPrompts({
     sessionId,
-    logs: sessionTranscript(task.logs, sessionId, fetchedLogs),
+    logs,
     queued: queuedForSession(task, sessionId),
     runState: view.runState
   });
@@ -130,6 +132,8 @@ export const TaskPanel: React.FC<TaskPanelProps> = ({
     sessionId,
     cwd: viewedCwd,
     onViewSession: state.viewSession,
+    onStartBlank: state.startBlank,
+    onCancelBlank: state.cancelBlank,
     onClearComposer: () => state.setPromptText(''),
     setCompacting: state.setIsCompacting,
     onSendPrompt,
@@ -212,9 +216,9 @@ export const TaskPanel: React.FC<TaskPanelProps> = ({
           task={task}
           sessionId={sessionId}
           view={view}
-          fetchedLogs={fetchedLogs}
+          logs={logs}
           pendingPrompts={pending.shown}
-          awaitingTranscript={transcriptPending(task, view, fetchedLogs)}
+          awaitingTranscript={!startingBlank && transcriptPending(task, view, fetchedLogs)}
           viewedCwd={viewedCwd}
           folderGone={task.cwdExists === false}
           state={state}

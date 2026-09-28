@@ -4,7 +4,6 @@ import { BoardTask, TaskLogItem } from '../../../shared/types';
 import { PendingPrompt } from '../../../shared/turns/pendingPrompts';
 import { ViewedSession, sessionTabLabel } from '../../../shared/task/viewedSession';
 import { openChangelogComments } from '../../../shared/review/changelogComments';
-import { sessionTranscript } from '../../../shared/task/logs';
 import { DiffView } from '../diff/DiffView';
 import { ToolsPanel } from '../tools/ToolsPanel';
 import { SessionStream } from '../stream/SessionStream';
@@ -26,8 +25,8 @@ interface DrawerTabsProps {
   /** The session on screen, which may be a side session or a subagent. */
   sessionId?: string;
   view: ViewedSession;
-  /** Transcript fetched for a session the board did not send in full. */
-  fetchedLogs?: TaskLogItem[];
+  /** The transcript on screen (`drawerTranscript`). */
+  logs: TaskLogItem[];
   /** Prompts sent from here that the transcript does not show yet. */
   pendingPrompts: PendingPrompt[];
   awaitingTranscript: boolean;
@@ -43,7 +42,7 @@ export const DrawerTabs: React.FC<DrawerTabsProps> = ({
   task,
   sessionId,
   view,
-  fetchedLogs,
+  logs,
   pendingPrompts,
   awaitingTranscript,
   viewedCwd,
@@ -76,7 +75,7 @@ export const DrawerTabs: React.FC<DrawerTabsProps> = ({
         {/* cwd lets bare and repo-relative paths in the transcript resolve to real files. */}
         <SessionStream
           key={viewKey}
-          logs={sessionTranscript(task.logs, sessionId, fetchedLogs)}
+          logs={logs}
           pending={pendingPrompts}
           loading={awaitingTranscript}
           runState={view.runState}

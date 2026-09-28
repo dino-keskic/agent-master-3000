@@ -1,6 +1,7 @@
 import React from 'react';
 import { Group, Modal, Text } from '@mantine/core';
 import { Settings } from 'lucide-react';
+import { ConfigLayerList } from './ConfigLayerList';
 import { LocationList } from './LocationList';
 import { OpenCodeEnvEditor } from './OpenCodeEnvEditor';
 import { RestartNotice } from './RestartNotice';
@@ -47,6 +48,14 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ opened, onClose, s
             <section className="flex flex-col gap-2">
               <SectionTitle>Locations</SectionTitle>
               <LocationList report={report} save={setup.save} />
+            </section>
+            <section className="flex flex-col gap-2">
+              <SectionTitle>OpenCode config, in the order it is merged</SectionTitle>
+              <p className="m-0 text-log-ui text-ink-3">
+                Later layers win. The board restarts OpenCode on its own when one of these files changes and
+                nothing is running.
+              </p>
+              <ConfigLayerList layers={report.configLayers} />
             </section>
             <section className="flex flex-col gap-2">
               <SectionTitle>OpenCode environment</SectionTitle>

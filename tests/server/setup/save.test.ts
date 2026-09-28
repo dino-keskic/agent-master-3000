@@ -37,19 +37,24 @@ for (const name of ['OPENCODE_BIN', 'OPENCODE_CONFIG_DIR', 'OPENCODE_CONFIG', 'O
 }
 
 const loc = await import('../../../server/setup/locations.js');
+const { setupReport } = await import('../../../server/setup/configLayers.js');
 const readConfig = () => JSON.parse(fs.readFileSync(configFile, 'utf-8'));
 
 test.after(() => fs.rmSync(root, { recursive: true, force: true }));
 
 test('the report finds OpenCode on PATH and starts from the configured data folder', () => {
-  const report = loc.setupReport();
+  const report = setupReport();
   const byKey = Object.fromEntries(report.locations.map((l) => [l.key, l]));
   assert.strictEqual(report.configFile, configFile);
   assert.strictEqual(report.dataDirInUse, boardA);
   assert.deepStrictEqual([byKey.opencodeBin!.value, byKey.opencodeBin!.source], [path.join(bin, 'opencode'), 'detected']);
   assert.strictEqual(byKey.dataDir!.hasBoard, true);
   assert.strictEqual(byKey.opencodeDb!.severity, 'warn');
-  assert.strictEqual(byKey.opencodeConfigDir!.value, path.join(home, '.config', 'opencode'));
+  assert.deepStrictEqual([byKey.opencodeConfigDir!.value, byKey.opencodeConfigDir!.severity], ['', 'ok']);
+  assert.deepStrictEqual(report.configLayers.map((l) => [l.kind, l.path]), [
+    ['global', path.join(home, '.config', 'opencode')],
+    ['board', '']
+  ]);
 });
 
 test('checking a path cleans it up and judges it', () => {
@@ -111,7 +116,7 @@ test('a new data folder asks about the board, and the next start copies it', asy
   assert.strictEqual(!asked.ok && asked.needsDataMove, true);
 
   assert.deepStrictEqual(loc.saveSetup({ locations: { dataDir: boardB }, dataMove: 'move' }), { ok: true, agentChanged: false });
-  assert.deepStrictEqual(loc.setupReport().pendingMove, { from: boardA, to: boardB });
+  assert.deepStrictEqual(setupReport().pendingMove, { from: boardA, to: boardB });
 
   // What `server/index.ts` does first on the next start.
   await import('../../../server/setup/dataMove.js');

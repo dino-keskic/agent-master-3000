@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { BoardTask } from '../../../shared/types';
 import { SessionStartMode } from '../session/sessionMode';
+import { BlankSessionStart, blankSessionPending } from '../../../shared/task/drawerTranscript';
 
 /**
  * What the drawer holds about the task on screen: which session, which tab,
@@ -36,6 +37,12 @@ export interface DrawerState {
   activeSessionId: string | undefined;
   /** Show a session, and the transcript tab it lives on. */
   viewSession: (sessionId: string | undefined) => void;
+  /** A "New" click still waiting for its session; the transcript is empty meanwhile. */
+  blankStart: BlankSessionStart | undefined;
+  /** Show the blank session asked for, before OpenCode has opened it. */
+  startBlank: () => void;
+  /** The blank session was refused: show the task's own again. */
+  cancelBlank: () => void;
 }
 
 export function useDrawerState(
@@ -52,6 +59,7 @@ export function useDrawerState(
   const [sessionModalMode, setSessionModalMode] = useState<SessionStartMode | null>(null);
   const [moving, setMoving] = useState<string | null | undefined>(undefined);
   const [activeSessionId, setActiveSessionId] = useState<string | undefined>(undefined);
+  const [blankStart, setBlankStart] = useState<BlankSessionStart | undefined>(undefined);
 
   // Adjusting state during render beats a prop-sync effect: no extra commit,
   // and the drawer never paints one frame with the previous task's title.
@@ -62,15 +70,21 @@ export function useDrawerState(
     setIsEditingTitle(false);
     // The previous task's session must not survive into this one.
     setActiveSessionId(undefined);
+    setBlankStart(undefined);
     setMoving(undefined);
   } else if (task && !isEditingTitle && editedTitle !== task.title) {
     setEditedTitle(task.title);
   }
 
+  // The blank session has been linked as the task's main one: it is what the
+  // drawer follows from here, so the stand-in goes in the same render.
+  if (task && blankStart && !blankSessionPending(task, blankStart)) setBlankStart(undefined);
+
   // Opened from the activity panel on a specific session: show that one.
   useEffect(() => {
     if (!focusSessionId) return;
     setActiveSessionId(focusSessionId);
+    setBlankStart(undefined);
     setTab('session');
     onFocusHandled?.();
   }, [focusSessionId, onFocusHandled]);
@@ -95,7 +109,15 @@ export function useDrawerState(
     activeSessionId,
     viewSession: (sessionId) => {
       setActiveSessionId(sessionId);
+      setBlankStart(undefined);
       setTab('session');
-    }
+    },
+    blankStart,
+    startBlank: () => {
+      setActiveSessionId(undefined);
+      setBlankStart({ fromSessionId: task?.sessionId });
+      setTab('session');
+    },
+    cancelBlank: () => setBlankStart(undefined)
   };
 }

@@ -247,6 +247,7 @@ function onPath(value: string): string {
 }
 
 export function pathFacts(key: LocationKey, value: string): PathFacts {
+  if (!value && LOCATION_INFO[key].optional) return { exists: false, unset: true };
   const target = key === 'opencodeBin' ? onPath(value) : value;
   if (!path.isAbsolute(target)) return { exists: false };
   let stat: fs.Stats;
@@ -275,9 +276,10 @@ function status(key: LocationKey, locs: Locations): LocationStatus {
   return { key, value, source, envVar, ...assessLocation(key, facts), hasBoard: facts.hasBoard };
 }
 
-export function setupReport(): SetupReport {
+/** The report's locations half; `configLayers.ts` adds the config layers to make the whole. */
+export function locationReport(): Omit<SetupReport, 'configLayers'> {
   const { config, locations: locs } = current();
-  const report: SetupReport = {
+  const report: Omit<SetupReport, 'configLayers'> = {
     configFile: boardConfigPath() || '',
     locations: LOCATION_KEYS.map((key) => status(key, locs)),
     opencodeEnv: config.opencodeEnv || {},

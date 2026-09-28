@@ -97,6 +97,78 @@ test('SessionConfigurator.fetchOptions', async (t) => {
   });
 });
 
+/** A transport where each folder has the shared models plus its own. */
+function folderTransport(extra: Record<string, string[]>, failIn: string[] = []) {
+  const calls: string[] = [];
+  let next = 0;
+  const sessions = new Map<string, string>();
+  const listFor = (cwd: string, current: string) => [{
+    id: 'model',
+    currentValue: current,
+    options: [...MODELS.options, ...(extra[cwd] ?? []).map((value) => ({ value }))]
+  }];
+  const transport = {
+    async request(method: string, params: { cwd?: string; sessionId?: string; value?: string }) {
+      if (method === 'session/new') {
+        calls.push(`new:${params.cwd}`);
+        if (failIn.includes(params.cwd!)) throw new Error('boom');
+        const id = `probe-${next++}`;
+        sessions.set(id, params.cwd!);
+        return { sessionId: id, configOptions: listFor(params.cwd!, 'opencode/big-pickle') };
+      }
+      if (method === 'session/set_config_option') {
+        const cwd = sessions.get(params.sessionId!)!;
+        calls.push(`set:${cwd}:${params.value}`);
+        return { configOptions: listFor(cwd, params.value!) };
+      }
+      throw new Error(`unexpected ${method}`);
+    }
+  };
+  return { transport: transport as unknown as AcpTransport, calls };
+}
+
+test('SessionConfigurator.fetchOptions across project folders', async (t) => {
+  await t.test("lists a project's own models, marked with the project", async () => {
+    const { transport } = folderTransport({ '/p/api': ['local/qwen'] });
+    const config = new SessionConfigurator(transport, new AcpSessionRegistry(), () => {});
+
+    const { models } = await config.fetchOptions(undefined, ['/p/api', '/p/web']);
+    assert.deepStrictEqual(models.map((m) => [m.id, m.onlyIn]), [
+      ['opencode/big-pickle', undefined],
+      ['opencode/muse-spark', undefined],
+      ['opencode/ling-flash', undefined],
+      ['local/qwen', ['/p/api']]
+    ]);
+  });
+
+  await t.test('reads a project-only model in the project that has it', async () => {
+    const { transport, calls } = folderTransport({ '/p/web': ['local/qwen'] });
+    const config = new SessionConfigurator(transport, new AcpSessionRegistry(), () => {});
+
+    const result = await config.fetchOptions('local/qwen', ['/p/api', '/p/web']);
+    assert.strictEqual(result.current.model, 'local/qwen');
+    assert.ok(calls.includes('set:/p/web:local/qwen'));
+    assert.ok(result.models.some((m) => m.id === 'opencode/muse-spark'), 'the dropdown still lists everything');
+  });
+
+  await t.test('a folder that cannot be opened does not hide the others', async () => {
+    const { transport } = folderTransport({ '/p/web': ['local/qwen'] }, ['/p/gone']);
+    const config = new SessionConfigurator(transport, new AcpSessionRegistry(), () => {});
+
+    const { models } = await config.fetchOptions(undefined, ['/p/gone', '/p/web']);
+    assert.ok(models.some((m) => m.id === 'local/qwen' && !m.onlyIn));
+  });
+
+  await t.test('opens one probe per folder, once', async () => {
+    const { transport, calls } = folderTransport({});
+    const config = new SessionConfigurator(transport, new AcpSessionRegistry(), () => {});
+
+    await config.fetchOptions(undefined, ['/p/api', '/p/web']);
+    await config.fetchOptions('opencode/muse-spark', ['/p/api', '/p/web']);
+    assert.deepStrictEqual(calls.filter((c) => c.startsWith('new:')), ['new:/p/api', 'new:/p/web']);
+  });
+});
+
 const TASK = { id: 'TASK-1', model: 'opencode/big-pickle' } as BoardTask;
 
 test('SessionConfigurator.applyTo', async (t) => {

@@ -460,4 +460,38 @@ describe('board ↔ opencode acp ↔ stub LLM', () => {
       task = await followUp('after-ctrl-c');
     } catch (e) { withServerLog(e); }
   });
+  it('offers a provider one project adds, marked with that project, without a restart by hand', async () => {
+    try {
+      // A second project with no config of its own: the new model is not offered there.
+      const other = path.join(root, 'other');
+      makeWorkspace(other);
+      const { settings } = await api<{ settings: { projects: unknown[] } }>(board, 'GET', '/api/board');
+      await api(board, 'POST', '/api/settings', {
+        projects: [...settings.projects, { id: 'proj-other', name: 'other', path: other, createdAt: Date.now() }]
+      });
+
+      // OpenCode reads config once per process; the board has to notice and restart it.
+      fs.writeFileSync(path.join(workspace, 'opencode.json'), JSON.stringify({
+        provider: {
+          'project-stub': {
+            npm: '@ai-sdk/openai-compatible',
+            name: 'Project stub',
+            options: { baseURL: `http://127.0.0.1:${stub.port}/v1`, apiKey: 'e2e' },
+            models: { 'local-model': { name: 'Project local model', limit: { context: 32000, output: 2048 } } }
+          }
+        }
+      }));
+
+      const local = await waitFor('the project\'s model to be offered', async () => {
+        const config = await api<{ models: { id: string; onlyIn?: string[]; scope?: string }[] }>(board, 'GET', '/api/config-options');
+        return config.models.find((m) => m.id === 'project-stub/local-model');
+      }, 30_000);
+      assert.deepStrictEqual(local.onlyIn, [workspace]);
+      assert.strictEqual(local.scope, 'only in web-app');
+      assert.match(board.output(), /OpenCode config changed since the agent started/);
+
+      const config = await api<{ models: { id: string; onlyIn?: string[] }[] }>(board, 'GET', '/api/config-options');
+      assert.ok(config.models.some((m) => m.id === MODEL && !m.onlyIn), 'the global model is still offered everywhere');
+    } catch (e) { withServerLog(e); }
+  });
 });

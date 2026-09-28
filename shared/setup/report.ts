@@ -10,6 +10,8 @@
  * which the client never loads.
  */
 
+import type { ConfigLayer } from './configLayers.js';
+
 export type LocationKey = 'dataDir' | 'opencodeBin' | 'opencodeConfigDir' | 'opencodeDb' | 'opencodeModels';
 
 /** In the order the setup screens list them. */
@@ -34,6 +36,8 @@ export interface LocationInfo {
   kind: 'file' | 'dir';
   /** What has to restart before a change is felt. */
   restart: 'board' | 'agent';
+  /** Nothing is there unless someone sets it; clearing it is not "back to a default". */
+  optional?: true;
 }
 
 export const LOCATION_INFO: Record<LocationKey, LocationInfo> = {
@@ -50,10 +54,11 @@ export const LOCATION_INFO: Record<LocationKey, LocationInfo> = {
     restart: 'agent'
   },
   opencodeConfigDir: {
-    title: 'OpenCode config folder',
-    hint: 'Your opencode.json, agents, commands and skills.',
+    title: 'Extra OpenCode config folder',
+    hint: 'OPENCODE_CONFIG_DIR: a second folder of opencode.json, agents, commands and skills, loaded on top of the global ~/.config/opencode — never instead of it.',
     kind: 'dir',
-    restart: 'agent'
+    restart: 'agent',
+    optional: true
   },
   opencodeDb: {
     title: 'OpenCode sessions',
@@ -72,6 +77,8 @@ export const LOCATION_INFO: Record<LocationKey, LocationInfo> = {
 /** What the server found at a path. Absent fields were not looked at. */
 export interface PathFacts {
   exists: boolean;
+  /** No path is set at all — only an optional location can be. */
+  unset?: true;
   kind?: 'file' | 'dir' | 'other';
   executable?: boolean;
   /** For a folder that does not exist: whether it could be created. */
@@ -93,6 +100,11 @@ export interface Assessment {
 /** What `facts` about the path at `key` mean for the board. */
 export function assessLocation(key: LocationKey, facts: PathFacts): Assessment {
   const { kind } = LOCATION_INFO[key];
+  if (facts.unset) {
+    return key === 'opencodeConfigDir'
+      ? { severity: 'ok', note: 'Not set — OpenCode reads the global folder, and each project’s own config.' }
+      : { severity: 'error', note: 'Not set.' };
+  }
   if (facts.exists && facts.kind !== kind) {
     return { severity: 'error', note: kind === 'dir' ? 'This is a file, not a folder.' : 'This is a folder, not a file.' };
   }
@@ -119,8 +131,8 @@ export function assessLocation(key: LocationKey, facts: PathFacts): Assessment {
 
     case 'opencodeConfigDir':
       return facts.exists
-        ? { severity: 'ok', note: 'Found.' }
-        : { severity: 'warn', note: 'Not found. OpenCode creates it the first time it runs, or keeps its config somewhere else.' };
+        ? { severity: 'ok', note: 'Found. Loaded on top of the global folder.' }
+        : { severity: 'warn', note: 'Not found, so there is nothing extra to load.' };
 
     case 'opencodeDb':
       if (!facts.exists) {
@@ -152,6 +164,8 @@ export interface SetupReport {
   /** The setup file the board reads these from, and writes them to. */
   configFile: string;
   locations: LocationStatus[];
+  /** Every place OpenCode reads config from, in its merge order. */
+  configLayers: ConfigLayer[];
   /** Extra environment every OpenCode the board starts gets. */
   opencodeEnv: Record<string, string>;
   /** Other OpenCode executables that were found, for a one-click switch. */
@@ -282,7 +296,8 @@ const SOURCE_LABEL: Record<LocationSource, string> = {
 };
 
 /** How a location's source reads on screen and in `agent-master-3000 --paths`. */
-export function sourceLabel(status: Pick<LocationStatus, 'source' | 'envVar'>): string {
+export function sourceLabel(status: Pick<LocationStatus, 'source' | 'envVar'> & { value?: string }): string {
+  if (status.source === 'default' && status.value === '') return 'not set';
   return status.source === 'env' && status.envVar ? `from $${status.envVar}` : SOURCE_LABEL[status.source];
 }
 
@@ -292,8 +307,16 @@ const MARK: Record<Severity, string> = { ok: '✓', warn: '!', error: '✗' };
 export function formatSetupReport(report: SetupReport): string {
   const lines = [`Setup file: ${report.configFile || '(none)'}`, ''];
   for (const status of report.locations) {
-    lines.push(`${MARK[status.severity]} ${LOCATION_INFO[status.key].title}: ${status.value}`);
+    lines.push(`${MARK[status.severity]} ${LOCATION_INFO[status.key].title}: ${status.value || '(not set)'}`);
     lines.push(`    ${sourceLabel(status)} — ${status.note}`);
+  }
+  if (report.configLayers.length > 0) {
+    lines.push('', 'OpenCode config, in the order it is merged:');
+    for (const layer of report.configLayers) {
+      lines.push(`  ${layer.title}${layer.path ? `: ${layer.path}` : ''}`);
+      for (const file of layer.files) lines.push(`    ${file}`);
+      lines.push(`    ${layer.note}`);
+    }
   }
   const env = Object.keys(report.opencodeEnv);
   if (env.length > 0) lines.push('', `Extra OpenCode environment: ${env.join(', ')}`);
