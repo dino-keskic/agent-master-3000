@@ -11,3 +11,6 @@ export const FIXTURES_DIR = path.dirname(fileURLToPath(import.meta.url));
 
 /** The scripted ACP agent the transport and turn tests drive. */
 export const FAKE_AGENT = path.join(FIXTURES_DIR, 'fakeAgent.mjs');
+
+/** An agent that prints a config error to stderr and exits 1 before answering anything. */
+export const DYING_AGENT = path.join(FIXTURES_DIR, 'dyingAgent.mjs');

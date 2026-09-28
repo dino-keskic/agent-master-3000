@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert';
 import { setTimeout as sleep } from 'timers/promises';
 import { AcpTransport } from '../../../server/acp/transport.js';
-import { FAKE_AGENT } from '../../fixtures/paths.js';
+import { DYING_AGENT, FAKE_AGENT } from '../../fixtures/paths.js';
 
 const handlers = { onRequest: () => {}, onNotification: () => {}, onExit: () => {} };
 
@@ -51,6 +51,25 @@ test('a request right after the agent died starts a new one instead of writing t
       ]);
       assert.ok(answered, 'answered well inside the restart delay');
       assert.notStrictEqual(transport.pid(), first);
+    } finally {
+      transport.destroy();
+    }
+  });
+});
+
+test('an agent that quits while starting fails requests with what it printed', async () => {
+  await withCommand(`${process.execPath} ${DYING_AGENT}`, async () => {
+    const transport = new AcpTransport(handlers);
+    try {
+      await assert.rejects(
+        transport.request('session/new', {}),
+        (err: Error) => {
+          assert.match(err.message, /^OpenCode quit while starting \(code 1\):/);
+          assert.match(err.message, /Configuration is invalid at \/cfg\/opencode\.json\n.*got 5 model/);
+          assert.ok(!err.message.includes('\u001b'), 'no colour codes');
+          return true;
+        }
+      );
     } finally {
       transport.destroy();
     }

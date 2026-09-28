@@ -1,5 +1,6 @@
 import { spawn, ChildProcess } from 'child_process';
 import readline from 'readline';
+import { AgentExit, agentExitMessage, appendStderr } from '../../shared/agent/agentExit.js';
 import { toolPolicySignature } from '../../shared/agent/tools.js';
 import { opencodeEnv } from '../opencode/env.js';
 import { childBaseEnv, opencodeBin } from '../setup/locations.js';
@@ -16,6 +17,17 @@ const ACP_DEBUG = process.env.ACP_DEBUG === '1';
 const RESTART_DELAY_MS = 3000;
 /** How far apart retries get while the agent cannot be started at all. */
 const MAX_RESTART_DELAY_MS = 60000;
+/**
+ * How long a dead agent's stderr gets to finish arriving. `exit` can beat the
+ * last of it through the pipe; `close` waits for it, but never comes while
+ * something the agent started still holds the pipe open.
+ */
+const STDERR_DRAIN_MS = 200;
+
+/** The wait before the `failures`th retry in a row: doubling, to a ceiling. */
+function retryDelay(failures: number): number {
+  return Math.min(RESTART_DELAY_MS * 2 ** Math.max(0, failures - 1), MAX_RESTART_DELAY_MS);
+}
 
 /**
  * The board's tool policy, read at spawn time.
@@ -27,6 +39,18 @@ let toolPolicySource: () => Record<string, boolean> = () => ({});
 
 export function setToolPolicySource(source: () => Record<string, boolean>): void {
   toolPolicySource = source;
+}
+
+/**
+ * A fingerprint of every OpenCode config file the agent could load, read at
+ * spawn. OpenCode reads its config once per process — an edited
+ * `opencode.json` is invisible to a running agent, even for a project it has
+ * not opened yet — so a different fingerprint means the lists it gives are stale.
+ */
+let configStampSource: () => string = () => '';
+
+export function setConfigStampSource(source: () => string): void {
+  configStampSource = source;
 }
 
 /**
@@ -70,11 +94,19 @@ export class AcpTransport {
   private readonly pending = new Map<JsonRpcId, PendingCall>();
   /** Signature of the tool policy the running agent process was started with. */
   private appliedToolPolicy = '';
+  /** The config fingerprint the running agent process was started with. */
+  private appliedConfigStamp = '';
+  /** Settled when the process being restarted has gone. */
+  private exitWaiters: (() => void)[] = [];
   private destroyed = false;
   private restartTimer: NodeJS.Timeout | null = null;
   /** Why the last spawn failed, while it keeps failing; see `onSpawnFailed`. */
   private spawnError = '';
   private spawnFailures = 0;
+  /** Processes in a row that quit before answering `initialize`. */
+  private startupFailures = 0;
+  /** The process `restart` is stopping: its exit is ours, not a failure. */
+  private stopping: ChildProcess | null = null;
 
   constructor(private readonly handlers: AcpTransportHandlers) {
     this.start();
@@ -85,27 +117,37 @@ export class AcpTransport {
     return toolPolicySignature(toolPolicySource()) !== this.appliedToolPolicy;
   }
 
+  /** True when an OpenCode config file changed after the running agent read them. */
+  configPending(): boolean {
+    return !!this.child && configStampSource() !== this.appliedConfigStamp;
+  }
+
   /**
-   * Drop the agent process so it comes back with the current tool policy. The
-   * exit handler restarts it; sessions are re-loaded on their next turn, which
-   * is the same path an agent crash already takes.
+   * Drop the agent process so it comes back with the current tool policy and
+   * config. Resolves once the old process is gone; the next request starts the
+   * new one without waiting out the crash delay. Sessions are re-loaded on
+   * their next turn, which is the same path an agent crash already takes.
    */
-  restart(): void {
+  restart(): Promise<void> {
     if (!this.child) {
       this.start();
-      return;
+      return Promise.resolve();
     }
+    const gone = new Promise<void>((resolve) => this.exitWaiters.push(resolve));
+    this.stopping = this.child;
     try {
       this.child.kill();
     } catch {
       /* already gone */
     }
+    return gone;
   }
 
   destroy(): void {
     this.destroyed = true;
     if (this.restartTimer) clearTimeout(this.restartTimer);
     this.failAllPending('ACP manager destroyed');
+    for (const resolve of this.exitWaiters.splice(0)) resolve();
     if (this.child) {
       try { this.child.kill(); } catch { /* ignore */ }
       this.child = null;
@@ -178,8 +220,9 @@ export class AcpTransport {
       const [bin, args] = acpCommand();
       const policy = toolPolicySource();
       this.appliedToolPolicy = toolPolicySignature(policy);
+      this.appliedConfigStamp = configStampSource();
       const child = spawn(bin, args, {
-        stdio: ['pipe', 'pipe', 'inherit'],
+        stdio: ['pipe', 'pipe', 'pipe'],
         env: opencodeEnv(childBaseEnv(), policy)
       });
       this.child = child;
@@ -200,11 +243,30 @@ export class AcpTransport {
       const rl = readline.createInterface({ input: this.child.stdout });
       rl.on('line', (line: string) => this.handleLine(line));
 
+      // OpenCode's stderr still reaches the server's terminal, and the last of
+      // it is kept: it is the only place OpenCode says why it quit.
+      let stderr = '';
+      let started = false;
+      child.stderr.on('data', (chunk: Buffer) => {
+        process.stderr.write(chunk);
+        stderr = appendStderr(stderr, chunk.toString());
+      });
+
       this.child.on('spawn', () => {
         this.spawnError = '';
         this.spawnFailures = 0;
       });
-      this.child.on('exit', (code: number | null) => this.onExit(child, code));
+      this.child.on('exit', (code: number | null, signal: NodeJS.Signals | null) => {
+        let reported = false;
+        const report = () => {
+          if (reported) return;
+          reported = true;
+          this.onExit(child, { code, signal, started, stderr });
+        };
+        if (child.stderr.readableEnded) return report();
+        child.stderr.once('end', report);
+        setTimeout(report, STDERR_DRAIN_MS).unref();
+      });
       this.child.on('error', (err: Error) => {
         console.error('[ACP] opencode acp process error:', err.message);
         if (child.pid === undefined) this.onSpawnFailed(child, err);
@@ -216,6 +278,8 @@ export class AcpTransport {
         clientInfo: { name: 'agent-master-3000', version: '1.0.0' },
         capabilities: {}
       }).then(() => {
+        started = true;
+        this.startupFailures = 0;
         console.log('[ACP] Initialized successfully with OpenCode ACP server');
       }).catch((err) => {
         console.error('[ACP] Initialize failed:', err);
@@ -225,16 +289,32 @@ export class AcpTransport {
     }
   }
 
-  private onExit(child: ChildProcess, code: number | null): void {
+  /**
+   * A process that quits before answering `initialize` will most likely do so
+   * again — a config file it cannot load, a database it cannot open — so those
+   * are retried further apart each time, like a binary that is not there. A
+   * request still tries at once: the user may just have fixed it.
+   */
+  private onExit(child: ChildProcess, exit: AgentExit): void {
     if (this.child !== child) return;
     // Dropped, not kept: a request written to a dead process's stdin was never
     // answered, and a turn has no timeout to end it.
     this.child = null;
-    this.handlers.onExit(code);
-    this.failAllPending(`opencode acp process exited (code ${code}) before the request completed`);
+    const deliberate = this.stopping === child;
+    if (deliberate) this.stopping = null;
+    this.handlers.onExit(exit.code);
+    const reason = agentExitMessage({ ...exit, started: exit.started || deliberate });
+    this.failAllPending(reason);
+    for (const resolve of this.exitWaiters.splice(0)) resolve();
     if (this.destroyed) return;
-    console.warn(`[ACP] opencode acp process exited with code ${code}`);
-    this.scheduleStart(RESTART_DELAY_MS);
+    if (exit.started || deliberate) {
+      console.warn(`[ACP] ${reason}`);
+      this.scheduleStart(RESTART_DELAY_MS);
+      return;
+    }
+    this.startupFailures += 1;
+    console.error(`[ACP] ${reason}`);
+    this.scheduleStart(retryDelay(this.startupFailures));
   }
 
   /**
@@ -248,11 +328,12 @@ export class AcpTransport {
   private onSpawnFailed(child: ChildProcess, err: Error): void {
     if (this.child !== child) return;
     this.child = null;
+    for (const resolve of this.exitWaiters.splice(0)) resolve();
     this.spawnError = err.message;
     this.spawnFailures += 1;
     this.failAllPending(this.notStarted());
     if (this.destroyed) return;
-    this.scheduleStart(Math.min(RESTART_DELAY_MS * 2 ** (this.spawnFailures - 1), MAX_RESTART_DELAY_MS));
+    this.scheduleStart(retryDelay(this.spawnFailures));
   }
 
   private notStarted(): string {
