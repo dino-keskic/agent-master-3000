@@ -1,0 +1,90 @@
+# Publishes a GitHub Release for a version tag: the npm tarball users install
+# with `npm install -g <url>`, its SHA-256, and notes generated from the PRs
+# and commits since the previous tag.
+#
+# Cut a release with `npm version <x.y.z>` (bumps package.json and tags
+# v<x.y.z>) and push the tag. To redo one, run this workflow by hand with
+# "Use workflow from" set to the tag; files already on the release are
+# replaced. Nothing is published to the npm registry.
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  checks:
+    name: CI
+    uses: ./.github/workflows/ci.yml
+
+  release:
+    name: Pack and publish the release
+    needs: checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    steps:
+      - name: Only a tag can be released
+        if: github.ref_type != 'tag'
+        run: |
+          echo "::error::Run this workflow from a v* tag (\"Use workflow from\"), not ${GITHUB_REF}."
+          exit 1
+
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: The tag has to match package.json
+        id: version
+        run: |
+          tag="${GITHUB_REF_NAME}"
+          version="$(node -p "require('./package.json').version")"
+          if [ "v${version}" != "${tag}" ]; then
+            echo "::error::Tag ${tag} does not match package.json version ${version}. Tag with 'npm version <x.y.z>' so they agree."
+            exit 1
+          fi
+          echo "version=${version}" >> "$GITHUB_OUTPUT"
+          case "${version}" in *-*) echo "prerelease=true" >> "$GITHUB_OUTPUT" ;; *) echo "prerelease=false" >> "$GITHUB_OUTPUT" ;; esac
+
+      - run: npm ci
+      - run: npm run build
+      - run: npm pack --ignore-scripts
+
+      - name: Smoke-test the tarball as installed
+        run: |
+          npm install -g --prefix "$RUNNER_TEMP/global" "./agent-master-3000-${VERSION}.tgz"
+          test "$("$RUNNER_TEMP/global/bin/agent-master-3000" --version)" = "${VERSION}"
+          node scripts/smoke-package.mjs "$RUNNER_TEMP/global/bin/agent-master-3000"
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+
+      - name: Checksums
+        run: sha256sum "agent-master-3000-${VERSION}.tgz" | tee SHA256SUMS.txt
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+
+      - name: Create or update the GitHub Release
+        run: |
+          files=("agent-master-3000-${VERSION}.tgz" SHA256SUMS.txt)
+          if gh release view "${GITHUB_REF_NAME}" > /dev/null 2>&1; then
+            gh release upload "${GITHUB_REF_NAME}" "${files[@]}" --clobber
+          else
+            flags=(--verify-tag --generate-notes --title "${GITHUB_REF_NAME}")
+            if [ "${PRERELEASE}" = "true" ]; then flags+=(--prerelease); fi
+            gh release create "${GITHUB_REF_NAME}" "${files[@]}" "${flags[@]}"
+          fi
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.version.outputs.version }}
+          PRERELEASE: ${{ steps.version.outputs.prerelease }}

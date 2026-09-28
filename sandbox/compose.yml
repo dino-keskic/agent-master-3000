@@ -1,0 +1,52 @@
+name: agent-master-3000-sandbox
+
+x-sandbox: &sandbox
+  build:
+    context: ..
+    dockerfile: sandbox/Dockerfile
+  image: agent-master-3000-sandbox
+  init: true
+  working_dir: /app
+  environment:
+    # The board's own fixture agent: deterministic, offline, no account. Swap to
+    # "opencode acp" when you need the real protocol.
+    ACP_COMMAND: "node tests/fixtures/fakeAgent.mjs"
+    # `acli` and `gh` are installed and signed out. Set this to 1 to put the
+    # stand-ins in tests/fixtures/cli ahead of them and get tickets and PRs
+    # with content in them; leave it off to see what a signed-out CLI does.
+    MENTION_MOCKS: "${MENTION_MOCKS:-0}"
+  volumes:
+    - sandbox_state:/sandbox
+
+services:
+  # `npm run sandbox:test`: sealed like the e2e (compose.e2e.yml). A container
+  # on the default bridge can reach services bound to the host's loopback
+  # through the VM, so this one gets no network at all, and no state volume.
+  test:
+    <<: *sandbox
+    network_mode: none
+    volumes: []
+    command: ["npm", "test"]
+
+  # One-shot work: a shell, protocol probes. No published ports.
+  board:
+    <<: *sandbox
+    stdin_open: true
+    tty: true
+    command: ["bash"]
+
+  # The board itself. Ports are deliberately nowhere near the user's live stack
+  # (3999/3001) or the scratch stack (3998/3002). Colima does not forward ports
+  # for `compose run` containers, so the UI only comes up through `compose up`.
+  # Inside the container the board binds 0.0.0.0 so Docker can reach it; on the
+  # host it is published on loopback only, never on the LAN.
+  dev:
+    <<: *sandbox
+    ports:
+      - "127.0.0.1:4001:3001"
+      - "127.0.0.1:4999:3999"
+      - "127.0.0.1:4010:3010"
+    command: ["npm", "run", "dev"]
+
+volumes:
+  sandbox_state:

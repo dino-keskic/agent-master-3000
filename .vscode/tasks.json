@@ -1,0 +1,49 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Agent Master 3000",
+      "type": "shell",
+      "command": "bash \"${workspaceFolder}/.vscode/start-board.sh\" live",
+      "isBackground": true,
+      "problemMatcher": {
+        "owner": "agent-master-3000",
+        "pattern": { "regexp": "^$" },
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": ".",
+          "endsPattern": "ready at"
+        }
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "focus": false
+      },
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      }
+    },
+    {
+      "label": "Agent Master 3000 (scratch)",
+      "type": "shell",
+      "command": "bash \"${workspaceFolder}/.vscode/start-board.sh\" scratch",
+      "isBackground": true,
+      "problemMatcher": {
+        "owner": "agent-master-3000-scratch",
+        "pattern": { "regexp": "^$" },
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": ".",
+          "endsPattern": "ready at"
+        }
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "focus": false
+      }
+    }
+  ]
+}

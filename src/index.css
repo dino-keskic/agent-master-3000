@@ -1,0 +1,1110 @@
+@import './theme.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    color-scheme: dark;
+  }
+
+  [data-mantine-color-scheme='light'] {
+    color-scheme: light;
+  }
+
+  body {
+    font-family: 'Inter var', Inter, ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+    /* `cv11` gives Inter a single-storey `a` and a straight `l`, which is what
+       keeps agent output legible where paths and prose sit on the same line. */
+    font-feature-settings: 'cv11', 'ss01';
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    background-color: rgb(var(--c-canvas));
+    color: rgb(var(--c-ink));
+  }
+
+  code,
+  pre,
+  kbd {
+    font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
+    font-variant-ligatures: none;
+  }
+
+  /* Timestamps, costs and token counts sit in columns; proportional digits make
+     them jitter as they tick. */
+  .tabular,
+  time,
+  .font-mono {
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Colour is the only thing that should move when the scheme flips — animating
+     layout or shadow here would make the toggle feel like a page load. */
+  body,
+  body *:not(.pulse-ring):not([class*='animate-']) {
+    transition-property: background-color, border-color, color, fill, stroke;
+    transition-duration: 120ms;
+    transition-timing-function: ease-out;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    body,
+    body *:not(.pulse-ring):not([class*='animate-']) {
+      transition-duration: 0ms;
+    }
+  }
+}
+
+/*
+ * Panels and cards.
+ *
+ * The dark scheme floats a translucent card on a blurred navy panel; paper
+ * drops the blur and earns its separation from a hairline shadow instead. Both
+ * come out of the same declarations because `--s3`, `--blur` and `--card-sh`
+ * already differ per scheme.
+ */
+.glass-panel {
+  background: rgb(var(--c-surface-2));
+  border: 1px solid rgb(var(--c-line));
+  box-shadow: var(--panel-sh);
+}
+
+.glass-card {
+  background: var(--s3);
+  backdrop-filter: var(--blur);
+  -webkit-backdrop-filter: var(--blur);
+  border: 1px solid rgb(var(--c-line));
+  box-shadow: var(--card-sh);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.glass-card:hover {
+  background: var(--s3h);
+  border-color: rgb(var(--c-line-strong));
+}
+
+.task-card {
+  overflow: hidden;
+}
+
+/* Left rail — the design's running/waiting/error cue. The wash on the card
+   is too quiet on paper without it. */
+.task-card::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: transparent;
+}
+
+.glass-card.task-card.is-running,
+.glass-card.task-card.is-running:hover {
+  border-color: var(--run-bd);
+  background: var(--run-bg);
+  box-shadow: 0 0 0 1px var(--run-bg), var(--card-sh);
+}
+
+.glass-card.task-card.is-running:hover {
+  border-color: var(--run);
+}
+
+.task-card.is-running::before {
+  background: var(--run);
+}
+
+.glass-card.task-card.is-waiting,
+.glass-card.task-card.is-waiting:hover {
+  border-color: var(--wait-bd);
+  background: var(--wait-bg);
+  box-shadow: 0 0 0 1px var(--wait-bg), var(--card-sh);
+}
+
+.glass-card.task-card.is-waiting:hover {
+  border-color: var(--wait);
+}
+
+.task-card.is-waiting::before {
+  background: var(--wait);
+}
+
+.glass-card.task-card.is-error,
+.glass-card.task-card.is-error:hover {
+  border-color: var(--err-bd);
+  background: var(--err-bg);
+}
+
+.task-card.is-error::before {
+  background: var(--err);
+}
+
+/* Every linked PR is merged and every linked ticket is done. Hover brings it
+   back so the card can still be read; it is finished, not gone. */
+.task-card.is-settled {
+  opacity: 0.55;
+}
+
+.task-card.is-settled:hover {
+  opacity: 1;
+}
+
+/*
+ * Same ping the design uses. Tailwind's `animate-ping` is a sibling of the
+ * global colour transition on `body *` and loses the first frames; this
+ * keyframe lives outside that fight.
+ */
+@keyframes acpPing {
+  75%,
+  100% {
+    transform: scale(2);
+    opacity: 0;
+  }
+}
+
+@keyframes acpSweep {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(320%);
+  }
+}
+
+.tool-sweep-track {
+  height: 2px;
+  background: var(--s4);
+  overflow: hidden;
+  position: relative;
+}
+
+.tool-sweep {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 30%;
+  height: 100%;
+  background: var(--run);
+  animation: acpSweep 1.5s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tool-sweep {
+    animation: none;
+    width: 100%;
+    opacity: 0.45;
+  }
+}
+
+.pulse-ring {
+  position: absolute;
+  display: inline-flex;
+  width: 100%;
+  height: 100%;
+  border-radius: 999px;
+  opacity: 0.75;
+  pointer-events: none;
+  background-color: var(--run);
+  animation: acpPing 1s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+
+.pulse-ring.is-wait {
+  background-color: var(--wait);
+}
+
+.pulse-ring.is-ok {
+  background-color: var(--ok);
+}
+
+.pulse-ring.is-err {
+  background-color: var(--err);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pulse-ring {
+    animation: none;
+    opacity: 0;
+  }
+}
+
+.task-card-delete {
+  opacity: 0.45;
+}
+
+@media (hover: hover) {
+  .task-card-delete {
+    opacity: 0;
+  }
+  .task-card:hover .task-card-delete,
+  .task-card:focus-within .task-card-delete {
+    opacity: 1;
+  }
+}
+
+/*
+ * Segmented control — the view switch and the theme switch.
+ *
+ * A hairline tray on the panel colour; the live segment is a raised tile in
+ * `--s4`, which is a lighter navy in the dark and plain white on paper, so the
+ * same declaration reads as "selected" in both schemes.
+ */
+.seg {
+  display: flex;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid rgb(var(--c-line));
+  border-radius: 8px;
+  background: rgb(var(--c-surface-2));
+}
+
+.seg-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 24px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: rgb(var(--c-ink-3));
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+/* Icon-only segments are square rather than padded to their label. */
+.seg-btn.is-icon {
+  width: 26px;
+  padding: 0;
+}
+
+.seg-btn:hover {
+  color: rgb(var(--c-ink-2));
+}
+
+.seg-btn.is-on,
+.seg-btn.is-on:hover {
+  background: var(--s4);
+  color: rgb(var(--c-ink));
+  box-shadow: var(--card-sh);
+}
+
+/*
+ * Header actions. Ghost until hovered, so the top bar reads as one surface
+ * rather than a row of buttons.
+ */
+.hdr-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 30px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: rgb(var(--c-ink-2));
+  font-size: 12px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.hdr-btn.is-icon {
+  width: 30px;
+  padding: 0;
+  justify-content: center;
+}
+
+.hdr-btn:hover {
+  background: rgb(var(--c-surface-2));
+  color: rgb(var(--c-ink));
+}
+
+/* The one filled header action: something is waiting on the operator. */
+.hdr-btn.is-alert,
+.hdr-btn.is-alert:hover {
+  background: var(--wait);
+  color: var(--wait-ink);
+  font-weight: 600;
+}
+
+.hdr-btn.is-alert:hover {
+  filter: brightness(1.06);
+}
+
+.hdr-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/*
+ * Icon buttons on a panel header. Same quiet treatment as `.hdr-btn`, one
+ * size smaller, so the detail page does not fall back to Mantine's gray
+ * action icons.
+ */
+.icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: rgb(var(--c-ink-3));
+  cursor: pointer;
+}
+
+.icon-btn:hover,
+.icon-btn.is-on {
+  background: rgb(var(--c-surface-2));
+  color: rgb(var(--c-ink));
+}
+
+/*
+ * Count bubbles — column headers, tabs, project chips. Sized from their own
+ * text so a three-digit count stays a pill rather than overflowing a circle.
+ */
+.bubble {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+  background: var(--acc-bg);
+  color: var(--acc-fg);
+}
+
+.bubble.is-running {
+  background: var(--run-bg);
+  color: var(--run-fg);
+}
+
+.bubble.is-muted {
+  background: var(--s4);
+  border: 1px solid rgb(var(--c-line));
+  color: rgb(var(--c-ink-2));
+}
+
+.bubble.is-on {
+  background: var(--acc-tile);
+  color: #fff;
+}
+
+/*
+ * The quiet chip on a card (model, agent, thinking). The detail column used
+ * Mantine badges, which are a heavier weight and a different grey, so the same
+ * fact read as a different product once you opened the task.
+ */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  max-width: 100%;
+  padding: 1px 6px;
+  border-radius: 999px;
+  border: 1px solid rgb(var(--c-line));
+  background: rgb(var(--c-surface-3) / 0.5);
+  color: rgb(var(--c-ink-2));
+  font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 10px;
+  font-weight: 500;
+  line-height: 1.45;
+  white-space: nowrap;
+}
+
+.chip.is-accent {
+  border-color: transparent;
+  background: var(--acc-bg);
+  color: var(--acc-fg);
+}
+
+.chip.is-run {
+  border-color: transparent;
+  background: var(--run-bg);
+  color: var(--run-fg);
+}
+
+/*
+ * A length passed as Mantine `size` (`size="10px"`) is used as the line-height
+ * as well, so the line box is exactly the font size and descenders are clipped.
+ * Cards never go through that path. Leading here is the same 1.45 the meta
+ * line on a card uses.
+ */
+.mantine-Text-root {
+  line-height: 1.45;
+}
+
+/*
+ * Type scale for the transcript, chips, notes. One place so a 16px Mantine
+ * default cannot leak into the log, and so chat / changelog / tools share a
+ * size instead of each file picking a `text-[Npx]`.
+ */
+.type-meta {
+  font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 10px;
+  line-height: 1.4;
+  font-variant-numeric: tabular-nums;
+}
+
+.type-sm {
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.type-ui,
+.tool-name {
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.type-body {
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.type-code {
+  font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+  line-height: 1.5;
+  font-variant-numeric: tabular-nums;
+}
+
+/*
+ * The card's type, named. `Type` in `src/components/ui` is the only caller —
+ * a screen should not be picking `text-[11px]` for itself.
+ *
+ * title  — the card heading, and the session name under it
+ * copy   — the two-line preview on a card, and a session's last prompt
+ * meta   — ids, costs, timestamps
+ * stat   — a number in the detail column
+ * label  — the word beside that number
+ */
+.type-title {
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.type-title.is-sm {
+  font-size: 13px;
+}
+
+.type-copy {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.type-meta-line {
+  font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+  line-height: 1.45;
+  font-variant-numeric: tabular-nums;
+}
+
+.type-stat {
+  font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+  line-height: 1.45;
+  font-variant-numeric: tabular-nums;
+}
+
+.type-label {
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 20px;
+}
+
+.filter-bar-label {
+  margin-right: 4px;
+  color: rgb(var(--c-ink-3));
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-weight: 500;
+}
+
+.filter-chip {
+  appearance: none;
+  -webkit-appearance: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 10px 0 8px;
+  border: 1px solid rgb(var(--c-line));
+  border-radius: 999px;
+  background: rgb(var(--c-surface));
+  color: rgb(var(--c-ink-2));
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1;
+  box-shadow: var(--card-sh);
+  cursor: pointer;
+}
+
+.filter-chip:hover {
+  border-color: rgb(var(--c-line-strong));
+  color: rgb(var(--c-ink));
+}
+
+.filter-chip.is-on,
+.filter-chip.is-on:hover {
+  border-color: var(--acc-bd);
+  background: var(--acc-bg);
+  color: rgb(var(--c-ink));
+}
+
+.filter-chip-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  min-width: 18px;
+  height: 18px;
+  padding: 1px 5px 0;
+  border-radius: 999px;
+  background: rgb(var(--c-ink-4));
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+}
+
+.filter-chip.is-on .filter-chip-count {
+  background: var(--acc-tile);
+}
+
+.filter-bar-rule {
+  width: 1px;
+  height: 18px;
+  margin: 0 4px;
+  background: rgb(var(--c-line));
+  flex-shrink: 0;
+}
+
+
+
+/* Spend ranking bars and the day chart. Same rule as the chips: finished
+   colours, not `bg-accent` / `bg-line` which drop their alpha and disappear. */
+.spend-bar-track {
+  height: 4px;
+  border-radius: 999px;
+  background: rgb(var(--c-line));
+  overflow: hidden;
+}
+
+.spend-bar-fill {
+  height: 100%;
+  border-radius: inherit;
+  background: rgb(var(--c-accent));
+}
+
+.spend-day-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 80px;
+}
+
+/* Tooltip wraps each bar in its own node; the row's children have to carry
+   the flex, not a class that may sit one level down. */
+.spend-day-row > * {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  display: flex;
+  align-items: flex-end;
+}
+
+.spend-day {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: flex-end;
+}
+
+.spend-day-fill {
+  width: 100%;
+  border-radius: 2px;
+  background: rgb(var(--c-accent) / 0.7);
+}
+
+.spend-day-fill.is-empty {
+  background: rgb(var(--c-line));
+}
+
+/* The week still in progress. It is drawn, and it is not part of the average. */
+.spend-day-fill.is-partial {
+  opacity: 0.45;
+}
+
+/*
+ * Drawer tabs. Mantine draws its own underline on the list; the design puts a
+ * 2px accent rule under the live tab and nothing under the rest, so the tab
+ * itself carries the indicator.
+ */
+.drawer-tab {
+  padding: 11px 14px !important;
+  border: 0 !important;
+  border-bottom: 2px solid transparent !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  color: rgb(var(--c-ink-3)) !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+}
+
+.drawer-tab:hover {
+  color: rgb(var(--c-ink-2)) !important;
+}
+
+.drawer-tab[data-active] {
+  color: rgb(var(--c-ink)) !important;
+  border-bottom-color: rgb(var(--c-accent)) !important;
+}
+
+
+
+.composer-check {
+  align-items: center;
+}
+
+.composer-check-label {
+  font-size: 12px !important;
+  padding-left: 6px !important;
+  color: rgb(var(--c-ink-2)) !important;
+}
+
+/* The textarea and the layer painted behind it must wrap identically, so
+   every metric that moves a line break is set once for both. */
+.composer-input,
+.composer-backdrop {
+  font-size: 14px;
+  line-height: 1.45;
+  padding: 2px 4px 0;
+  font-family: inherit;
+  letter-spacing: inherit;
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+  scrollbar-gutter: stable;
+}
+
+.composer-input {
+  position: relative;
+  display: block;
+  width: 100%;
+  min-height: 52px;
+  max-height: 160px;
+  resize: none;
+  overflow-y: auto;
+  background: transparent;
+  border: 0;
+  outline: none;
+  color: rgb(var(--c-ink));
+}
+
+.composer-backdrop {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  color: transparent;
+  pointer-events: none;
+}
+
+/* Colour and a ring only: padding or a border would widen the word and move
+   every line break after it out from under the real text. */
+.composer-mark {
+  color: transparent;
+  border-radius: 4px;
+  background: var(--acc-bg);
+  box-shadow: 0 0 0 1px var(--acc-bd);
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+}
+
+.composer-mark.is-file,
+.composer-mark.is-link {
+  background: rgb(var(--c-ink) / 0.09);
+  box-shadow: 0 0 0 1px rgb(var(--c-ink) / 0.12);
+}
+
+.composer-input::placeholder {
+  color: rgb(var(--c-ink-3));
+}
+
+.composer-input:disabled {
+  opacity: 0.5;
+}
+
+/*
+ * Rendered markdown.
+ *
+ * The renderer builds React nodes and hands out no class names of its own for
+ * block spacing, so the rhythm lives here where it can be read in one piece.
+ * `.md` is the container; everything below is scoped to it so agent output can
+ * never restyle the app around it.
+ */
+.md {
+  /* The card title is 14px Inter. The transcript used to be 13px and a step
+     greyer, so opening a task felt like a different face. Color is inherited
+     so a message can be ink the way a title is; code stays mono below. */
+  font-family: 'Inter var', Inter, ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  font-feature-settings: 'cv11', 'ss01';
+  font-size: 14px;
+  line-height: 1.55;
+  color: inherit;
+  overflow-wrap: break-word;
+  text-wrap: pretty;
+}
+
+/*
+ * Reasoning is markdown too, but it is background material: same rhythm, one
+ * step back in weight so it never competes with the answer above it.
+ */
+.md-quiet {
+  color: rgb(var(--c-ink-3));
+}
+
+.md-quiet h1,
+.md-quiet h2,
+.md-quiet h3,
+.md-quiet h4 {
+  font-size: 14px;
+  color: rgb(var(--c-ink-2));
+}
+
+.md > :first-child {
+  margin-top: 0;
+}
+
+.md > :last-child {
+  margin-bottom: 0;
+}
+
+.md p {
+  margin: 0.5em 0;
+  text-wrap: pretty;
+}
+
+.md h1,
+.md h2,
+.md h3,
+.md h4 {
+  color: rgb(var(--c-ink));
+  font-weight: 600;
+  line-height: 1.35;
+  margin: 1.1em 0 0.4em;
+  letter-spacing: -0.011em;
+}
+
+.md h1 {
+  font-size: 18px;
+}
+
+.md h2 {
+  font-size: 16px;
+}
+
+.md h3 {
+  font-size: 15px;
+}
+
+.md h4 {
+  font-size: 14px;
+  color: rgb(var(--c-ink-2));
+}
+
+.md ul,
+.md ol {
+  margin: 0.45em 0;
+  padding-left: 1.35em;
+}
+
+.md ul {
+  list-style: disc;
+}
+
+.md ol {
+  list-style: decimal;
+}
+
+.md li {
+  margin: 0.45em 0;
+}
+
+/* A list whose items are single lines does not need paragraph spacing. */
+.md ul[data-tight],
+.md ol[data-tight] {
+  margin: 0.4em 0;
+}
+
+.md ul[data-tight] > li,
+.md ol[data-tight] > li {
+  margin: 0.16em 0;
+}
+
+.md li::marker {
+  color: rgb(var(--c-ink-4));
+}
+
+/* Nested lists tighten up rather than repeating the outer spacing. */
+.md li > ul,
+.md li > ol {
+  margin: 0.18em 0;
+}
+
+.md ul ul {
+  list-style: circle;
+}
+
+.md ul ul ul {
+  list-style: square;
+}
+
+/* Task lists lose the marker — the checkbox is the marker. */
+.md .md-task-list {
+  list-style: none;
+  padding-left: 0.15em;
+}
+
+.md .md-task {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5em;
+}
+
+.md .md-task-box {
+  flex: none;
+  position: relative;
+  top: 0.12em;
+  width: 0.92em;
+  height: 0.92em;
+  border-radius: 3px;
+  border: 1.5px solid rgb(var(--c-line-strong));
+}
+
+.md .md-task-box[data-checked='true'] {
+  border-color: rgb(var(--c-add) / 0.8);
+  background: rgb(var(--c-add) / 0.16);
+}
+
+.md .md-task-box[data-checked='true']::after {
+  content: '';
+  position: absolute;
+  left: 0.26em;
+  top: 0.03em;
+  width: 0.24em;
+  height: 0.5em;
+  border: solid rgb(var(--c-add));
+  border-width: 0 1.6px 1.6px 0;
+  transform: rotate(42deg);
+}
+
+.md blockquote {
+  margin: 0.6em 0;
+  padding: 0.1em 0 0.1em 0.85em;
+  border-left: 2px solid rgb(var(--c-line-strong));
+  color: rgb(var(--c-ink-3));
+}
+
+.md hr {
+  margin: 1.1em 0;
+  border: 0;
+  border-top: 1px solid rgb(var(--c-line));
+}
+
+.md a {
+  color: rgb(var(--c-accent));
+  text-decoration: underline;
+  text-decoration-color: rgb(var(--c-accent) / 0.4);
+  text-underline-offset: 2px;
+}
+
+.md a:hover {
+  text-decoration-color: rgb(var(--c-accent));
+}
+
+.md strong {
+  color: rgb(var(--c-ink));
+  font-weight: 600;
+}
+
+.md code {
+  font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-feature-settings: normal;
+  font-size: 12px;
+  line-height: 1.45;
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: var(--code);
+  border: 1px solid rgb(var(--c-line));
+  color: rgb(var(--c-ink));
+  white-space: break-spaces;
+}
+
+/* A card's one-line preview: the same marks as a message, sized to the line. */
+.md-inline strong {
+  color: rgb(var(--c-ink));
+  font-weight: 600;
+}
+
+.md-inline code {
+  font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.88em;
+  padding: 0 4px;
+  border-radius: 4px;
+  background: var(--code);
+  border: 1px solid rgb(var(--c-line));
+  color: rgb(var(--c-ink));
+}
+
+/*
+ * Tables scroll inside their own box. Agent output routinely contains a table
+ * wider than the drawer, and a transcript that scrolls sideways as a whole is
+ * unusable.
+ */
+.md-table-scroll {
+  margin: 0.7em 0;
+  overflow-x: auto;
+  border: 1px solid rgb(var(--c-line));
+  border-radius: 6px;
+  background: var(--s4);
+}
+
+.md table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 0.95em;
+}
+
+.md th,
+.md td {
+  padding: 0.42em 0.7em;
+  text-align: left;
+  vertical-align: top;
+  border-bottom: 1px solid rgb(var(--c-line) / 0.75);
+}
+
+.md th {
+  color: rgb(var(--c-ink));
+  font-weight: 600;
+  white-space: nowrap;
+  background: rgb(var(--c-surface-2));
+  border-bottom-color: rgb(var(--c-line-strong) / 0.7);
+}
+
+.md tbody tr:last-child th,
+.md tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.md td[data-align='right'],
+.md th[data-align='right'] {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.md td[data-align='center'],
+.md th[data-align='center'] {
+  text-align: center;
+}
+
+/* Code blocks */
+.md-code {
+  margin: 0.7em 0;
+  border-radius: 6px;
+  border: 1px solid rgb(var(--c-line));
+  background: var(--code);
+  overflow: hidden;
+}
+
+.md-code-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75em;
+  padding: 0.3em 0.7em;
+  background: rgb(var(--c-surface-2));
+  border-bottom: 1px solid rgb(var(--c-line));
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgb(var(--c-ink-3));
+}
+
+.md-code pre {
+  margin: 0;
+  padding: 10px 12px;
+  overflow-x: auto;
+  font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-feature-settings: normal;
+  font-size: 12px;
+  line-height: 1.55;
+  color: rgb(var(--c-ink-2));
+  tab-size: 2;
+}
+
+pre.text-log-code {
+  font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+/* Fenced blocks wrap tokens in `<code>`; don't inherit the inline-chip chrome. */
+.md-code pre code {
+  font-size: inherit;
+  line-height: inherit;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: inherit;
+  white-space: inherit;
+}
+
+
+
+/* Syntax tokens; see `shared/transcript/highlight.ts`. */
+.tok-key { color: rgb(var(--c-tok-key)); }
+.tok-str { color: rgb(var(--c-tok-str)); }
+.tok-num { color: rgb(var(--c-tok-num)); }
+.tok-com { color: rgb(var(--c-tok-com)); font-style: italic; }
+.tok-fn { color: rgb(var(--c-tok-fn)); }
+.tok-punct { color: rgb(var(--c-tok-punct)); }
+.tok-add { color: rgb(var(--c-add)); }
+.tok-del { color: rgb(var(--c-del)); }
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgb(var(--c-line-strong));
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgb(var(--c-accent) / 0.8);
+}

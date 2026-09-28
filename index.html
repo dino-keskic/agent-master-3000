@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Agent Master 3000 - OpenCode Agent Task Manager</title>
+
+    <!-- Google Fonts Inter & JetBrains Mono -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+    <!--
+      Paint in the right scheme on the very first frame. Mantine sets this same
+      attribute once React mounts; without this the page would flash the wrong
+      colours until it does. Key and values match Mantine's own storage.
+    -->
+    <script>
+      (function () {
+        var scheme = 'dark';
+        try {
+          var stored = localStorage.getItem('mantine-color-scheme-value');
+          scheme = stored === 'light' || stored === 'dark'
+            ? stored
+            : window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+        } catch (e) { /* private mode, or storage disabled */ }
+        document.documentElement.setAttribute('data-mantine-color-scheme', scheme);
+      })();
+    </script>
+  </head>
+  <body class="font-sans antialiased overflow-x-hidden selection:bg-indigo-500/30">
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

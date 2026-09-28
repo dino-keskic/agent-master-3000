@@ -1,0 +1,25 @@
+# An allowlist: the sandbox image gets the project's own files and nothing
+# else from this folder — never the board's state, an agent's worktree, or
+# whatever else a developer keeps beside the checkout.
+*
+!package.json
+!package-lock.json
+!.npmrc
+!README.md
+!AGENTS.md
+!LICENSE
+!index.html
+!tsconfig.json
+!vite.config.ts
+!tailwind.config.js
+!postcss.config.js
+!eslint.config.js
+!bin
+!public
+!scripts
+!server
+!shared
+!src
+!tests
+!sandbox
+sandbox/state

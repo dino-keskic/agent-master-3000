@@ -1,0 +1,3 @@
+#!/bin/sh
+# Unauthenticated stand-in for `acli` — see fakeCli.mjs.
+exec node "$(dirname "$0")/fakeCli.mjs" acli "$@"

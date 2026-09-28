@@ -1,0 +1,28 @@
+# The board against a real `opencode acp` and a stub LLM, in one sealed
+# container: `npm run sandbox:e2e`. See README.md.
+#
+# Sealed means: no network at all (not even a bridge to the host or its
+# loopback), no published ports, no volumes or bind mounts, no environment
+# passed through from the host, no capabilities. Everything the run needs is
+# baked into the image at build time; everything it writes is in the
+# container's own /tmp and goes when `--rm` removes it.
+name: agent-master-3000-e2e
+
+services:
+  e2e:
+    build:
+      context: ..
+      dockerfile: sandbox/Dockerfile
+      args:
+        # Unset → the Dockerfile's pinned default. Set it to run the e2e
+        # against another release: OPENCODE_VERSION=1.18.32 npm run sandbox:e2e
+        - OPENCODE_VERSION
+    image: agent-master-3000-e2e:${OPENCODE_VERSION:-pinned}
+    init: true
+    working_dir: /app
+    network_mode: none
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    environment:
+      ACP_E2E: "1"
+    command: ["npm", "run", "test:e2e"]

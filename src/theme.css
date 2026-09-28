@@ -1,0 +1,421 @@
+/*
+ * Colour tokens for both schemes.
+ *
+ * Every palette entry Tailwind hands out is a CSS variable rather than a fixed
+ * value, so `bg-slate-900` or `text-teal-300` resolves through this file. The
+ * app was written dark-first — high shades are backgrounds, low shades are text
+ * — and light mode keeps that reading by mirroring the ramp instead of asking
+ * several hundred class names to grow a `dark:` twin.
+ *
+ * Triplets, not colours, because Tailwind composes them with `<alpha-value>`:
+ * `bg-slate-900/40` has to stay an opacity modifier and not become a broken
+ * `rgba(var(--x), 0.4)`.
+ *
+ * Mantine owns the scheme attribute (`data-mantine-color-scheme`), so there is
+ * one source of truth for which scheme is on and no chance of the two halves of
+ * the UI disagreeing.
+ */
+
+:root,
+[data-mantine-color-scheme='dark'] {
+    --c-slate-50: 248 250 252;
+    --c-slate-100: 241 245 249;
+    --c-slate-200: 226 232 240;
+    --c-slate-300: 203 213 225;
+    --c-slate-400: 148 163 184;
+    --c-slate-500: 100 116 139;
+    --c-slate-600: 71 85 105;
+    --c-slate-700: 51 65 85;
+    /* The deep end of the ramp is the design's navy, not stock slate: #233049
+       is the border everything shares, #111a2c the panel, #0b0f19 the canvas. */
+    --c-slate-800: 35 48 73;
+    --c-slate-900: 17 26 44;
+    --c-slate-950: 11 15 25;
+    --c-teal-50: 240 253 250;
+    --c-teal-100: 204 251 241;
+    --c-teal-200: 153 246 228;
+    --c-teal-300: 94 234 212;
+    --c-teal-400: 45 212 191;
+    --c-teal-500: 20 184 166;
+    --c-teal-600: 13 148 136;
+    --c-teal-700: 15 118 110;
+    --c-teal-800: 17 94 89;
+    --c-teal-900: 19 78 74;
+    --c-teal-950: 4 47 46;
+    --c-emerald-50: 236 253 245;
+    --c-emerald-100: 209 250 229;
+    --c-emerald-200: 167 243 208;
+    --c-emerald-300: 110 231 183;
+    --c-emerald-400: 52 211 153;
+    --c-emerald-500: 16 185 129;
+    --c-emerald-600: 5 150 105;
+    --c-emerald-700: 4 120 87;
+    --c-emerald-800: 6 95 70;
+    --c-emerald-900: 6 78 59;
+    --c-emerald-950: 2 44 34;
+    --c-amber-50: 255 251 235;
+    --c-amber-100: 254 243 199;
+    --c-amber-200: 253 230 138;
+    --c-amber-300: 252 211 77;
+    --c-amber-400: 251 191 36;
+    --c-amber-500: 245 158 11;
+    --c-amber-600: 217 119 6;
+    --c-amber-700: 180 83 9;
+    --c-amber-800: 146 64 14;
+    --c-amber-900: 120 53 15;
+    --c-amber-950: 69 26 3;
+    --c-rose-50: 255 241 242;
+    --c-rose-100: 255 228 230;
+    --c-rose-200: 254 205 211;
+    --c-rose-300: 253 164 175;
+    --c-rose-400: 251 113 133;
+    --c-rose-500: 244 63 94;
+    --c-rose-600: 225 29 72;
+    --c-rose-700: 190 18 60;
+    --c-rose-800: 159 18 57;
+    --c-rose-900: 136 19 55;
+    --c-rose-950: 76 5 25;
+    --c-red-50: 254 242 242;
+    --c-red-100: 254 226 226;
+    --c-red-200: 254 202 202;
+    --c-red-300: 252 165 165;
+    --c-red-400: 248 113 113;
+    --c-red-500: 239 68 68;
+    --c-red-600: 220 38 38;
+    --c-red-700: 185 28 28;
+    --c-red-800: 153 27 27;
+    --c-red-900: 127 29 29;
+    --c-red-950: 69 10 10;
+    --c-violet-50: 245 243 255;
+    --c-violet-100: 237 233 254;
+    --c-violet-200: 221 214 254;
+    --c-violet-300: 196 181 253;
+    --c-violet-400: 167 139 250;
+    --c-violet-500: 139 92 246;
+    --c-violet-600: 124 58 237;
+    --c-violet-700: 109 40 217;
+    --c-violet-800: 91 33 182;
+    --c-violet-900: 76 29 149;
+    --c-violet-950: 46 16 101;
+    --c-sky-50: 240 249 255;
+    --c-sky-100: 224 242 254;
+    --c-sky-200: 186 230 253;
+    --c-sky-300: 125 211 252;
+    --c-sky-400: 56 189 248;
+    --c-sky-500: 14 165 233;
+    --c-sky-600: 2 132 199;
+    --c-sky-700: 3 105 161;
+    --c-sky-800: 7 89 133;
+    --c-sky-900: 12 74 110;
+    --c-sky-950: 8 47 73;
+    --c-cyan-50: 236 254 255;
+    --c-cyan-100: 207 250 254;
+    --c-cyan-200: 165 243 252;
+    --c-cyan-300: 103 232 249;
+    --c-cyan-400: 34 211 238;
+    --c-cyan-500: 6 182 212;
+    --c-cyan-600: 8 145 178;
+    --c-cyan-700: 14 116 144;
+    --c-cyan-800: 21 94 117;
+    --c-cyan-900: 22 78 99;
+    --c-cyan-950: 8 51 68;
+    --c-blue-50: 239 246 255;
+    --c-blue-100: 219 234 254;
+    --c-blue-200: 191 219 254;
+    --c-blue-300: 147 197 253;
+    --c-blue-400: 96 165 250;
+    --c-blue-500: 59 130 246;
+    --c-blue-600: 37 99 235;
+    --c-blue-700: 29 78 216;
+    --c-blue-800: 30 64 175;
+    --c-blue-900: 30 58 138;
+    --c-blue-950: 23 37 84;
+
+    --c-canvas: 11 15 25;
+    --c-surface: 13 19 34;
+    --c-surface-2: 17 26 44;
+    --c-surface-3: 9 13 22;
+    --c-line: 35 48 73;
+    --c-line-strong: 51 65 85;
+    --c-ink: 241 245 249;
+    --c-ink-2: 148 163 184;
+    --c-ink-3: 100 116 139;
+    --c-ink-4: 71 85 105;
+    --c-accent: 59 130 246;
+    --c-tok-key: 196 181 253;
+    --c-tok-str: 134 239 172;
+    --c-tok-num: 253 186 116;
+    --c-tok-com: 100 116 139;
+    --c-tok-fn: 125 211 252;
+    --c-tok-punct: 148 163 184;
+    --c-add: 52 211 153;
+    --c-del: 251 113 133;
+
+    /*
+     * Roles that are a flat colour in one scheme and a wash in the other.
+     * `--acc-bg` is 16% blue over navy in the dark, and an opaque #eff6ff on
+     * paper — so these hold whole colours rather than triplets, and the classes
+     * that use them never apply an opacity modifier.
+     */
+    --s3: rgba(30, 41, 59, 0.65);
+    --s3h: rgba(30, 41, 59, 0.85);
+    --s4: #16203a;
+    --code: #020617;
+    --hairline: rgba(30, 41, 59, 0.8);
+    --dash: rgba(30, 41, 59, 0.7);
+    --scrim: rgba(2, 6, 23, 0.72);
+    --acc-tile: #2563eb;
+    --acc-bg: rgba(59, 130, 246, 0.16);
+    --acc-fg: #bfdbfe;
+    --acc-bd: rgba(59, 130, 246, 0.45);
+    --run: #2dd4bf;
+    --run-bg: rgba(13, 148, 136, 0.12);
+    --run-fg: #5eead4;
+    --run-bd: rgba(45, 212, 191, 0.4);
+    --wait: #fbbf24;
+    --wait-bg: rgba(245, 158, 11, 0.09);
+    --wait-fg: #fcd34d;
+    --wait-bd: rgba(251, 191, 36, 0.45);
+    --wait-ink: #422006;
+    --err: #f43f5e;
+    --err-bg: rgba(244, 63, 94, 0.07);
+    --err-fg: #fda4af;
+    --err-bd: rgba(244, 63, 94, 0.35);
+    --ok: #34d399;
+    --blur: blur(8px);
+    --card-sh: none;
+    --panel-sh: 0 12px 32px -18px rgba(0, 0, 0, 0.8);
+}
+
+[data-mantine-color-scheme='light'] {
+    --c-slate-50: 2 6 23;
+    --c-slate-100: 15 23 42;
+    --c-slate-200: 30 41 59;
+    --c-slate-300: 51 65 85;
+    --c-slate-400: 71 85 105;
+    --c-slate-500: 100 116 139;
+    --c-slate-600: 148 163 184;
+    --c-slate-700: 203 213 225;
+    --c-slate-800: 227 232 239;
+    --c-slate-900: 255 255 255;
+    --c-slate-950: 244 246 250;
+    --c-teal-50: 4 47 46;
+    --c-teal-100: 19 78 74;
+    --c-teal-200: 17 94 89;
+    --c-teal-300: 15 118 110;
+    --c-teal-400: 13 148 136;
+    --c-teal-500: 13 148 136;
+    --c-teal-600: 20 184 166;
+    --c-teal-700: 94 234 212;
+    --c-teal-800: 153 246 228;
+    --c-teal-900: 204 251 241;
+    --c-teal-950: 240 253 250;
+    --c-emerald-50: 2 44 34;
+    --c-emerald-100: 6 78 59;
+    --c-emerald-200: 6 95 70;
+    --c-emerald-300: 4 120 87;
+    --c-emerald-400: 5 150 105;
+    --c-emerald-500: 5 150 105;
+    --c-emerald-600: 16 185 129;
+    --c-emerald-700: 110 231 183;
+    --c-emerald-800: 167 243 208;
+    --c-emerald-900: 209 250 229;
+    --c-emerald-950: 236 253 245;
+    --c-amber-50: 69 26 3;
+    --c-amber-100: 120 53 15;
+    --c-amber-200: 146 64 14;
+    --c-amber-300: 180 83 9;
+    --c-amber-400: 217 119 6;
+    --c-amber-500: 217 119 6;
+    --c-amber-600: 245 158 11;
+    --c-amber-700: 252 211 77;
+    --c-amber-800: 253 230 138;
+    --c-amber-900: 254 243 199;
+    --c-amber-950: 255 251 235;
+    --c-rose-50: 76 5 25;
+    --c-rose-100: 136 19 55;
+    --c-rose-200: 159 18 57;
+    --c-rose-300: 190 18 60;
+    --c-rose-400: 225 29 72;
+    --c-rose-500: 225 29 72;
+    --c-rose-600: 244 63 94;
+    --c-rose-700: 253 164 175;
+    --c-rose-800: 254 205 211;
+    --c-rose-900: 255 228 230;
+    --c-rose-950: 255 241 242;
+    --c-red-50: 69 10 10;
+    --c-red-100: 127 29 29;
+    --c-red-200: 153 27 27;
+    --c-red-300: 185 28 28;
+    --c-red-400: 220 38 38;
+    --c-red-500: 220 38 38;
+    --c-red-600: 239 68 68;
+    --c-red-700: 252 165 165;
+    --c-red-800: 254 202 202;
+    --c-red-900: 254 226 226;
+    --c-red-950: 254 242 242;
+    --c-violet-50: 46 16 101;
+    --c-violet-100: 76 29 149;
+    --c-violet-200: 91 33 182;
+    --c-violet-300: 109 40 217;
+    --c-violet-400: 124 58 237;
+    --c-violet-500: 124 58 237;
+    --c-violet-600: 139 92 246;
+    --c-violet-700: 196 181 253;
+    --c-violet-800: 221 214 254;
+    --c-violet-900: 237 233 254;
+    --c-violet-950: 245 243 255;
+    --c-sky-50: 8 47 73;
+    --c-sky-100: 12 74 110;
+    --c-sky-200: 7 89 133;
+    --c-sky-300: 3 105 161;
+    --c-sky-400: 2 132 199;
+    --c-sky-500: 2 132 199;
+    --c-sky-600: 14 165 233;
+    --c-sky-700: 125 211 252;
+    --c-sky-800: 186 230 253;
+    --c-sky-900: 224 242 254;
+    --c-sky-950: 240 249 255;
+    --c-cyan-50: 8 51 68;
+    --c-cyan-100: 22 78 99;
+    --c-cyan-200: 21 94 117;
+    --c-cyan-300: 14 116 144;
+    --c-cyan-400: 8 145 178;
+    --c-cyan-500: 8 145 178;
+    --c-cyan-600: 6 182 212;
+    --c-cyan-700: 103 232 249;
+    --c-cyan-800: 165 243 252;
+    --c-cyan-900: 207 250 254;
+    --c-cyan-950: 236 254 255;
+    --c-blue-50: 23 37 84;
+    --c-blue-100: 30 58 138;
+    --c-blue-200: 30 64 175;
+    --c-blue-300: 29 78 216;
+    --c-blue-400: 37 99 235;
+    --c-blue-500: 37 99 235;
+    --c-blue-600: 59 130 246;
+    --c-blue-700: 147 197 253;
+    --c-blue-800: 191 219 254;
+    --c-blue-900: 219 234 254;
+    --c-blue-950: 239 246 255;
+
+    --c-canvas: 244 246 250;
+    --c-surface: 255 255 255;
+    --c-surface-2: 251 252 254;
+    --c-surface-3: 248 250 252;
+    --c-line: 227 232 239;
+    --c-line-strong: 203 213 225;
+    --c-ink: 15 23 42;
+    --c-ink-2: 71 85 105;
+    --c-ink-3: 100 116 139;
+    --c-ink-4: 148 163 184;
+    --c-accent: 37 99 235;
+    --c-tok-key: 124 58 237;
+    --c-tok-str: 21 128 61;
+    --c-tok-num: 194 65 12;
+    --c-tok-com: 148 163 184;
+    --c-tok-fn: 3 105 161;
+    --c-tok-punct: 100 116 139;
+    --c-add: 5 150 105;
+    --c-del: 225 29 72;
+
+    /* Paper flattens every wash into a solid tint, and trades the dark scheme's
+       backdrop blur for a hairline shadow. */
+    --s3: #ffffff;
+    --s3h: #f8fafc;
+    --s4: #ffffff;
+    --code: #f8fafc;
+    --hairline: #eef1f6;
+    --dash: #dde3ec;
+    --scrim: rgba(15, 23, 42, 0.4);
+    --acc-tile: #2563eb;
+    --acc-bg: #eff6ff;
+    --acc-fg: #1d4ed8;
+    --acc-bd: #bfdbfe;
+    --run: #0d9488;
+    --run-bg: #f0fdfa;
+    --run-fg: #0f766e;
+    --run-bd: #99f6e4;
+    --wait: #d97706;
+    --wait-bg: #fffbeb;
+    --wait-fg: #b45309;
+    --wait-bd: #fde68a;
+    --wait-ink: #422006;
+    --err: #e11d48;
+    --err-bg: #fff1f2;
+    --err-fg: #be123c;
+    --err-bd: #fecdd3;
+    --ok: #059669;
+    --blur: none;
+    --card-sh: 0 1px 2px rgba(15, 23, 42, 0.05), 0 1px 3px rgba(15, 23, 42, 0.04);
+    --panel-sh: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+
+/*
+ * Mantine's own surfaces, bridged onto the tokens above.
+ *
+ * Mantine components (dropdowns, modals, inputs, dividers) paint themselves
+ * from `--mantine-color-*`, which defaults to a neutral grey scale that has
+ * nothing to do with this palette — a menu opened over the board came out a
+ * flat grey panel with almost no contrast against the slate around it. Pointing
+ * those variables at the same tokens is what keeps the two halves of the UI
+ * looking like one application in either scheme.
+ *
+ * Only the surface and text roles are remapped here. The accent is the `accent`
+ * palette `src/main.tsx` gives Mantine, the same blue as `--c-accent`.
+ */
+:root,
+[data-mantine-color-scheme='dark'],
+[data-mantine-color-scheme='light'] {
+    --mantine-color-body: rgb(var(--c-canvas));
+    --mantine-color-text: rgb(var(--c-ink));
+    --mantine-color-dimmed: rgb(var(--c-ink-3));
+    --mantine-color-placeholder: rgb(var(--c-ink-4));
+    --mantine-color-default: rgb(var(--c-surface));
+    --mantine-color-default-hover: rgb(var(--c-surface-2));
+    --mantine-color-default-color: rgb(var(--c-ink));
+    --mantine-color-default-border: rgb(var(--c-line));
+    --mantine-color-anchor: rgb(var(--c-accent));
+}
+
+/*
+ * The `dark` scale is what Mantine reaches for in dark mode — dropdown fills,
+ * input borders, hover states. Lightest (0) to darkest (9), same direction the
+ * slate ramp runs.
+ */
+[data-mantine-color-scheme='dark'] {
+    --mantine-color-dark-0: rgb(var(--c-ink-2));
+    --mantine-color-dark-1: rgb(var(--c-ink-2));
+    --mantine-color-dark-2: rgb(var(--c-ink-3));
+    --mantine-color-dark-3: rgb(var(--c-ink-4));
+    --mantine-color-dark-4: rgb(var(--c-line-strong));
+    --mantine-color-dark-5: rgb(var(--c-line));
+    --mantine-color-dark-6: rgb(var(--c-surface-2));
+    --mantine-color-dark-7: rgb(var(--c-surface));
+    --mantine-color-dark-8: rgb(var(--c-surface-3));
+    --mantine-color-dark-9: rgb(var(--c-canvas));
+    --mantine-color-dark-filled: rgb(var(--c-surface-2));
+    --mantine-color-dark-filled-hover: rgb(var(--c-line));
+    --mantine-color-dark-light: rgb(var(--c-surface-2) / 0.5);
+    --mantine-color-dark-outline: rgb(var(--c-line-strong));
+}
+
+/*
+ * Mantine's `gray` variants — the light/subtle ActionIcons, grey badges and
+ * buttons — pointed at the same surfaces as the Tailwind side, so a Mantine
+ * control and a `ui/Button` next to it read as one kind of thing.
+ *
+ * `html:root` because MantineProvider injects its own values for these on
+ * `:root[data-mantine-color-scheme]` in a style tag that loads after this file;
+ * the extra element selector is what outranks it.
+ */
+html:root[data-mantine-color-scheme] {
+    --mantine-color-gray-light: rgb(var(--c-surface-2));
+    --mantine-color-gray-light-hover: rgb(var(--c-line));
+    --mantine-color-gray-light-color: rgb(var(--c-ink-2));
+    --mantine-color-gray-outline: rgb(var(--c-line-strong));
+    --mantine-color-gray-outline-hover: rgb(var(--c-surface-2));
+    --mantine-color-gray-text: rgb(var(--c-ink-3));
+    --mantine-color-gray-filled: rgb(var(--c-ink-4));
+    --mantine-color-gray-filled-hover: rgb(var(--c-ink-3));
+}

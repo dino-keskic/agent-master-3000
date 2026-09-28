@@ -1,0 +1,3 @@
+#!/bin/sh
+# Unauthenticated stand-in for `gh` — see fakeCli.mjs.
+exec node "$(dirname "$0")/fakeCli.mjs" gh "$@"

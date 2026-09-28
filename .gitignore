@@ -1,0 +1,27 @@
+# Dependencies
+node_modules/
+
+# Build
+dist/
+dist-server/
+*.tgz
+
+# The board's own state and logs when run from a checkout
+data/
+*.log
+
+# Secrets / local environment
+.env
+.env.*
+!.env.example
+
+# System files
+.DS_Store
+Thumbs.db
+
+# Coding-agent local state and the worktrees the board cuts for a task
+.claude/
+.worktrees/
+
+# Docker sandbox scratch state
+sandbox/state/
