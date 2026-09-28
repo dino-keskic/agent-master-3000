@@ -35,6 +35,7 @@
     "sandbox:test": "npm run sandbox:build && docker compose -f sandbox/compose.yml run --rm test",
     "sandbox:e2e": "docker compose -f sandbox/compose.e2e.yml build && docker compose -f sandbox/compose.e2e.yml run --rm e2e",
     "sandbox:board": "npm run sandbox:build && docker compose -f sandbox/compose.yml up dev",
+    "sandbox:demo": "npm run sandbox:build && docker compose -f sandbox/compose.yml up demo",
     "sandbox:probe": "npm run sandbox:build && docker compose -f sandbox/compose.yml run --rm board sandbox/bin/probe-tools.sh",
     "sandbox:down": "docker compose -f sandbox/compose.yml down -v"
   },

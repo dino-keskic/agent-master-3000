@@ -48,5 +48,24 @@ services:
       - "127.0.0.1:4010:3010"
     command: ["npm", "run", "dev"]
 
+  # `npm run sandbox:demo`: the board on the same ports, seeded with invented
+  # projects, tasks and eight weeks of priced sessions, for screenshots. It
+  # wipes the sandbox's board state and OpenCode DB first (sandbox/demo/).
+  demo:
+    <<: *sandbox
+    ports:
+      - "127.0.0.1:4001:3001"
+      - "127.0.0.1:4999:3999"
+    environment:
+      ACP_COMMAND: "node tests/fixtures/fakeAgent.mjs"
+      ACP_FAKE_SCRIPT: demo
+      ACP_FAKE_ROUNDS: "40"
+      ACP_FAKE_CHUNKS: "30"
+      ACP_FAKE_CHUNK_MS: "400"
+    command:
+      - bash
+      - -c
+      - npx tsx sandbox/demo/seed.ts && set -a && . /sandbox/demo.env && set +a && (node sandbox/demo/kick.mjs &) && exec npm run dev
+
 volumes:
   sandbox_state:

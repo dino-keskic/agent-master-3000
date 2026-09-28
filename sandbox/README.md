@@ -12,6 +12,7 @@ npm run sandbox:test      # npm test in the container, no network
 npm run sandbox:e2e       # the board against a real `opencode acp` (below)
 npm run sandbox:sh        # a bash shell in it
 npm run sandbox:board     # the board at http://127.0.0.1:4999 (API 4001)
+npm run sandbox:demo      # the same, seeded with a lived-in fake board for screenshots
 npm run sandbox:probe     # OpenCode's tool ids / MCP status / agents
 npm run sandbox:build     # just build the image
 npm run sandbox:down      # stop and drop the volume
@@ -19,6 +20,16 @@ npm run sandbox:down      # stop and drop the volume
 
 Every script but `sandbox:down` rebuilds the image first. That is cheap: only the
 last layer (the repo) is rebuilt, `npm ci` stays cached.
+
+## Screenshots: `npm run sandbox:demo`
+
+`sandbox/demo/seed.ts` wipes the sandbox's OpenCode DB and board state, then writes
+three invented repos under `/sandbox/workspace` (one with a worktree holding
+uncommitted changes), a dozen tasks across the columns, and eight weeks of
+priced sessions. Every cost, token count and context bar on screen is the board's
+own arithmetic over those rows. The fake agent runs in `demo` mode, and
+`sandbox/demo/kick.mjs` starts three live turns once the board is up. One of those
+turns stops at a permission prompt. The seed refuses to run outside the container.
 
 ## End to end: `npm run sandbox:e2e`
 

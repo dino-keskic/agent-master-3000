@@ -14,13 +14,46 @@
  * (`sandbox/bin/load-test.mjs`): every `session/new` is a new session, and a
  * prompt streams a thought, a reply in small chunks and a few tool calls with
  * sizeable output, then ends the turn — sized by ACP_FAKE_ROUNDS,
- * ACP_FAKE_CHUNKS and ACP_FAKE_CHUNK_MS.
+ * ACP_FAKE_CHUNKS and ACP_FAKE_CHUNK_MS. "demo" is "stream" for the screenshot board
+ * (`sandbox/demo/`): it also offers a model, agent and effort list, and a turn in
+ * one of the sessions named in ACP_FAKE_ASK_SESSIONS stops on a permission
+ * request instead of streaming.
  */
 import readline from 'readline';
 
 const SCRIPT = process.env.ACP_FAKE_SCRIPT || 'permission';
 let nextId = 1000;
 let nextSession = 0;
+const STREAMS = SCRIPT === 'stream' || SCRIPT === 'demo';
+const ASK_SESSIONS = new Set((process.env.ACP_FAKE_ASK_SESSIONS || '').split(',').filter(Boolean));
+
+/** What `session/new` offers in the demo: the dropdowns the board fills from it. */
+function demoConfigOptions() {
+  if (SCRIPT !== 'demo') return [];
+  const select = (id, currentValue, options) => ({ id, currentValue, options });
+  return [
+    select('model', 'anthropic/claude-opus-5-5', [
+      { value: 'anthropic/claude-opus-5-5', name: 'Claude Opus 5.5' },
+      { value: 'anthropic/claude-sonnet-5', name: 'Claude Sonnet 5' },
+      { value: 'anthropic/claude-haiku-4-5', name: 'Claude Haiku 4.5' },
+      { value: 'openai/gpt-6', name: 'GPT-6' },
+      { value: 'openai/gpt-6-luna', name: 'GPT-6 Luna' },
+      { value: 'google/gemini-3-pro', name: 'Gemini 3 Pro' },
+      { value: 'ollama/qwen3-coder-30b', name: 'Qwen3 Coder 30B (local)' },
+      { value: 'ollama/devstral-2', name: 'Devstral 2 (local)' }
+    ]),
+    select('mode', 'build', [
+      { value: 'build', name: 'build', description: 'Writes code, runs commands' },
+      { value: 'plan', name: 'plan', description: 'Reads and plans, never edits' },
+      { value: 'reviewer', name: 'reviewer', description: 'Reviews a diff against the ticket' }
+    ]),
+    select('effort', 'medium', [
+      { value: 'low', name: 'Low' },
+      { value: 'medium', name: 'Medium' },
+      { value: 'high', name: 'High' }
+    ])
+  ];
+}
 
 const write = (msg) => process.stdout.write(JSON.stringify(msg) + '\n');
 const result = (id, res) => write({ jsonrpc: '2.0', id, result: res });
@@ -70,35 +103,36 @@ readline.createInterface({ input: process.stdin }).on('line', (line) => {
 
   if (msg.method === 'session/new') {
     nextSession += 1;
-    sessionId = SCRIPT === 'stream' ? `ses_fake_${nextSession}` : 'ses_fake_1';
-    result(msg.id, { sessionId, configOptions: [] });
+    sessionId = STREAMS ? `ses_fake_${nextSession}` : 'ses_fake_1';
+    result(msg.id, { sessionId, configOptions: demoConfigOptions() });
     return;
   }
 
-  if (SCRIPT === 'stream' && msg.method === 'session/load') {
-    result(msg.id, { configOptions: [] });
+  if (STREAMS && msg.method === 'session/load') {
+    result(msg.id, { configOptions: demoConfigOptions() });
     return;
   }
 
-  if (SCRIPT === 'stream' && msg.method === 'session/prompt') {
+  if (STREAMS && msg.method === 'session/prompt' && !ASK_SESSIONS.has(msg.params?.sessionId)) {
     streamTurn(msg.id, msg.params?.sessionId);
     return;
   }
 
-  if (SCRIPT === 'stream' && msg.method === 'session/cancel') {
+  if (STREAMS && msg.method === 'session/cancel') {
     const turn = streaming.get(msg.params?.sessionId);
     if (turn) turn.cancelled = true;
     return;
   }
 
   if (msg.method === 'session/set_config_option') {
-    result(msg.id, { configOptions: [] });
+    result(msg.id, { configOptions: demoConfigOptions() });
     return;
   }
 
   if (msg.method === 'session/prompt') {
     promptRequestId = msg.id;
-    if (SCRIPT === 'permission' || SCRIPT === 'abandoned') {
+    if (SCRIPT === 'demo') sessionId = msg.params?.sessionId;
+    if (SCRIPT === 'permission' || SCRIPT === 'abandoned' || SCRIPT === 'demo') {
       outstanding.set(
         request('session/request_permission', {
           sessionId,
@@ -107,8 +141,10 @@ readline.createInterface({ input: process.stdin }).on('line', (line) => {
             title: 'bash',
             kind: 'execute',
             status: 'pending',
-            rawInput: { command: 'rm -rf build' },
-            locations: [{ path: '/tmp/project/build' }]
+            rawInput: SCRIPT === 'demo'
+              ? { command: 'npx prisma migrate deploy', description: 'Apply the refund idempotency migration to the dev database' }
+              : { command: 'rm -rf build' },
+            locations: [{ path: SCRIPT === 'demo' ? '/sandbox/workspace/payments-api/prisma' : '/tmp/project/build' }]
           },
           options: [
             { optionId: 'rej', name: 'Reject', kind: 'reject_once' },
@@ -164,6 +200,19 @@ const streaming = new Map();
 
 const WORDS = 'the board streams each chunk of this reply to every browser that is watching it'.split(' ');
 
+/** A demo turn's lines: what a coding agent says while it works through a change. */
+const DEMO_THOUGHT = 'The cart store is read in eleven components. Converting the selectors first keeps every render path typed while the actions move over. ';
+const DEMO_REPLY = [
+  'Moving the cart slice over to a Zustand store. The selectors stay name-compatible, so the components change one import each. ',
+  'Next the async thunks: `addItem` and `applyCoupon` become plain store actions that call the API client directly. ',
+  'Last, the persistence middleware: the old redux-persist key is read once on boot so nobody loses a cart on deploy. '
+];
+const DEMO_TOOLS = [
+  { title: 'read', kind: 'read', rawInput: { filePath: '/sandbox/workspace/storefront-web/src/store/cartSlice.ts' } },
+  { title: 'edit', kind: 'edit', rawInput: { filePath: '/sandbox/workspace/storefront-web/src/store/cart.ts' } },
+  { title: 'bash', kind: 'execute', rawInput: { command: 'pnpm vitest run src/store', description: 'Run the store tests' } }
+];
+
 function words(n, seed) {
   let out = '';
   for (let i = 0; i < n; i++) out += `${WORDS[(i + seed) % WORDS.length]} `;
@@ -181,27 +230,30 @@ async function streamTurn(promptId, sid) {
   const update = (u) => write({ jsonrpc: '2.0', method: 'session/update', params: { sessionId: sid, update: u } });
   const stamp = `${sid}_${promptId}`;
 
+  const demo = SCRIPT === 'demo';
+  const piece = (text, i, n) => text.split(' ').slice(Math.floor((i * text.split(' ').length) / n), Math.floor(((i + 1) * text.split(' ').length) / n)).join(' ') + ' ';
   for (let i = 0; i < 5 && !turn.cancelled; i++) {
-    update({ sessionUpdate: 'agent_thought_chunk', messageId: `${stamp}_t`, content: { type: 'text', text: words(8, i) } });
+    update({ sessionUpdate: 'agent_thought_chunk', messageId: `${stamp}_t`, content: { type: 'text', text: demo ? piece(DEMO_THOUGHT, i, 5) : words(8, i) } });
     await sleep(pause);
   }
   for (let r = 0; r < rounds && !turn.cancelled; r++) {
     const messageId = `${stamp}_m${r}`;
     for (let c = 0; c < chunks && !turn.cancelled; c++) {
-      update({ sessionUpdate: 'agent_message_chunk', messageId, content: { type: 'text', text: words(6, c) } });
+      const text = demo ? piece(DEMO_REPLY[r % DEMO_REPLY.length], c, chunks) : words(6, c);
+      update({ sessionUpdate: 'agent_message_chunk', messageId, content: { type: 'text', text } });
       await sleep(pause);
     }
     const toolCallId = `${stamp}_tool${r}`;
-    update({
-      sessionUpdate: 'tool_call', toolCallId, title: 'bash', kind: 'execute', status: 'pending',
-      rawInput: { command: `npm test -- --grep round${r}`, description: words(10, r) }
-    });
+    const tool = demo
+      ? DEMO_TOOLS[r % DEMO_TOOLS.length]
+      : { title: 'bash', kind: 'execute', rawInput: { command: `npm test -- --grep round${r}`, description: words(10, r) } };
+    update({ sessionUpdate: 'tool_call', toolCallId, ...tool, status: 'pending' });
     await sleep(pause);
     update({ sessionUpdate: 'tool_call_update', toolCallId, status: 'in_progress' });
     await sleep(pause);
     update({
       sessionUpdate: 'tool_call_update', toolCallId, status: 'completed',
-      content: [{ type: 'content', content: { type: 'text', text: words(400, r) } }]
+      content: [{ type: 'content', content: { type: 'text', text: demo ? '✓ src/store/cart.test.ts (14 tests) 212ms' : words(400, r) } }]
     });
     await sleep(pause);
   }
