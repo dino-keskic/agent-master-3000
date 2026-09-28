@@ -10,6 +10,8 @@ streams the transcript live, puts permission prompts and agent questions on the
 card, tracks what every session costs, and can import sessions you started in
 the OpenCode CLI. It runs on your machine, against your own OpenCode install.
 
+![The board](docs/screenshots/board.png)
+
 ## Requirements
 
 - **Node.js 22.13 or newer.** The board reads OpenCode's SQLite database with
@@ -123,6 +125,31 @@ npm start                          # the same app as above, on 3737
 - **Attachments, dictation, notifications.** Images on prompts; local voice
   dictation (Parakeet via `uv` on Apple Silicon, or `whisper-server`); browser
   notifications when a task you are not looking at needs you or finishes.
+
+## Screenshots
+
+The data below is invented: a seeded demo board from the Docker sandbox
+(`npm run sandbox:demo`), with its costs worked out by the board from generated
+OpenCode sessions.
+
+**A task's session.** It shows the transcript and tool calls, forks, and the
+session's cost and context.
+
+![Task session](docs/screenshots/drawer-108.png)
+
+**Changes.** It shows the uncommitted diff of the task's worktree, and you can
+comment on any line.
+
+![Changes](docs/screenshots/changes-108.png)
+
+**Permissions.** An agent waiting on a command shows up on the card and in the
+drawer.
+
+![Permission prompt](docs/screenshots/permission-119.png)
+
+**Spend.** The report breaks spending down by day, model, project and agent.
+
+![Spend report](docs/screenshots/spend.png)
 
 ## Configuration
 
