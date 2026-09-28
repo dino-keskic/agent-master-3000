@@ -26,7 +26,7 @@ Download a release tarball from
 it globally:
 
 ```bash
-npm install -g https://github.com/dino-keskic/agent-master-3000/releases/download/vX.Y.Z/agent-master-3000-X.Y.Z.tgz
+npm install -g https://github.com/dino-keskic/agent-master-3000/releases/download/v2.0.0/agent-master-3000-2.0.0.tgz
 ```
 
 Every release also carries a `SHA256SUMS.txt`. To check a downloaded tarball:
