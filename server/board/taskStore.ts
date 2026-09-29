@@ -283,6 +283,10 @@ export class TaskStore extends BoardDocument {
    * takes it only while its own title is still the one derived from the
    * prompt. Once the task is named — by the user, or by its first session —
    * a fresh session taking over as main must not rename it.
+   *
+   * Leaves `updatedAt` alone: every board load runs this over every task, and
+   * copying a title across is bookkeeping, not something that happened to the
+   * task. Bumping it here filled "Updated today" with untouched tasks.
    */
   public adoptSessionTitle(taskId: string, sessionId: string, title: string): BoardTask | null {
     const trimmed = title.replace(/\s+/g, ' ').trim();
@@ -295,7 +299,6 @@ export class TaskStore extends BoardDocument {
     let changed = false;
     if (link.title !== trimmed) {
       link.title = trimmed;
-      link.updatedAt = Date.now();
       changed = true;
     }
     if (sessionId === task.sessionId && isAutoTaskTitle(task) && task.title !== trimmed) {
@@ -303,7 +306,6 @@ export class TaskStore extends BoardDocument {
       changed = true;
     }
     if (!changed) return null;
-    task.updatedAt = Date.now();
     this.save();
     return task;
   }

@@ -47,8 +47,12 @@ export function trimTaskLogs(task: BoardTask): boolean {
   return changed;
 }
 
-/** The card's and the session's "last thing said" previews. */
-function updatePreviews(task: BoardTask, log: TaskLogItem): void {
+/**
+ * The card's and the session's "last thing said" previews. `at` is when the
+ * session last did something: now for a live line, the line's own time for a
+ * replayed one.
+ */
+function updatePreviews(task: BoardTask, log: TaskLogItem, at: number): void {
   if (log.type === 'agent_say' && log.text) {
     task.lastMessage = clipText(log.text);
   }
@@ -58,7 +62,7 @@ function updatePreviews(task: BoardTask, log: TaskLogItem): void {
   if (!log.sessionId || !task.sessions) return;
   const link = task.sessions.find((s) => s.sessionId === log.sessionId);
   if (!link) return;
-  link.updatedAt = Date.now();
+  link.updatedAt = Math.max(link.updatedAt || 0, at);
   if (log.type === 'agent_say' && log.text) {
     link.lastMessage = clipText(log.text);
   }
@@ -87,7 +91,7 @@ export function applyLogToTask(task: BoardTask, logItem: TaskLogItem): void {
     task.logs.splice(0, task.logs.length - MAX_TASK_LOGS);
   }
 
-  updatePreviews(task, logItem);
+  updatePreviews(task, logItem, Date.now());
   task.updatedAt = Date.now();
 }
 
@@ -120,7 +124,7 @@ export function mergeLogsIntoTask(task: BoardTask, incoming: TaskLogItem[]): Tas
       used.add(task.logs.length - 1);
       changed.push(clipped);
     }
-    updatePreviews(task, clipped);
+    updatePreviews(task, clipped, clipped.timestamp || 0);
   }
 
   if (changed.length > 0) {
@@ -128,7 +132,11 @@ export function mergeLogsIntoTask(task: BoardTask, incoming: TaskLogItem[]): Tas
     if (task.logs.length > MAX_TASK_LOGS) {
       task.logs.splice(0, task.logs.length - MAX_TASK_LOGS);
     }
-    task.updatedAt = Date.now();
+    // Dated by the activity, not by the read. Opening a task replays its whole
+    // history, and rows the log cap trimmed come back as "changed" every time;
+    // stamping now would put every task anyone looks at under "Updated today".
+    const newest = Math.max(...changed.map((log) => log.timestamp || 0));
+    if (newest > (task.updatedAt || 0)) task.updatedAt = newest;
   }
   return changed;
 }

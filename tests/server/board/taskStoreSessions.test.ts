@@ -300,6 +300,22 @@ test('an OpenCode title replaces a prompt title, but never a user edit', () => {
   assert.strictEqual(ignored?.sessions?.[0]?.title, 'Something else');
 });
 
+test('adopting a session title is not an update to the task', () => {
+  const task = store.createTask({ title: 'Please fix the login redirect', prompt: 'Please fix the login redirect' });
+  store.updateTask(task.id, { sessionId: 'ses_quiet' });
+  store.linkSession(task.id, { sessionId: 'ses_quiet', title: 'Please fix the login redirect', kind: 'main', origin: 'initial', primary: true });
+  const stored = store.getTask(task.id)!;
+  stored.updatedAt = 1_000;
+  stored.sessions![0]!.updatedAt = 1_000;
+
+  // Every board load copies OpenCode's titles across; that alone must not put
+  // the task under "Updated today".
+  const adopted = store.adoptSessionTitle(task.id, 'ses_quiet', 'Fix login redirect');
+  assert.strictEqual(adopted?.title, 'Fix login redirect');
+  assert.strictEqual(adopted?.updatedAt, 1_000);
+  assert.strictEqual(adopted?.sessions?.[0]?.updatedAt, 1_000);
+});
+
 test('a new main session does not rename a task its first session already named', () => {
   const task = store.createTask({ title: 'Tidy the auth middleware', prompt: 'Tidy the auth middleware' });
   store.updateTask(task.id, { sessionId: 'ses_first' });
