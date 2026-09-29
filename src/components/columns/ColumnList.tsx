@@ -31,7 +31,7 @@ export const ColumnList: React.FC<ColumnListProps> = ({ columns, selectedId, tas
             >
               <Group justify="space-between" wrap="nowrap" gap={6}>
                 <div className="min-w-0">
-                  <Text size="sm" className={`truncate ${active ? 'text-ink' : 'text-slate-300'}`}>
+                  <Text size="sm" className={`truncate ${active ? 'text-ink' : 'text-ink-2'}`}>
                     {column.title || 'Untitled'}
                   </Text>
                   <Text size="10px" c="dimmed" className="font-mono">

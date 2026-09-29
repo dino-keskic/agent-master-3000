@@ -77,7 +77,7 @@ export const SessionResultList: React.FC<SessionResultListProps> = ({
           <Paper p="md" radius="xl" className="bg-surface-2 border border-line">
             <History className="w-8 h-8 text-ink-3" />
           </Paper>
-          <Text size="sm" fw={600} className="text-slate-300">
+          <Text size="sm" fw={600} className="text-ink-2">
             No sessions found
           </Text>
           <Text size="xs" c="dimmed" className="max-w-[360px] text-center font-mono">

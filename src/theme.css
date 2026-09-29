@@ -363,10 +363,14 @@
  *
  * Only the surface and text roles are remapped here. The accent is the `accent`
  * palette `src/main.tsx` gives Mantine, the same blue as `--c-accent`.
+ *
+ * Every block in this section is `html:root[data-mantine-color-scheme]`:
+ * MantineProvider injects its own values for all of these on
+ * `:root[data-mantine-color-scheme]` (and the `dark` scale on `:root`) in a
+ * style tag that loads after this file, and a plain `:root` or attribute
+ * selector loses to it — silently, with Mantine's stock greys painted instead.
  */
-:root,
-[data-mantine-color-scheme='dark'],
-[data-mantine-color-scheme='light'] {
+html:root[data-mantine-color-scheme] {
     --mantine-color-body: rgb(var(--c-canvas));
     --mantine-color-text: rgb(var(--c-ink));
     --mantine-color-dimmed: rgb(var(--c-ink-3));
@@ -383,7 +387,7 @@
  * input borders, hover states. Lightest (0) to darkest (9), same direction the
  * slate ramp runs.
  */
-[data-mantine-color-scheme='dark'] {
+html:root[data-mantine-color-scheme='dark'] {
     --mantine-color-dark-0: rgb(var(--c-ink-2));
     --mantine-color-dark-1: rgb(var(--c-ink-2));
     --mantine-color-dark-2: rgb(var(--c-ink-3));
@@ -404,10 +408,6 @@
  * Mantine's `gray` variants — the light/subtle ActionIcons, grey badges and
  * buttons — pointed at the same surfaces as the Tailwind side, so a Mantine
  * control and a `ui/Button` next to it read as one kind of thing.
- *
- * `html:root` because MantineProvider injects its own values for these on
- * `:root[data-mantine-color-scheme]` in a style tag that loads after this file;
- * the extra element selector is what outranks it.
  */
 html:root[data-mantine-color-scheme] {
     --mantine-color-gray-light: rgb(var(--c-surface-2));

@@ -38,7 +38,7 @@ export const MentionContextBar: React.FC<MentionContextBarProps> = ({
           ) : (
             <GitPullRequest className="w-3 h-3 text-teal-300 shrink-0" />
           )}
-          <Text size="10px" className="font-mono text-slate-300 shrink-0" title={item.title}>
+          <Text size="10px" className="font-mono text-ink-2 shrink-0" title={item.title}>
             {item.id}
           </Text>
           {extrasForKind(item.kind).map((extra) => {
@@ -60,7 +60,7 @@ export const MentionContextBar: React.FC<MentionContextBarProps> = ({
                 className={`flex items-center gap-1 rounded-full border px-1.5 py-[1px] text-[10px] font-mono transition-colors ${
                   on
                     ? 'border-accent/70 bg-acc-bg text-ink'
-                    : 'border-line bg-canvas/40 text-ink-3 hover:border-line-strong hover:text-slate-300'
+                    : 'border-line bg-canvas/40 text-ink-3 hover:border-line-strong hover:text-ink-2'
                 }`}
               >
                 {busy ? (

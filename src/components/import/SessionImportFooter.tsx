@@ -32,7 +32,7 @@ export const SessionImportFooter: React.FC<SessionImportFooterProps> = ({
 }) => (
   <Group justify="space-between" align="center" wrap="nowrap" className="pt-1">
     <Text size="xs" c="dimmed" className="font-mono text-[12px]">
-      Showing <span className="text-slate-200 font-bold">{shown}</span> of {total} session{total === 1 ? '' : 's'}
+      Showing <span className="text-ink font-bold">{shown}</span> of {total} session{total === 1 ? '' : 's'}
       {projectCount > 0 ? ` across ${projectCount} project${projectCount === 1 ? '' : 's'}` : ''}
     </Text>
 

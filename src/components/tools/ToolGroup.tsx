@@ -46,7 +46,7 @@ const SectionHeader: React.FC<{
 }> = ({ icon, title, subtitle, right }) => (
   <Group gap={6} wrap="nowrap" px="xs" py={6} className="bg-slate-900/60">
     <span className="text-ink-3 shrink-0">{icon}</span>
-    <Text size="xs" className="font-mono text-slate-200 truncate">
+    <Text size="xs" className="font-mono text-ink truncate">
       {title}
     </Text>
     {subtitle && (

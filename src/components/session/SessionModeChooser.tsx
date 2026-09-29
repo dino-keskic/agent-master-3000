@@ -52,9 +52,9 @@ export function SessionModeChooser({
           {MODE_COPY[mode].help}
         </Text>
         {mode === 'fork' && sourceTitle && (
-          <Text size="xs" className="text-slate-300 pt-1">
+          <Text size="xs" className="text-ink-2 pt-1">
             Copying <span className="font-semibold text-acc-fg">{sourceTitle}</span> on{' '}
-            <span className="font-semibold text-slate-200">{taskTitle}</span>
+            <span className="font-semibold text-ink">{taskTitle}</span>
           </Text>
         )}
       </Paper>

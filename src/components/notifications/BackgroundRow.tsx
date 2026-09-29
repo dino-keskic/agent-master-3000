@@ -50,7 +50,7 @@ export const BackgroundRow: React.FC<{
         </Badge>
       </Group>
       {summary && (
-        <Text size="11px" className="font-mono text-slate-300 truncate">
+        <Text size="11px" className="font-mono text-ink-2 truncate">
           {summary}
         </Text>
       )}

@@ -43,7 +43,7 @@ export const ToolRow: React.FC<{
     </Tooltip>
     <Text
       size="xs"
-      className={`font-mono truncate ${tool.enabled ? 'text-slate-200' : 'text-ink-4 line-through'}`}
+      className={`font-mono truncate ${tool.enabled ? 'text-ink' : 'text-ink-4 line-through'}`}
       title={tool.name}
     >
       {tool.name}
