@@ -37,7 +37,6 @@ test('OpenCode task hydration', async (t) => {
       [{ name: 'web-app', path: live }]
     );
     assert.strictEqual(liveTask.cwdDirty, true);
-    assert.deepStrictEqual(liveTask.cwdDirtyFiles, ['lib/foo.dart']);
     assert.strictEqual(liveTask.worktreeLabel, 'feature-x');
     assert.strictEqual(liveTask.projectName, 'web-app');
     assert.strictEqual(liveTask.tokenCount, 12_000);

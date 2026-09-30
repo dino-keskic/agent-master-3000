@@ -46,6 +46,8 @@ interface TaskPanelProps {
   onStopSession: (taskId: string, sessionId: string) => void | Promise<void>;
   onRespond: (taskId: string, answer: PermissionAnswer) => void | Promise<void>;
   onMoveTask: (taskId: string, columnId: string) => void | Promise<void>;
+  /** How many files the task has changed, for the Changes tab's badge. */
+  changedFiles: number;
   /** Fold a server snapshot into board state (comment writes, etc.). */
   onApplyTask?: (task: BoardTask) => void;
 }
@@ -91,6 +93,7 @@ export const TaskPanel: React.FC<TaskPanelProps> = ({
   onStopSession,
   onRespond,
   onMoveTask,
+  changedFiles,
   onApplyTask
 }) => {
   const focusHandled = useCallback(() => onFocusHandled(task.id), [onFocusHandled, task.id]);
@@ -224,6 +227,7 @@ export const TaskPanel: React.FC<TaskPanelProps> = ({
           state={state}
           actions={actions}
           primaryEditor={primaryEditor}
+          changedFiles={changedFiles}
           columns={columns}
           models={models}
           agents={agents}

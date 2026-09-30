@@ -10,12 +10,11 @@ import { TaskLinksSection } from './TaskLinksSection';
 import { SessionList } from './SessionList';
 import { LocationSection } from './LocationSection';
 import { UsageSection } from './UsageSection';
-import { ChangesSection } from './ChangesSection';
 import { useTaskSpend } from './useTaskSpend';
 
 /**
  * The column beside the conversation: the task's sessions, what they have cost,
- * what the task has changed, what it is linked to and where it runs.
+ * what it is linked to and where it runs. What it changed is the Changes tab's.
  *
  * Each block is its own component; what is left here is the order they come in
  * and the handful of numbers that describe the session on screen rather than
@@ -111,8 +110,6 @@ export const TaskSidebar: React.FC<TaskSidebarProps> = ({
           breakdown={spend.breakdown}
           loading={spend.loading}
         />
-
-        <ChangesSection task={task} />
 
         <TaskLinksSection task={task} onTaskUpdated={onTaskUpdated} />
 

@@ -35,6 +35,7 @@ interface DrawerMainPaneProps {
   state: DrawerState;
   actions: DrawerActions;
   primaryEditor?: EditorOption;
+  changedFiles: number;
   columns: BoardColumn[];
   models: OpenCodeModel[];
   agents: OpenCodeAgent[];
@@ -57,6 +58,7 @@ export const DrawerMainPane: React.FC<DrawerMainPaneProps> = ({
   state,
   actions,
   primaryEditor,
+  changedFiles,
   columns,
   models,
   agents,
@@ -86,6 +88,7 @@ export const DrawerMainPane: React.FC<DrawerMainPaneProps> = ({
       onTabChange={state.setTab}
       actions={actions}
       primaryEditor={primaryEditor}
+      changedFiles={changedFiles}
       onApplyTask={onApplyTask}
     />
 

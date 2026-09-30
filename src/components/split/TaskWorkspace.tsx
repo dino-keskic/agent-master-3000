@@ -6,6 +6,7 @@ import { OpenTasks } from '../../app/useOpenTasks';
 import { TaskActions } from '../../app/useTaskActions';
 import { OpenCodeAgent, OpenCodeModel } from '../../../shared/sessions/types';
 import { BoardColumn, BoardTask, ProjectFolder } from '../../../shared/types';
+import { TaskChangeSummary, changedFileCount } from '../../../shared/git/changeSummary';
 import { SessionStateDot } from '../session/SessionStateDot';
 import { TaskPanel } from '../drawer/TaskPanel';
 
@@ -27,6 +28,8 @@ interface TaskWorkspaceProps {
   agents: OpenCodeAgent[];
   projects: ProjectFolder[];
   actions: TaskActions;
+  /** The board's live change summaries, keyed by task id. */
+  changes: Record<string, TaskChangeSummary>;
   onApplyTask: (task: BoardTask) => void;
 }
 
@@ -70,6 +73,7 @@ export const TaskWorkspace: React.FC<TaskWorkspaceProps> = ({
   agents,
   projects,
   actions,
+  changes,
   onApplyTask
 }) => {
   const [expanded, toggleExpanded] = useExpandedPreference();
@@ -129,6 +133,7 @@ export const TaskWorkspace: React.FC<TaskWorkspaceProps> = ({
               onStopSession={actions.stopSession}
               onRespond={actions.respond}
               onMoveTask={actions.moveTask}
+              changedFiles={changedFileCount(changes[task.id], task.changeSummary)}
               onApplyTask={onApplyTask}
             />
           </div>

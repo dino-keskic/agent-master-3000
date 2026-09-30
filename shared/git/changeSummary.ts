@@ -231,6 +231,19 @@ export function summarizeChanges(summary: TaskChangeSummary): ChangeDigest {
 }
 
 /**
+ * How many files the Changes tab's badge counts: the live summary the board
+ * fetched, or, before that has arrived (or for a task it did not fetch), what
+ * was recorded when the last turn ended.
+ */
+export function changedFileCount(
+  summary: TaskChangeSummary | undefined,
+  recorded: { files: number } | undefined
+): number {
+  if (summary) return summarizeChanges(summary).files;
+  return recorded?.files || 0;
+}
+
+/**
  * `+128 −34 · 6 files` — the compact stat line. Counts of new and deleted
  * files ride in the row's tooltip instead: the strip is narrow, and the totals
  * are what triage reads.

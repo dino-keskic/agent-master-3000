@@ -35,6 +35,8 @@ interface DrawerTabsProps {
   onTabChange: (tab: string) => void;
   actions: DrawerActions;
   primaryEditor?: EditorOption;
+  /** Files the task has changed, counted the way the board's cards count them. */
+  changedFiles: number;
   onApplyTask?: (task: BoardTask) => void;
 }
 
@@ -50,6 +52,7 @@ export const DrawerTabs: React.FC<DrawerTabsProps> = ({
   onTabChange,
   actions,
   primaryEditor,
+  changedFiles,
   onApplyTask
 }) => {
   // One key for every panel: switching session replaces the view rather than
@@ -66,7 +69,7 @@ export const DrawerTabs: React.FC<DrawerTabsProps> = ({
       <DrawerTabList
         sessionCount={view.sessions.length}
         sessionLabel={sessionTabLabel(view)}
-        changedFiles={task.changeSummary?.files || 0}
+        changedFiles={changedFiles}
         openCommentCount={openChangelogComments(task.changelogComments).length}
       />
 

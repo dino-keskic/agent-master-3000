@@ -1,5 +1,6 @@
 import React from 'react';
 import { BoardColumn, BoardTask } from '../../shared/types';
+import { TaskChangeSummary } from '../../shared/git/changeSummary';
 import { BoardData } from './useBoardData';
 import { BoardNotifications } from './notifications/useBoardNotifications';
 import { BoardOverlayState } from './useBoardOverlays';
@@ -32,6 +33,8 @@ interface BoardOverlaysProps {
   setup: Setup;
   /** How many tasks each column holds, so the editor can warn before a delete. */
   columnTaskCounts: Record<string, number>;
+  /** What each task on the board has changed on disk, for the Changes tab's badge. */
+  changes: Record<string, TaskChangeSummary>;
   /** A session just imported: put it on the board and open it. */
   onTaskArrived: (task: BoardTask) => void;
 }
@@ -45,6 +48,7 @@ export const BoardOverlays: React.FC<BoardOverlaysProps> = ({
   boardSettings,
   setup,
   columnTaskCounts,
+  changes,
   onTaskArrived
 }) => {
   const { settings, projects, models, agents } = board;
@@ -124,6 +128,7 @@ export const BoardOverlays: React.FC<BoardOverlaysProps> = ({
         agents={agents}
         projects={projects}
         actions={actions}
+        changes={changes}
         onApplyTask={board.applySnapshot}
       />
     </>

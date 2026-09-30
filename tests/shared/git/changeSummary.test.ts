@@ -4,6 +4,7 @@ import {
   ChangeFile,
   TaskChangeSummary,
   changeDetailLabel,
+  changedFileCount,
   changeScopeLabel,
   filesForCard,
   flagsForPath,
@@ -264,4 +265,17 @@ describe('Summary merging', () => {
     assert.deepStrictEqual(Object.keys(pruned), ['TASK-1']);
     assert.strictEqual(pruned['TASK-1'], held['TASK-1']);
   });
+});
+
+test('changedFileCount prefers the live summary over the one recorded at turn end', () => {
+  const live: TaskChangeSummary = {
+    scope: 'uncommitted',
+    workspaces: [
+      { cwd: '/a', label: 'a', stat: { files: 2, additions: 3, deletions: 1 }, files: [], truncated: false },
+      { cwd: '/b', label: 'b', stat: { files: 9, additions: 0, deletions: 0 }, files: [], truncated: false, error: 'gone' }
+    ]
+  };
+  assert.equal(changedFileCount(live, { files: 7 }), 2);
+  assert.equal(changedFileCount(undefined, { files: 7 }), 7);
+  assert.equal(changedFileCount(undefined, undefined), 0);
 });

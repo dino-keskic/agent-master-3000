@@ -193,6 +193,7 @@ export const App: React.FC = () => {
         boardSettings={boardSettings}
         setup={setup}
         columnTaskCounts={columnTaskCounts}
+        changes={view.changes}
         onTaskArrived={showArrivedTask}
       />
     </div>

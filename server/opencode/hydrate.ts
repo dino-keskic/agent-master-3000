@@ -83,7 +83,6 @@ export function overlayLiveStatus(
     changeSummary: session?.changeSummary || task.changeSummary,
     cwdExists: probe ? probe.exists : task.cwdExists,
     cwdDirty: dirtyFiles.length > 0,
-    cwdDirtyFiles: dirtyFiles.length > 0 ? dirtyFiles : undefined,
     worktreeLabel: label,
     isWorktree: !!label,
     projectName

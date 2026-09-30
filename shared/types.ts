@@ -471,8 +471,6 @@ export interface BoardTask {
   contextLimit?: number;
   cwdExists?: boolean;
   cwdDirty?: boolean;
-  /** Live uncommitted paths in a worktree cwd. */
-  cwdDirtyFiles?: string[];
   worktreeLabel?: string;
   isWorktree?: boolean;
   projectName?: string;
