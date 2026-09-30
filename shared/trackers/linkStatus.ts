@@ -176,6 +176,10 @@ export interface LinkStatusPatch {
 /**
  * Writes a refresh onto the task. `visible` is false when only the timestamp
  * moved, so the board can remember that it asked without repainting every card.
+ *
+ * Leaves `task.updatedAt` alone: this runs every minute a browser is open, and
+ * asking GitHub or Jira how a link is doing is not something that happened to
+ * the task. Stamping it put every linked task in "Updated today".
  */
 export function applyLinkStatuses(task: BoardTask, patches: LinkStatusPatch[]): { visible: boolean; touched: boolean } {
   let visible = false;
@@ -194,6 +198,5 @@ export function applyLinkStatuses(task: BoardTask, patches: LinkStatusPatch[]): 
       touched = true;
     }
   }
-  if (touched) task.updatedAt = patches[0]?.status.checkedAt ?? Date.now();
   return { visible, touched };
 }

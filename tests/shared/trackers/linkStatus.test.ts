@@ -122,3 +122,11 @@ test('applyLinkStatuses keeps a user title and skips a repaint when nothing move
   assert.equal(seen.visible, true);
   assert.equal(stored.status?.state, 'merged');
 });
+
+test('applyLinkStatuses never dates the task, so a status poll cannot fill "Updated today"', () => {
+  const url = 'https://github.com/acme/web/pull/9';
+  const task = { links: [link(url, at('open', 'Open'))], updatedAt: 1 } as BoardTask;
+  applyLinkStatuses(task, [{ url, status: at('open', 'Open', 5_000) }]);
+  applyLinkStatuses(task, [{ url, status: at('merged', 'Merged', 6_000) }]);
+  assert.equal(task.updatedAt, 1);
+});
