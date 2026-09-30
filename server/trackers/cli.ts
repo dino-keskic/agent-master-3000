@@ -22,12 +22,25 @@ const SEARCH_TIMEOUT_MS = 12_000;
  * environment deliberately put ahead of it (see `tests/fixtures/cli`).
  */
 export async function runJson(command: string, args: string[]): Promise<unknown> {
-  const { stdout } = await execFileAsync(command, args, {
-    timeout: SEARCH_TIMEOUT_MS,
-    maxBuffer: 4_000_000,
-    env: { ...process.env, PATH: `${process.env.PATH || ''}:/opt/homebrew/bin:/usr/local/bin` }
-  });
-  const text = stdout.trim();
+  const text = (await runText(command, args)).trim();
   if (!text) return null;
   return JSON.parse(text);
+}
+
+/**
+ * The raw output, for the one call that is not JSON: a failed CI log. Those
+ * run to megabytes and take `gh` a while to stitch together, hence the
+ * bigger buffer and the longer leash when asked for.
+ */
+export async function runText(
+  command: string,
+  args: string[],
+  opts: { timeoutMs?: number; maxBuffer?: number } = {}
+): Promise<string> {
+  const { stdout } = await execFileAsync(command, args, {
+    timeout: opts.timeoutMs ?? SEARCH_TIMEOUT_MS,
+    maxBuffer: opts.maxBuffer ?? 4_000_000,
+    env: { ...process.env, PATH: `${process.env.PATH || ''}:/opt/homebrew/bin:/usr/local/bin` }
+  });
+  return stdout;
 }

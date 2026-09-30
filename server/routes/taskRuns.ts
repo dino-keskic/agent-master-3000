@@ -4,6 +4,7 @@ import { resolveProjectRunPrompt } from '../../shared/board/projectColumnPrompts
 import { resolveImages } from '../board/attachments.js';
 import { IdParams, route } from '../http/app.js';
 import { taskStore } from '../board/taskStore.js';
+import { liftPromptLinks } from '../trackers/promptLinks.js';
 import { RouteContext } from './context.js';
 
 /**
@@ -62,6 +63,7 @@ export function registerTaskRunRoutes(app: Express, { publisher, orchestrator, t
     const task = taskStore.getTask(id);
     if (!task) return res.status(404).json({ error: 'Task not found' });
 
+    liftPromptLinks(id, prompt, publisher);
     void orchestrator.start(id, prompt || '', { images: attached });
     res.json(publisher.present(taskStore.getTask(id) || task));
   }));

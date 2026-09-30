@@ -25,6 +25,7 @@ const KIND_LABEL: Record<TaskLinkKind, string> = {
   jira: 'Jira',
   pr: 'Pull request',
   issue: 'Issue',
+  run: 'Actions run',
   commit: 'Commit',
   doc: 'Doc',
   link: 'Link'
@@ -80,6 +81,7 @@ export function httpUrl(raw: unknown): string | undefined {
 }
 
 const GITHUB_NUMBERED =/^https?:\/\/(?:www\.)?github\.com\/([^/]+\/[^/]+)\/(pull|issues)\/(\d+)/i;
+const GITHUB_RUN = /^https?:\/\/(?:www\.)?github\.com\/([^/]+\/[^/]+)\/actions\/runs\/(\d+)(?:\/(?:job|jobs|attempts\/\d+\/job)\/(\d+))?/i;
 const GITHUB_COMMIT = /^https?:\/\/(?:www\.)?github\.com\/([^/]+\/[^/]+)\/commit\/([0-9a-f]{7,40})/i;
 const JIRA_BROWSE = /\/browse\/([A-Z][A-Z0-9_]+-\d+)/;
 const JIRA_SELECTED = /[?&](?:selectedIssue|issueKey)=([A-Z][A-Z0-9_]+-\d+)/;
@@ -98,6 +100,9 @@ export function classifyLink(url: string): { kind: TaskLinkKind; ref?: string } 
       ref: `${numbered[1]}#${numbered[3]}`
     };
   }
+
+  const run = GITHUB_RUN.exec(url);
+  if (run) return { kind: 'run', ref: `${run[1]} run ${run[2]}${run[3] ? ` job ${run[3]}` : ''}` };
 
   const commit = GITHUB_COMMIT.exec(url);
   if (commit) return { kind: 'commit', ref: `${commit[1]}@${commit[2]!.slice(0, 7)}` };
@@ -220,14 +225,17 @@ export const MARKDOWN_LINK = /\[([^\]\n]*)\]\((<[^>\n]+>|[^)\s]+)(?:\s+"[^"]*")?
 export const BARE_URL = /\bhttps?:\/\/[^\s<>()[\]{}"'`]+/g;
 
 /**
- * Tickets and PRs written into a piece of text — what the composer's mention
- * picker leaves behind as a Markdown link, and what a pasted URL looks like.
+ * Every link written into a piece of text: `[text](url)` keeps its text as the
+ * title, a bare URL gets the default one. Deduped by canonical URL, Markdown
+ * links first so a titled copy wins over a bare repeat of the same page.
  *
- * Only tracker kinds are lifted. Every other URL in a prompt is a reference the
- * agent should read, not a property of the task, and hoovering those up would
- * turn the links panel into the prompt's bibliography.
+ * Every URL, not only tickets: a link someone pastes into a prompt is almost
+ * always something the work is about — the failing run, the Slack thread, the
+ * spec — and it is on the task where the next session can find it. Blocks the
+ * composer fetched for a ticket are not prompt text; `linksInPrompt` strips
+ * them before this sees the prompt.
  */
-export function extractTrackerLinks(text: string): NewTaskLink[] {
+export function extractLinks(text: string): NewTaskLink[] {
   if (!text) return [];
   const found: NewTaskLink[] = [];
   const seen = new Set<string>();
@@ -235,9 +243,8 @@ export function extractTrackerLinks(text: string): NewTaskLink[] {
   const take = (raw: string, title?: string) => {
     const url = normalizeLinkUrl(raw);
     if (!url || seen.has(url)) return;
-    if (!TRACKER_KINDS.includes(classifyLink(url).kind)) return;
     seen.add(url);
-    found.push({ url, title });
+    found.push({ url, title: title?.trim() || undefined });
   };
 
   for (const match of text.matchAll(MARKDOWN_LINK)) {
@@ -247,6 +254,11 @@ export function extractTrackerLinks(text: string): NewTaskLink[] {
     take(match[0]);
   }
   return found;
+}
+
+/** Only the tickets, issues and PRs in a piece of text — what names the work. */
+export function extractTrackerLinks(text: string): NewTaskLink[] {
+  return extractLinks(text).filter((link) => TRACKER_KINDS.includes(classifyLink(link.url).kind));
 }
 
 /**

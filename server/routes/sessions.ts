@@ -12,6 +12,7 @@ import { activeSessionIds } from '../opencode/liveTurns.js';
 import { markRunningSubagents } from '../../shared/sessions/subagents.js';
 import { resolveImages } from '../board/attachments.js';
 import { taskStore } from '../board/taskStore.js';
+import { liftPromptLinks } from '../trackers/promptLinks.js';
 import { RouteContext } from './context.js';
 import { errorMessage } from '../../shared/errors.js';
 
@@ -186,6 +187,7 @@ export function registerSessionRoutes(app: Express, ctx: RouteContext): void {
     if (!task) return res.status(404).json({ error: 'Task not found' });
 
     taskStore.switchActiveSession(id, sessionId);
+    liftPromptLinks(id, prompt, publisher);
     // `primary` is pinned to what the session already is: replying in a fork must
     // not quietly redirect the task's follow-ups and column runs into it.
     void orchestrator.start(id, prompt?.trim() || '', {

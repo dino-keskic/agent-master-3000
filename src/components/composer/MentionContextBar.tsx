@@ -1,6 +1,6 @@
 import React from 'react';
 import { Group, Loader, Text } from '@mantine/core';
-import { Check, GitPullRequest, Plus, Ticket } from 'lucide-react';
+import { Check, GitPullRequest, PlayCircle, Plus, Ticket } from 'lucide-react';
 import { MentionExtra, MentionItem, extraKey, extrasForKind, mentionRef } from '../../../shared/trackers/mentions';
 
 interface MentionContextBarProps {
@@ -14,9 +14,10 @@ interface MentionContextBarProps {
 }
 
 /**
- * What each linked ticket or PR is sending with the turn, and what else it
- * could. The description arrives on the pick; comment threads and CI output are
- * things you sometimes want and mostly do not, so they wait behind a button.
+ * What each linked ticket, PR or Actions run is sending with the turn, and
+ * what else it could. The description (a run's summary) arrives on the pick;
+ * comment threads, CI output, every job and the failed logs are things you
+ * sometimes want and mostly do not, so they wait behind a button.
  *
  * None of it is ever written into the textarea — that keeps the link, which is
  * the whole point. These chips are how you see what is riding along with it.
@@ -35,6 +36,8 @@ export const MentionContextBar: React.FC<MentionContextBarProps> = ({
         <Group key={mentionRef(item)} gap={4} wrap="nowrap" className="min-w-0">
           {item.kind === 'jira' ? (
             <Ticket className="w-3 h-3 text-accent shrink-0" />
+          ) : item.kind === 'run' ? (
+            <PlayCircle className="w-3 h-3 text-teal-300 shrink-0" />
           ) : (
             <GitPullRequest className="w-3 h-3 text-teal-300 shrink-0" />
           )}

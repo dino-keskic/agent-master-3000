@@ -1,5 +1,5 @@
 import { Express, Request, Response } from 'express';
-import { MENTION_EXTRAS, MentionItem } from '../../shared/trackers/mentions.js';
+import { MENTION_EXTRAS, MentionItem, mentionNeedsUrl, parseMentionKind } from '../../shared/trackers/mentions.js';
 import { listAgentCommands } from '../opencode/commands.js';
 import { boardRoots } from '../board/queries.js';
 import { searchFiles } from '../git/files.js';
@@ -15,18 +15,18 @@ export function registerMentionRoutes(app: Express): void {
   }));
 
   /**
-   * One block of context for a picked ticket or PR: its description, its comments
-   * or its CI checks. The composer asks for the description as soon as the item
+   * One block of context for a picked ticket, PR or run: its description, its
+   * comments, its CI checks, a run's jobs or failed logs. The composer asks for the description as soon as the item
    * is picked and for the rest on request; none of it goes into the textarea —
    * that keeps the link, and the block is folded into the prompt on send.
    */
   app.post('/api/mentions/context', route(async (req: Request, res: Response) => {
     const body = req.body as (Partial<MentionItem> & { extra?: string }) | undefined;
-    const kind = body?.kind === 'github' ? 'github' : 'jira';
+    const kind = parseMentionKind(body?.kind);
     const id = typeof body?.id === 'string' ? body.id.trim() : '';
     const extra = MENTION_EXTRAS.find((spec) => spec.id === body?.extra)?.id;
     if (!id) return res.status(400).json({ error: 'id is required' });
-    if (!extra) return res.status(400).json({ error: 'extra must be description, comments or checks' });
+    if (!extra) return res.status(400).json({ error: `extra must be one of ${MENTION_EXTRAS.map((spec) => spec.id).join(', ')}` });
     res.json(await mentionContext({
       kind,
       id,
@@ -44,13 +44,13 @@ export function registerMentionRoutes(app: Express): void {
    */
   app.post('/api/mentions/resolve', route(async (req: Request, res: Response) => {
     const body = req.body as Partial<MentionItem> | undefined;
-    const kind = body?.kind === 'github' ? 'github' : 'jira';
+    const kind = parseMentionKind(body?.kind);
     const id = typeof body?.id === 'string' ? body.id.trim() : '';
     const url = typeof body?.url === 'string' ? body.url.trim() : '';
     if (!id) return res.status(400).json({ error: 'id is required' });
     // A GitHub lookup reads the repo and number back out of the URL, so a resolve
     // without one has nothing to ask about.
-    if (kind === 'github' && !url) return res.status(400).json({ error: 'url is required' });
+    if (mentionNeedsUrl(kind) && !url) return res.status(400).json({ error: 'url is required' });
     res.json(await resolveMention({ kind, id, title: typeof body?.title === 'string' ? body.title : '', url }));
   }));
 

@@ -1,13 +1,14 @@
 import { BARE_URL, MARKDOWN_LINK, TRAILING_PUNCTUATION, classifyLink, normalizeLinkUrl } from '../task/links.js';
 
-export type MentionKind = 'jira' | 'github';
+export type MentionKind = 'jira' | 'github' | 'run';
 
 export interface MentionItem {
   kind: MentionKind;
   /**
    * The ticket key or PR reference, e.g. `WEB-1234` or `web-app#9404`.
    * GitHub's own `repo#number` notation is kept — it is how the PR is written
-   * everywhere else.
+   * everywhere else. An Actions run is `web-app/runs/123`, plus `/job/456`
+   * when the link was to one job. No spaces: it names the fetched blocks.
    */
   id: string;
   title: string;
@@ -24,8 +25,13 @@ export interface FileItem {
   name: string;
 }
 
-/** The extra context a ticket or PR can be asked for, on top of the link. */
-export type MentionExtra = 'description' | 'comments' | 'checks';
+/**
+ * The extra context a ticket, PR or run can be asked for, on top of the link.
+ * `description` is the one fetched on the pick; for a run that is its summary
+ * — the jobs and which steps failed — and the full job list and the failed
+ * logs are the "fetch everything" buttons.
+ */
+export type MentionExtra = 'description' | 'comments' | 'checks' | 'jobs' | 'logs';
 
 export interface MentionExtraSpec {
   id: MentionExtra;
@@ -33,17 +39,41 @@ export interface MentionExtraSpec {
   kinds: MentionKind[];
 }
 
-export const MENTION_EXTRAS: MentionExtraSpec[] = [
-  { id: 'description', label: 'description', kinds: ['jira', 'github'] },
+interface ExtraDefinition extends MentionExtraSpec {
+  /** What the chip says for a kind where the generic word would mislead. */
+  labelFor?: Partial<Record<MentionKind, string>>;
+}
+
+export const MENTION_EXTRAS: ExtraDefinition[] = [
+  { id: 'description', label: 'description', kinds: ['jira', 'github', 'run'], labelFor: { run: 'summary' } },
   { id: 'comments', label: 'comments', kinds: ['jira', 'github'] },
-  { id: 'checks', label: 'checks', kinds: ['github'] }
+  { id: 'checks', label: 'checks', kinds: ['github'] },
+  { id: 'jobs', label: 'all jobs', kinds: ['run'] },
+  { id: 'logs', label: 'failed logs', kinds: ['run'] }
 ];
 
 export function extrasForKind(kind: MentionKind): MentionExtraSpec[] {
-  return MENTION_EXTRAS.filter((extra) => extra.kinds.includes(kind));
+  return MENTION_EXTRAS.filter((extra) => extra.kinds.includes(kind)).map(({ id, label, kinds, labelFor }) => ({
+    id,
+    kinds,
+    label: labelFor?.[kind] ?? label
+  }));
 }
 
-const KIND_LABEL: Record<MentionKind, string> = { jira: 'Jira', github: 'GitHub PR' };
+const KIND_LABEL: Record<MentionKind, string> = { jira: 'Jira', github: 'GitHub PR', run: 'Actions run' };
+
+/**
+ * A kind as it arrives in a request body. Anything unknown is Jira, which
+ * checks its key before `acli` sees it.
+ */
+export function parseMentionKind(value: unknown): MentionKind {
+  return value === 'github' || value === 'run' ? value : 'jira';
+}
+
+/** Kinds that are looked up by their URL — `gh` reads the repo back out of it. */
+export function mentionNeedsUrl(kind: MentionKind): boolean {
+  return kind !== 'jira';
+}
 
 export function mentionLabel(item: MentionItem): string {
   return `${KIND_LABEL[item.kind]} ${item.id}`;
@@ -80,10 +110,10 @@ export function fileMention(file: FileItem): string {
  * ------------------------------------------------------------------ */
 
 /**
- * The ticket or PR behind a URL, or null.
+ * The ticket, PR or Actions run behind a URL, or null.
  *
- * Only what the fetchers can actually follow counts: Jira work items and
- * GitHub pull requests. A GitHub issue, a commit, a design doc — all fine
+ * Only what the fetchers can actually follow counts: Jira work items, GitHub
+ * pull requests and workflow runs. A GitHub issue, a commit, a design doc — all fine
  * links, none of them things there is a description to go and get, so they
  * are left as whatever the user pasted.
  *
@@ -104,6 +134,13 @@ export function mentionFromUrl(raw: string): MentionItem | null {
     const [repo = '', number = ''] = ref.split('#');
     if (!repo || !number) return null;
     return { kind: 'github', id: `${repo.split('/')[1] || repo}#${number}`, title: '', url, subtitle: repo };
+  }
+  if (kind === 'run') {
+    const run = parseRunUrl(url);
+    if (!run) return null;
+    const name = run.repo.split('/')[1] || run.repo;
+    const id = `${name}/runs/${run.runId}${run.jobId ? `/job/${run.jobId}` : ''}`;
+    return { kind: 'run', id, title: '', url, subtitle: run.repo };
   }
   return null;
 }
@@ -341,7 +378,7 @@ export function filterMentions(items: MentionItem[], query: string): MentionItem
  */
 export function capMentions(items: MentionItem[], limit = 25): MentionItem[] {
   const jira = items.filter((item) => item.kind === 'jira');
-  const github = items.filter((item) => item.kind === 'github');
+  const github = items.filter((item) => item.kind !== 'jira');
   if (jira.length + github.length <= limit) return [...jira, ...github];
   const githubTake = Math.min(github.length, Math.max(Math.ceil(limit / 2), limit - jira.length));
   const jiraTake = Math.min(jira.length, limit - githubTake);
@@ -368,4 +405,18 @@ export function parsePullRequestUrl(url: string): { repo: string; number: number
   );
   if (!match) return null;
   return { repo: match[1]!, number: Number(match[2]) };
+}
+
+/**
+ * `https://github.com/owner/repo/actions/runs/123/job/456` → the repo, the run
+ * and, when the link was to one job, the job. Same character rules as
+ * `parsePullRequestUrl`, for the same reason: all of it goes on `gh`'s
+ * command line.
+ */
+export function parseRunUrl(url: string): { repo: string; runId: number; jobId?: number } | null {
+  const match = /^(?:https?:\/\/)?(?:www\.)?github\.com\/([A-Za-z0-9][A-Za-z0-9-]*\/[A-Za-z0-9._-]+)\/actions\/runs\/(\d+)(?:\/(?:job|jobs|attempts\/\d+\/job)\/(\d+))?(?:[/?#]|$)/i.exec(
+    (url || '').trim()
+  );
+  if (!match) return null;
+  return { repo: match[1]!, runId: Number(match[2]), ...(match[3] ? { jobId: Number(match[3]) } : {}) };
 }

@@ -1,6 +1,7 @@
 import { MentionExtra, MentionItem, MentionKind, clipMentionBody } from '../../shared/trackers/mentions.js';
 import { githubChecks, githubComments, githubDescription, resolveGithub } from './github.js';
 import { jiraComments, jiraDescription, resolveJira } from './jira.js';
+import { resolveRun, runFailedLogs, runJobs, runSummary } from './actions.js';
 import { errorMessage } from '../../shared/errors.js';
 
 /**
@@ -29,7 +30,7 @@ function ttlCache<T>() {
 }
 
 /* ------------------------------------------------------------------ *
- * Fetched context: description, comments, CI checks.
+ * Fetched context: description, comments, CI checks, a run's jobs and logs.
  *
  * The description is fetched the moment a ticket is picked; comments and CI
  * output only when they are asked for. None of it is written into the
@@ -38,7 +39,8 @@ function ttlCache<T>() {
 
 const FETCHERS: Partial<Record<MentionKind, Partial<Record<MentionExtra, (item: MentionItem) => Promise<string>>>>> = {
   jira: { description: jiraDescription, comments: jiraComments },
-  github: { description: githubDescription, comments: githubComments, checks: githubChecks }
+  github: { description: githubDescription, comments: githubComments, checks: githubChecks },
+  run: { description: runSummary, jobs: runJobs, logs: runFailedLogs }
 };
 
 const contextCache = ttlCache<string>();
@@ -75,7 +77,8 @@ export async function mentionContext(
 
 const RESOLVERS: Partial<Record<MentionKind, (item: MentionItem) => Promise<MentionItem>>> = {
   jira: resolveJira,
-  github: resolveGithub
+  github: resolveGithub,
+  run: resolveRun
 };
 
 const resolveCache = ttlCache<MentionItem>();

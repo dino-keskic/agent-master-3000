@@ -7,6 +7,7 @@ import {
   buildTaskLink,
   classifyLink,
   defaultLinkTitle,
+  extractLinks,
   extractTrackerLinks,
   formatTaskLink,
   httpUrl,
@@ -146,6 +147,32 @@ test('extractTrackerLinks lifts tickets and PRs, and leaves the rest of the pros
     1
   );
   assert.deepStrictEqual(extractTrackerLinks(''), []);
+});
+
+test('extractLinks lifts every URL a prompt carries, titled ones first', () => {
+  const text = [
+    'CI is red: https://github.com/acme/web/actions/runs/123/job/456.',
+    'See [the thread](https://acme.slack.com/archives/C1/p2) and https://example.com/blog/post',
+    'and again https://example.com/blog/post/'
+  ].join('\n');
+  assert.deepStrictEqual(extractLinks(text), [
+    { url: 'https://acme.slack.com/archives/C1/p2', title: 'the thread' },
+    { url: 'https://github.com/acme/web/actions/runs/123/job/456', title: undefined },
+    { url: 'https://example.com/blog/post', title: undefined }
+  ]);
+});
+
+test('classifyLink knows an Actions run, and the job inside one', () => {
+  assert.deepStrictEqual(classifyLink('https://github.com/acme/web/actions/runs/123'), {
+    kind: 'run',
+    ref: 'acme/web run 123'
+  });
+  assert.deepStrictEqual(classifyLink('https://github.com/acme/web/actions/runs/123/job/456?pr=9'), {
+    kind: 'run',
+    ref: 'acme/web run 123 job 456'
+  });
+  // A workflow page is not a run.
+  assert.strictEqual(classifyLink('https://github.com/acme/web/actions/workflows/ci.yml').kind, 'link');
 });
 
 test('sortTaskLinks and trackerLinks put the tracked work first', () => {

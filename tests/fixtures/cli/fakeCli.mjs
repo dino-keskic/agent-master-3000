@@ -227,6 +227,71 @@ const GITHUB = {
   }
 };
 
+/**
+ * Workflow runs, for `gh run view`. One red run with a matrix leg that failed
+ * and plenty that did not, and a log with the colour codes, tab-separated
+ * columns and timestamps the real one prints.
+ */
+const RUNS = {
+  'acme/web-app#777': {
+    databaseId: 777,
+    name: 'CI',
+    workflowName: 'CI',
+    displayTitle: 'Fix the plan editor unit cap',
+    status: 'completed',
+    conclusion: 'failure',
+    event: 'pull_request',
+    headBranch: 'fix/unit-cap',
+    headSha: '0123456789abcdef',
+    attempt: 1,
+    url: 'https://github.com/acme/web-app/actions/runs/777',
+    jobs: [
+      { databaseId: 1, name: 'lint', status: 'completed', conclusion: 'success', steps: [{ number: 1, name: 'eslint', status: 'completed', conclusion: 'success' }] },
+      {
+        databaseId: 2,
+        name: 'test (node 22)',
+        status: 'completed',
+        conclusion: 'failure',
+        startedAt: '2026-09-30T10:00:00Z',
+        completedAt: '2026-09-30T10:03:10Z',
+        url: 'https://github.com/acme/web-app/actions/runs/777/job/2',
+        steps: [
+          { number: 1, name: 'Set up job', status: 'completed', conclusion: 'success' },
+          { number: 4, name: 'npm test', status: 'completed', conclusion: 'failure' },
+          { number: 5, name: 'Upload coverage', status: 'completed', conclusion: 'skipped' }
+        ]
+      },
+      { databaseId: 3, name: 'test (node 20)', status: 'completed', conclusion: 'success', steps: [] }
+    ],
+    logs: {
+      2: [
+        'test (node 22)\tnpm test\t2026-09-30T10:02:58.1000000Z \u001b[31m✖ unit cap clamps to the plan maximum\u001b[0m',
+        'test (node 22)\tnpm test\t2026-09-30T10:02:58.2000000Z   AssertionError: expected 12 to equal 10',
+        'test (node 22)\tnpm test\t2026-09-30T10:02:58.3000000Z   at tests/planEditor.test.ts:41:10'
+      ].join('\n')
+    }
+  }
+};
+
+function ghRun() {
+  const repo = flag('--repo');
+  const jobId = flag('--job');
+  const run = jobId
+    ? Object.values(RUNS).find((row) => row.jobs.some((job) => String(job.databaseId) === jobId))
+    : RUNS[ghKey(repo, positionals().filter((arg) => !['run', 'view'].includes(arg))[0])];
+  if (!run) fail(`gh: no run ${repo} ${jobId ? `job ${jobId}` : ''}`);
+  if (argv.includes('--log-failed')) {
+    process.stdout.write(`${run.logs[jobId] || ''}\n`);
+    process.exit(0);
+  }
+  const wanted = (flag('--json') || '').split(',').map((f) => f.trim()).filter(Boolean);
+  const out = {};
+  for (const name of wanted) {
+    if (name in run && name !== 'logs') out[name] = run[name];
+  }
+  return emit(out);
+}
+
 function ghKey(repo, number) {
   return `${repo}#${number}`;
 }
@@ -247,6 +312,8 @@ function gh() {
       });
     return emit(rows);
   }
+
+  if (has('run', 'view')) return ghRun();
 
   if (!argv.includes('pr')) fail(`gh: unsupported command: ${argv.join(' ')}`);
 

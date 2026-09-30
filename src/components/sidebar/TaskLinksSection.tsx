@@ -7,6 +7,7 @@ import {
   GitPullRequest,
   Link2,
   Plus,
+  PlayCircle,
   Ticket,
   Trash2,
   X
@@ -29,6 +30,7 @@ const KIND_ICON: Record<TaskLinkKind, React.ComponentType<{ className?: string }
   jira: Ticket,
   pr: GitPullRequest,
   issue: CircleDot,
+  run: PlayCircle,
   commit: GitCommitHorizontal,
   doc: FileText,
   link: Link2

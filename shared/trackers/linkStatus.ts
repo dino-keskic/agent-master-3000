@@ -1,5 +1,5 @@
 /**
- * Whether a task's linked pull requests and tickets are finished.
+ * Whether a task's linked pull requests, tickets and CI runs are finished.
  *
  * The fetch lives in the server (`gh`, `acli`). This file only decides what a
  * status means and which links are worth asking about again, so a card can
@@ -9,6 +9,7 @@
 import { liveTasks } from '../task/archive.js';
 import { classifyLink, defaultLinkTitle, MAX_LINK_TITLE, normalizeLinkUrl } from '../task/links.js';
 import { BoardTask, LinkStatus, TaskLink } from '../types.js';
+import { parseRunUrl } from './mentions.js';
 
 export interface NormalizedStatus {
   state: LinkStatus['state'];
@@ -83,7 +84,7 @@ export function settlementLabel(settlement: LinkSettlement): string | undefined 
   return 'Done';
 }
 
-export type LinkBadgeTone = 'done' | 'active' | 'todo' | 'closed';
+export type LinkBadgeTone = 'done' | 'active' | 'todo' | 'closed' | 'failed';
 
 export interface LinkBadge {
   text: string;
@@ -96,11 +97,20 @@ export interface LinkBadge {
  * A ticket always shows the tracker's own words — "In Review" is the thing
  * you glance at a card to learn. A PR shows only what is unusual about it:
  * open is the ordinary case and prints nothing. A ticket stored before its
- * stage was recorded is placed by its name.
+ * stage was recorded is placed by its name. A CI run always shows its
+ * outcome — "in progress" and "success" are both news about a run.
  */
 export function linkStatusBadge(link: TaskLink): LinkBadge | undefined {
   const status = link.status;
   if (!status) return undefined;
+  if (link.kind === 'run') {
+    const tone: LinkBadgeTone =
+      status.state === 'done' ? 'done'
+        : status.state === 'failed' ? 'failed'
+          : status.state === 'closed' ? 'closed'
+            : status.stage === 'todo' ? 'todo' : 'active';
+    return { text: status.label, tone };
+  }
   if (link.kind === 'jira') {
     if (status.state === 'done') return { text: status.label, tone: 'done' };
     const stage = status.stage ?? (TODO_NAMES.test(status.label) ? 'todo' : 'active');
@@ -115,6 +125,8 @@ export function linkStatusBadge(link: TaskLink): LinkBadge | undefined {
       return { text: 'closed', tone: 'closed' };
     case 'draft':
       return { text: 'draft', tone: 'todo' };
+    case 'failed':
+      return { text: 'failed', tone: 'failed' };
     default:
       return undefined;
   }
@@ -122,12 +134,14 @@ export function linkStatusBadge(link: TaskLink): LinkBadge | undefined {
 
 export type StatusTarget =
   | { kind: 'pr'; url: string; repo: string; number: number; checkedAt: number }
-  | { kind: 'jira'; url: string; key: string; checkedAt: number };
+  | { kind: 'jira'; url: string; key: string; checkedAt: number }
+  | { kind: 'run'; url: string; repo: string; runId: number; checkedAt: number };
 
-const QUIET_STATES = new Set<LinkStatus['state']>(['merged', 'done', 'closed']);
+/** A finished run can still be re-run, which is why it is asked again at all. */
+const QUIET_STATES = new Set<LinkStatus['state']>(['merged', 'done', 'closed', 'failed']);
 
 /**
- * PRs and tickets whose status is missing or older than its window. Finished
+ * PRs, tickets and runs whose status is missing or older than its window. Finished
  * states are asked about rarely — they almost never move backwards — and a
  * pass is capped so a board of forty links does not spawn forty CLIs at once.
  */
@@ -163,6 +177,10 @@ function statusTarget(link: TaskLink): StatusTarget | null {
     return { kind: 'pr', url, repo: match[1]!, number: Number(match[2]), checkedAt };
   }
   if (found.kind === 'jira' && found.ref) return { kind: 'jira', url, key: found.ref, checkedAt };
+  if (found.kind === 'run') {
+    const run = parseRunUrl(url);
+    if (run) return { kind: 'run', url, repo: run.repo, runId: run.runId, checkedAt };
+  }
   return null;
 }
 

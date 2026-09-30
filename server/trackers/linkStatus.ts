@@ -1,5 +1,6 @@
 /**
- * Asks GitHub and Jira how the board's linked PRs and tickets are getting on.
+ * Asks GitHub and Jira how the board's linked PRs, tickets and CI runs are
+ * getting on.
  *
  * A pass is a handful of CLIs, not one per link: finished states are trusted
  * for a while, and anything still open is asked again every couple of minutes
@@ -11,6 +12,7 @@ import { linksToRefresh, LinkStatusPatch, StatusTarget } from '../../shared/trac
 import { LiveHub } from '../live/hub.js';
 import { pullRequestStatus } from './github.js';
 import { jiraIssueStatus } from './jira.js';
+import { workflowRunStatus } from './actions.js';
 import { BoardPublisher } from '../live/publisher.js';
 import { taskStore } from '../board/taskStore.js';
 
@@ -90,7 +92,9 @@ async function readTarget(target: StatusTarget, now: number): Promise<LinkStatus
   try {
     const read = target.kind === 'pr'
       ? await pullRequestStatus(target.repo, target.number)
-      : await jiraIssueStatus(target.key);
+      : target.kind === 'run'
+        ? await workflowRunStatus(target.repo, target.runId)
+        : await jiraIssueStatus(target.key);
     if (!read) return null;
     return { url: target.url, title: read.title, status: { ...read.status, checkedAt: now } };
   } catch (e) {

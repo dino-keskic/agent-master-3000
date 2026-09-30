@@ -237,7 +237,7 @@ export interface ChangelogComment {
  * What a link points at. Drives the icon and the label — not behaviour: an
  * unrecognised URL is still a perfectly good link, it is just a 'link'.
  */
-export type TaskLinkKind = 'jira' | 'pr' | 'issue' | 'commit' | 'doc' | 'link';
+export type TaskLinkKind = 'jira' | 'pr' | 'issue' | 'run' | 'commit' | 'doc' | 'link';
 
 /** Who put the link on the task. */
 export type TaskLinkSource = 'user' | 'agent' | 'prompt';
@@ -272,11 +272,12 @@ export interface TaskLink {
 }
 
 /**
- * Where a linked PR or ticket stands. `state` is the decision; `label` is the
- * words the tracker used ("In Review", "Merged").
+ * Where a linked PR, ticket or CI run stands. `state` is the decision; `label`
+ * is the words the tracker used ("In Review", "Merged", "failure"). `failed`
+ * is a CI run that finished red.
  */
 export interface LinkStatus {
-  state: 'open' | 'draft' | 'merged' | 'closed' | 'done';
+  state: 'open' | 'draft' | 'merged' | 'closed' | 'done' | 'failed';
   label: string;
   /**
    * Where an open ticket sits in its workflow: not started, or being worked

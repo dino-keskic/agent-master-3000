@@ -130,3 +130,27 @@ test('applyLinkStatuses never dates the task, so a status poll cannot fill "Upda
   applyLinkStatuses(task, [{ url, status: at('merged', 'Merged', 6_000) }]);
   assert.equal(task.updatedAt, 1);
 });
+
+test('a CI run link always shows its outcome, red when it failed', () => {
+  const run = (status: LinkStatus) => link('https://github.com/acme/web/actions/runs/7', status);
+  assert.deepStrictEqual(linkStatusBadge(run(at('failed', 'failure'))), { text: 'failure', tone: 'failed' });
+  assert.deepStrictEqual(linkStatusBadge(run(at('done', 'success'))), { text: 'success', tone: 'done' });
+  assert.deepStrictEqual(linkStatusBadge(run({ ...at('open', 'in progress'), stage: 'active' })), { text: 'in progress', tone: 'active' });
+  assert.deepStrictEqual(linkStatusBadge(run({ ...at('open', 'queued'), stage: 'todo' })), { text: 'queued', tone: 'todo' });
+});
+
+test('linksToRefresh asks about a pasted run, and trusts a finished one for a while', () => {
+  const now = 100_000;
+  const task = (url: string, status?: LinkStatus) => ({ id: url, links: [link(url, status)] }) as BoardTask;
+  const targets = linksToRefresh(
+    [
+      task('https://github.com/acme/web/actions/runs/1/job/2'),
+      task('https://github.com/acme/web/actions/runs/3', at('failed', 'failure', now - 5_000))
+    ],
+    now,
+    { openTtlMs: 2_000, quietTtlMs: 20_000, limit: 10 }
+  );
+  assert.deepStrictEqual(targets, [
+    { kind: 'run', url: 'https://github.com/acme/web/actions/runs/1/job/2', repo: 'acme/web', runId: 1, checkedAt: 0 }
+  ]);
+});

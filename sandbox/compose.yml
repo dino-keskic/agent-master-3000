@@ -62,6 +62,9 @@ services:
       ACP_FAKE_ROUNDS: "40"
       ACP_FAKE_CHUNKS: "30"
       ACP_FAKE_CHUNK_MS: "400"
+      # A service's own `environment` replaces the anchor's rather than
+      # merging with it, so the mocks switch is passed through again here.
+      MENTION_MOCKS: "${MENTION_MOCKS:-0}"
     command:
       - bash
       - -c

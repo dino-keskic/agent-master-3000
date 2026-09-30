@@ -11,6 +11,7 @@ import { stripLogs } from '../live/hub.js';
 import { activeRootSessionIds } from '../opencode/liveTurns.js';
 import { listChildSessionIds } from '../opencode/subagents.js';
 import { taskStore } from '../board/taskStore.js';
+import { refreshSeededLinks } from '../trackers/promptLinks.js';
 import { RouteContext } from './context.js';
 import { errorMessage } from '../../shared/errors.js';
 
@@ -47,7 +48,9 @@ export function registerTaskRoutes(app: Express, { publisher, turns, sync }: Rou
     // Whatever the client claims about an image, only the files the board
     // actually stored are kept.
     const promptImages = resolveImages(taskInput.promptImages);
-    res.status(201).json(publisher.updated(taskStore.createTask({ ...taskInput, promptImages })));
+    const task = taskStore.createTask({ ...taskInput, promptImages });
+    refreshSeededLinks(task.links);
+    res.status(201).json(publisher.updated(task));
   });
 
   /**

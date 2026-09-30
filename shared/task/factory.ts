@@ -2,7 +2,8 @@ import { BoardTask, GlobalSettings } from '../types.js';
 import { clipText } from '../sessions/list.js';
 import { newId } from '../ids.js';
 import { findColumn, resolveColumnId } from '../board/columns.js';
-import { buildTaskLink, extractTrackerLinks, mergeTaskLinks } from './links.js';
+import { buildTaskLink, mergeTaskLinks } from './links.js';
+import { linksInPrompt } from './promptLinks.js';
 import { trimTaskLogs } from './logWrites.js';
 
 /**
@@ -96,11 +97,12 @@ export function buildTask(input: NewTaskInput, settings: GlobalSettings, id: str
     ]
   };
 
-  // The ticket or PR the task was opened against is part of the task, so it is
-  // read out of the text it was created with rather than left in the prompt.
+  // Whatever the task was opened against — the ticket, the PR, the red CI run,
+  // the thread — is part of the task, so it is read out of the text it was
+  // created with rather than left in the prompt.
   const seeded = mergeTaskLinks(
     input.links,
-    extractTrackerLinks(task.description).flatMap((link) => {
+    linksInPrompt(task.description).flatMap((link) => {
       const built = buildTaskLink(link, newId(), 'prompt');
       return built ? [built] : [];
     })

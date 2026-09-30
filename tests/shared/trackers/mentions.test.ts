@@ -20,7 +20,11 @@ import {
   parsePullRequestUrl,
   isJiraKey,
   splitMentionBlocks,
-  stripHtmlComments
+  stripHtmlComments,
+  parseRunUrl,
+  parseMentionKind,
+  mentionNeedsUrl,
+  extrasForKind as extrasFor
 } from '../../../shared/trackers/mentions.js';
 import { atTrigger, composerTrigger, replaceTrigger, slashTrigger } from '../../../shared/composer/triggers.js';
 
@@ -325,4 +329,52 @@ test('a pasted link that gains its title keeps the caret where the typing left i
     assert.strictEqual(swapMentionLink('nothing here', 0, before, after), null);
     assert.strictEqual(swapMentionLink(text, 0, before, before), null);
   });
+});
+
+test('a pasted Actions run is a mention with a summary and two ways to get more', () => {
+  const run = mentionFromUrl('https://github.com/acme/web-app/actions/runs/123/job/456');
+  assert.deepStrictEqual(run, {
+    kind: 'run',
+    id: 'web-app/runs/123/job/456',
+    title: '',
+    url: 'https://github.com/acme/web-app/actions/runs/123/job/456',
+    subtitle: 'acme/web-app'
+  });
+  assert.deepStrictEqual(
+    extrasFor('run').map((extra) => `${extra.id}:${extra.label}`),
+    ['description:summary', 'jobs:all jobs', 'logs:failed logs']
+  );
+  // The PR chips keep their own words.
+  assert.strictEqual(extrasFor('github')[0]!.label, 'description');
+
+  const pasted = linkifyMentionUrls('why is https://github.com/acme/web-app/actions/runs/123 red?');
+  assert.strictEqual(pasted.text, 'why is [web-app/runs/123](https://github.com/acme/web-app/actions/runs/123) red?');
+});
+
+test('a run block survives the round trip through a sent prompt', () => {
+  const item = mentionFromUrl('https://github.com/acme/web-app/actions/runs/123')!;
+  const sent = composeMentionPrompt('fix it', [{ item, extra: 'logs', body: 'Error: boom' }]);
+  const segments = splitMentionBlocks(sent);
+  assert.deepStrictEqual(segments, [
+    { kind: 'text', text: 'fix it' },
+    { kind: 'block', id: 'web-app/runs/123', extra: 'logs', body: 'Error: boom' }
+  ]);
+});
+
+test('parseRunUrl hands gh only a github.com repo and numbers', () => {
+  assert.deepStrictEqual(parseRunUrl('https://github.com/acme/web/actions/runs/9'), { repo: 'acme/web', runId: 9 });
+  assert.deepStrictEqual(parseRunUrl('github.com/acme/web/actions/runs/9/job/10'), { repo: 'acme/web', runId: 9, jobId: 10 });
+  assert.strictEqual(parseRunUrl('https://github.com/acme/web/actions/runs/abc'), null);
+  assert.strictEqual(parseRunUrl('https://evil.com/acme/web/actions/runs/9'), null);
+  assert.strictEqual(parseRunUrl('https://github.com/--repo/x/actions/runs/9'), null);
+});
+
+test('a request body names a kind the board knows, and Jira otherwise', () => {
+  assert.strictEqual(parseMentionKind('run'), 'run');
+  assert.strictEqual(parseMentionKind('github'), 'github');
+  assert.strictEqual(parseMentionKind('jira'), 'jira');
+  assert.strictEqual(parseMentionKind('--help'), 'jira');
+  assert.strictEqual(parseMentionKind(undefined), 'jira');
+  assert.strictEqual(mentionNeedsUrl('run'), true);
+  assert.strictEqual(mentionNeedsUrl('jira'), false);
 });
