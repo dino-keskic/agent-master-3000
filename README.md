@@ -1,14 +1,10 @@
 # Agent Master 3000
 
- A better UI for keeping track of all of your [OpenCode](https://opencode.ai) sessions. Kanban board inspired way
+ A better UI for working with AI agents and keeping track of all of your [OpenCode](https://opencode.ai) sessions. Kanban board inspired way
  that allows you a better overview of your work with AI agents.
 
+All your projects in place. Instead of long lists of sessions spread across many projects where it is hard to keep track of status of your work, you can have it presented in a single view, so that making progress is much easier.
 
-Each card is a task backed by one or more real OpenCode sessions, driven over
-the [Agent Client Protocol](https://agentclientprotocol.com) (ACP). The board
-streams the transcript live, puts permission prompts and agent questions on the
-card, tracks what every session costs, and can import sessions you started in
-the OpenCode CLI. It runs on your machine, against your own OpenCode install.
 
 ![The board](docs/screenshots/board.png)
 
