@@ -20,7 +20,9 @@ import { taskStore } from './taskStore.js';
  *
  * Self-scheduling rather than `setInterval` so the next delay can be chosen
  * from what this tick actually found, and so a slow tick can never stack up
- * behind itself.
+ * behind itself. The reads themselves run on the reader thread
+ * (`server/opencode/readerThread.ts`), so a slow one delays the next tick but
+ * never the requests arriving meanwhile.
  */
 const POLL_BUSY_MS = 4000;
 const POLL_IDLE_MS = 20_000;
@@ -37,24 +39,24 @@ export class BoardPoller {
   schedule(delay?: number): void {
     if (this.timer) clearTimeout(this.timer);
     const wait = delay ?? (this.hub.hasClients() && this.anySessionBusy() ? POLL_BUSY_MS : POLL_IDLE_MS);
+    // The next wait starts when this tick's reads are done, not when it began.
     this.timer = setTimeout(() => {
-      this.tick();
-      this.schedule();
+      void this.tick().finally(() => this.schedule());
     }, wait);
     this.timer.unref();
   }
 
-  private tick(): void {
+  private async tick(): Promise<void> {
     if (!this.hub.hasClients()) return;
-    this.step('Session activity sync', () => this.sync.syncRunStates());
-    this.step('OpenCode transcript sync', () => this.sync.refreshOwnedTranscripts());
-    this.step('Session spend refresh', () => this.sync.refreshRunningSpend());
+    await this.step('Session activity sync', () => this.sync.syncRunStates());
+    await this.step('OpenCode transcript sync', () => this.sync.refreshOwnedTranscripts());
+    await this.step('Session spend refresh', () => this.sync.refreshRunningSpend());
   }
 
   /** One poll step must not take the rest of the tick down with it. */
-  private step(what: string, run: () => void): void {
+  private async step(what: string, run: () => Promise<void>): Promise<void> {
     try {
-      run();
+      await run();
     } catch (e) {
       console.warn(`[Server] ${what} failed:`, e);
     }

@@ -8,7 +8,7 @@ import { acpManager } from '../acp/client.js';
 import { resolveImages } from '../board/attachments.js';
 import { IdParams, route } from '../http/app.js';
 import { stripLogs } from '../live/hub.js';
-import { activeRootSessionIds } from '../opencode/liveTurns.js';
+import { activeRoots } from '../opencode/sync.js';
 import { listChildSessionIds } from '../opencode/subagents.js';
 import { taskStore } from '../board/taskStore.js';
 import { refreshSeededLinks } from '../trackers/promptLinks.js';
@@ -67,26 +67,26 @@ export function registerTaskRoutes(app: Express, { publisher, turns, sync }: Rou
    * The drawer asks for it when a task is opened; nothing that renders a card
    * needs it, which is why lists and pushes strip it.
    */
-  app.get('/api/tasks/:id', (req: Request<IdParams>, res: Response) => {
+  app.get('/api/tasks/:id', route(async (req: Request<IdParams>, res: Response) => {
     const { id } = req.params;
     const existing = taskStore.getTask(id);
     if (!existing) return res.status(404).json({ error: 'Task not found' });
 
-    const synced = sync.resyncTask(id);
-    const task = synced?.task || existing;
+    const synced = await sync.resyncTask(id);
+    const task = synced?.task || taskStore.getTask(id) || existing;
     const primary = task.sessionId;
     if (
       primary
       && !turns.isStopped(primary)
       && !acpManager.isSessionTurnInFlight(primary)
-      && (task.runState === 'running' || activeRootSessionIds([primary]).has(primary))
+      && (task.runState === 'running' || (await activeRoots([primary])).has(primary))
     ) {
       void acpManager.bindExistingSession(task).catch((e: unknown) => {
         console.warn(`[Server] Could not bind ${primary} while opening ${id}:`, errorMessage(e) ?? e);
       });
     }
     res.json(publisher.present(task));
-  });
+  }));
 
   app.patch('/api/tasks/:id/title', (req: Request<IdParams>, res: Response) => {
     const { title } = req.body;

@@ -12,7 +12,7 @@ const TURN_STARTING_MS = 120_000;
  * When this process started. Every turn our own `opencode acp` child was
  * driving before then died with the previous board; see `isAbandonedTurn`.
  */
-const BOARD_STARTED_AT = Math.floor(performance.timeOrigin);
+export const BOARD_STARTED_AT = Math.floor(performance.timeOrigin);
 
 type SessionRow = {
   id: string;

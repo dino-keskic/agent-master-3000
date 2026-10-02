@@ -1,10 +1,12 @@
 /**
  * Bundles the server so the built app runs on plain `node`, with no `tsx`.
  *
- * Two entries, both ESM, into `dist-server/`:
+ * Three entries, all ESM, into `dist-server/`:
  *   - `cli.mjs`      — `server/cli.ts`, the whole server behind the command line
  *   - `boardMcp.mjs` — `server/mcp/boardMcp.ts`, the stdio MCP server OpenCode spawns
  *                      per session (see `boardMcpServer`)
+ *   - `opencodeReader.mjs` — `server/opencode/readerWorker.ts`, the thread the
+ *                      OpenCode database reads run on (see `readerThread.ts`)
  *
  * Everything under `server/` and `shared/` is inlined; packages stay external
  * and come from the installed `dependencies` (express, cors, ws, zod). Both
@@ -28,7 +30,11 @@ fs.rmSync(outdir, { recursive: true, force: true });
 
 await build({
   absWorkingDir: root,
-  entryPoints: { cli: 'server/cli.ts', boardMcp: 'server/mcp/boardMcp.ts' },
+  entryPoints: {
+    cli: 'server/cli.ts',
+    boardMcp: 'server/mcp/boardMcp.ts',
+    opencodeReader: 'server/opencode/readerWorker.ts'
+  },
   outdir,
   outExtension: { '.js': '.mjs' },
   bundle: true,

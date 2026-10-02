@@ -80,11 +80,9 @@ const { port: PORT, host: HOST } = listenAddress();
 server.listen(PORT, HOST, () => {
   console.log(`[Agent Master 3000] Listening on http://${HOST}:${PORT}`);
   warnIfExposed();
-  try {
-    sync.syncRunStates();
-  } catch (e) {
+  sync.syncRunStates().catch((e) => {
     console.warn('[Server] Initial session activity sync failed:', e);
-  }
+  });
   poller.schedule();
   startLinkStatusRefresh(hub, publisher);
 });

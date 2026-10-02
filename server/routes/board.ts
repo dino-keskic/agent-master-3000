@@ -55,7 +55,7 @@ export function registerBoardRoutes(app: Express, { sync, orchestrator }: RouteC
       boardSpend(state.settings.projects, Date.now(), calendar.locale, calendar.timeZone)
     );
 
-    sync.syncRunStates();
+    await sync.syncRunStates();
     const latest = taskStore.getBoardState();
     // Archived tasks are not in this response. Statusing their worktrees on
     // every load is a git process per leftover checkout.

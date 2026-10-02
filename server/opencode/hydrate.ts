@@ -6,6 +6,7 @@ import { listTaskSessions, recordedRunSettings } from '../../shared/task/session
 import { billedSessionCost, totalSessionCost } from '../../shared/sessions/cost.js';
 import { modelInfoForSession } from './models.js';
 import { CwdProbe, matchProjectName, probeDirectories, worktreeLabel } from './projects.js';
+import { readOffThread } from './readerThread.js';
 import { getOpenCodeSessionsById } from './sessionList.js';
 
 let lastProbes = new Map<string, CwdProbe>();
@@ -103,7 +104,15 @@ export function cachedOpenCodeSession(sessionId: string): AcpSessionSummary | un
 
 /** Re-read cost/context for these sessions into the live overlay cache. */
 export function refreshCachedSessions(ids: string[]): Map<string, AcpSessionSummary> {
-  const fresh = getOpenCodeSessionsById(ids);
+  return remember(getOpenCodeSessionsById(ids));
+}
+
+/** The same, on the reader thread — what the poll uses, so it never stalls a request. */
+export async function refreshCachedSessionsOffThread(ids: string[]): Promise<Map<string, AcpSessionSummary>> {
+  return remember(await readOffThread('sessionsById', ids));
+}
+
+function remember(fresh: Map<string, AcpSessionSummary>): Map<string, AcpSessionSummary> {
   for (const [id, summary] of fresh) lastSessions.set(id, summary);
   return fresh;
 }
@@ -113,7 +122,8 @@ export async function hydrateTasks(tasks: BoardTask[], projects?: { name: string
   if (tasks.length === 0) return tasks;
   lastProbes = await probeDirectories(tasks.map((task) => task.cwd));
   // Every linked session, not just the primary one — the sidebar prices forks too.
-  lastSessions = getOpenCodeSessionsById(
+  lastSessions = await readOffThread(
+    'sessionsById',
     tasks.flatMap((task) => listTaskSessions(task).map((link) => link.sessionId))
   );
   return tasks.map((task) =>

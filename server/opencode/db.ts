@@ -2,9 +2,21 @@ import fs from 'fs';
 import { DatabaseSync } from 'node:sqlite';
 import { opencodeDbPath } from '../setup/locations.js';
 
+/** Set in the reader thread, which reads whatever file the main thread resolved. */
+let pinnedPath: string | null = null;
+
 /** Where OpenCode keeps its sessions — `OPENCODE_DB`, the setup file, or OpenCode's own default. */
 function dbPath(): string {
-  return opencodeDbPath();
+  return pinnedPath ?? opencodeDbPath();
+}
+
+/**
+ * Read this file rather than resolving one. The reader thread resolves
+ * nothing itself: the main thread owns the setup, and a location changed in
+ * Settings has to reach the thread on its very next read.
+ */
+export function pinDbPath(file: string): void {
+  pinnedPath = file;
 }
 
 /** Exported so every reader of the OpenCode DB honours the same path override and the same "no DB is still a working board" contract. */
