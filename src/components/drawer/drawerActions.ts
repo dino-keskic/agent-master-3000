@@ -57,6 +57,8 @@ export interface DrawerActions {
    */
   moveWork: (sessionId: string | undefined, target: MoveTargetInput) => Promise<boolean>;
   removeQueued: (queuedId: string) => void;
+  /** Send a queued prompt now, interrupting the turn it is waiting on. */
+  sendQueuedNow: (queuedId: string) => void;
   stopSession: (sessionId: string) => void;
   /** Stop the session on screen, or the whole task when it has none. */
   stop: () => void;
@@ -176,6 +178,14 @@ export function drawerActions(ctx: DrawerActionContext): DrawerActions {
         .removeQueuedTurn(task.id, queuedId)
         .then(() => notifySuccess('Prompt removed', 'It will not be sent when this turn finishes'))
         .catch((e) => reportError('Could not remove that queued prompt', e));
+    },
+
+    sendQueuedNow(queuedId) {
+      // The board says the rest: the queue loses the row, and the transcript
+      // shows the interrupted turn and the prompt that replaced it.
+      api
+        .sendQueuedTurnNow(task.id, queuedId)
+        .catch((e) => reportError('Could not send that queued prompt now', e));
     },
 
     stopSession(id) {

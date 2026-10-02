@@ -86,7 +86,11 @@ export const DrawerFooter: React.FC<DrawerFooterProps> = ({
         onRun={() => void onRunTask(task.id)}
       />
 
-      <QueuedTurns turns={queuedForSession(task, sessionId)} onRemove={actions.removeQueued} />
+      <QueuedTurns
+        turns={queuedForSession(task, sessionId)}
+        onRemove={actions.removeQueued}
+        onSendNow={actions.sendQueuedNow}
+      />
 
       {view.isSubagentView && (
         <p className="m-0 text-[12px] leading-[1.55] text-ink-3">

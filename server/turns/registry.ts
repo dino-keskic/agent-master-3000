@@ -88,6 +88,11 @@ export class TurnRegistry {
     return this.queue.remove(id, taskId);
   }
 
+  /** Move a waiting prompt to the front of its queue; see `TurnQueue.promote`. */
+  promote(id: string, taskId?: string): { key: string; entry: PendingTurn } | undefined {
+    return this.queue.promote(id, taskId);
+  }
+
   queuedForTask(taskId: string): QueuedTurn[] {
     return this.queue.forTask(taskId);
   }

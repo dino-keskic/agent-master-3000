@@ -437,6 +437,41 @@ describe('board ↔ opencode acp ↔ stub LLM', () => {
     } catch (e) { withServerLog(e); }
   });
 
+  it('sends a queued prompt now: the running turn is cut off, the rest of the queue follows', async () => {
+    try {
+      const turnStart = pushes.length;
+      const slow = echoReply('interrupted');
+      await api(board, 'POST', `/api/tasks/${task.id}/prompt`, { prompt: `Reply with ${SLOW_TRIGGER}interrupted` });
+      await waitFor('the slow reply to start streaming', () => pushes.slice(turnStart).some((p) =>
+        p.type === 'TASK_LOG' && p.taskId === task.id && p.log.type === 'agent_say' && slow.startsWith(p.log.text.slice(0, 3))) || undefined);
+
+      await api(board, 'POST', `/api/tasks/${task.id}/prompt`, { prompt: `Reply with ${ECHO_TRIGGER}queued-first` });
+      const queued = await api<BoardTask>(board, 'POST', `/api/tasks/${task.id}/prompt`, { prompt: `Reply with ${ECHO_TRIGGER}queued-urgent` });
+      assert.deepStrictEqual(
+        (queued.queued || []).map((turn) => turn.prompt),
+        [`Reply with ${ECHO_TRIGGER}queued-first`, `Reply with ${ECHO_TRIGGER}queued-urgent`]
+      );
+      const urgent = queued.queued!.find((turn) => turn.prompt?.includes('queued-urgent'))!;
+
+      const sent = await api<BoardTask>(board, 'POST', `/api/tasks/${task.id}/queued/${urgent.id}/now`);
+      assert.deepStrictEqual((sent.queued || []).map((turn) => turn.prompt), [
+        `Reply with ${ECHO_TRIGGER}queued-urgent`,
+        `Reply with ${ECHO_TRIGGER}queued-first`
+      ], 'the prompt sent now is not at the front of the queue');
+
+      const done = await settledTask('both queued prompts to be answered', (t) =>
+        t.runState === 'idle' && !(t.queued || []).length &&
+        transcriptText(t.logs).includes(echoReply('queued-first')));
+      const replies = done.logs.filter((l) => l.type === 'agent_say').map((l) => l.text);
+      const urgentAt = replies.findIndex((text) => text.includes(echoReply('queued-urgent')));
+      const firstAt = replies.findIndex((text) => text.includes(echoReply('queued-first')));
+      assert.ok(urgentAt >= 0 && urgentAt < firstAt, 'the prompt sent now was not answered first');
+      assert.ok(done.logs.some((l) => l.title === 'Turn Interrupted'), 'the transcript does not say the turn was interrupted');
+      assert.ok(!replies.some((text) => text.includes(slow)), 'the interrupted turn finished its reply anyway');
+      task = done;
+    } catch (e) { withServerLog(e); }
+  });
+
   it('a turn cut off by a Ctrl-C is not running after the restart, and a follow-up still streams', async () => {
     try {
       const turnStart = pushes.length;

@@ -11,6 +11,7 @@ import { handOffMovedSession } from './sessionHandoff.js';
 import { taskStore } from '../board/taskStore.js';
 import { TurnOptions, TurnRegistry, turnKey, turnTargetSession } from './registry.js';
 import { errorMessage } from '../../shared/errors.js';
+import { turnInterrupted } from '../acp/events.js';
 
 /**
  * Starting, queueing and compacting turns.
@@ -306,6 +307,42 @@ export class TurnOrchestrator {
     const live = this.publisher.status(stopped);
     if (failed && failed.changed.length > 0) this.publisher.logBatch(taskId, failed.changed, stopped);
     return live;
+  }
+
+  /**
+   * Send a queued prompt now: move it to the front of its session's queue and
+   * cut off the turn it is waiting on. False when it is no longer queued.
+   *
+   * The prompt is not started here. A cancelled turn still answers its
+   * `session/prompt`, as superseded, and that turn end drains the queue through
+   * `drainOrIdle` like any other — starting it here as well would leave the
+   * late answer free to drain the next one too, or idle the session under it.
+   * The rest of the queue stays where it was, behind it, and nothing running in
+   * the background is killed: this replaces a turn, it does not stop the work.
+   */
+  async sendQueuedNow(task: BoardTask, queuedId: string): Promise<boolean> {
+    const taskId = task.id;
+    const promoted = this.turns.promote(queuedId, taskId);
+    if (!promoted) return false;
+    const { key, entry } = promoted;
+    const sessionId = entry.sessionId;
+
+    if (sessionId && acpManager.isSessionTurnInFlight(sessionId)) {
+      const affected = [sessionId, ...listChildSessionIds(sessionId)];
+      this.publisher.log(taskId, turnInterrupted(sessionId));
+      taskStore.setSessionPendingRequest(taskId, sessionId, undefined);
+      await acpManager.cancelSessionTurn(taskId, sessionId);
+      const failed = taskStore.failLiveTools(taskId, affected);
+      if (failed && failed.changed.length > 0) this.publisher.logBatch(taskId, failed.changed, failed.task);
+    } else if (!this.turns.isStarting(key)) {
+      // The turn it was waiting on ended meanwhile, and nothing has drained it.
+      const next = this.turns.shift(key);
+      if (next) void this.start(taskId, next.prompt, next.options);
+    }
+    // Still starting: the turn has no agent call to cancel yet, and the prompt
+    // goes as soon as it ends — first, now.
+    this.publisher.queueChanged(taskId);
+    return true;
   }
 
   /**

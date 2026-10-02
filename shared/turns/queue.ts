@@ -86,19 +86,21 @@ export class TurnQueue<Options = unknown> {
   }
 
   /**
-   * Every prompt waiting on any of a task's sessions, oldest first — what the
-   * card counts, since it says "2 queued" without naming a session.
+   * Every prompt waiting on any of a task's sessions — what the card counts,
+   * since it says "2 queued" without naming a session, and whose first entry
+   * it shows as "Next". Each session's prompts keep their queue order, which a
+   * prompt sent ahead of the rest has changed; whole queues go oldest first.
    */
   forTask(taskId: string): QueuedTurn[] {
-    const turns: QueuedTurn[] = [];
+    const queues: QueuedEntry<Options>[][] = [];
     for (const queue of this.byKey.values()) {
-      for (const entry of queue) {
-        if (entry.taskId === taskId) turns.push(publicTurn(entry));
-      }
+      const mine = queue.filter((entry) => entry.taskId === taskId);
+      if (mine.length > 0) queues.push(mine);
     }
-    // Sorting is stable, so entries queued within the same millisecond keep the
-    // order they were appended in.
-    return turns.sort((a, b) => a.queuedAt - b.queuedAt);
+    const since = (queue: QueuedEntry<Options>[]) => Math.min(...queue.map((entry) => entry.queuedAt));
+    // Sorting is stable, so queues started within the same millisecond keep
+    // the order they were created in.
+    return queues.sort((a, b) => since(a) - since(b)).flat().map(publicTurn);
   }
 
   /** One waiting prompt, dropped. `taskId` guards against an id from another task. */
@@ -111,6 +113,24 @@ export class TurnQueue<Options = unknown> {
       queue.splice(index, 1);
       if (queue.length === 0) this.byKey.delete(key);
       return found;
+    }
+    return undefined;
+  }
+
+  /**
+   * Move one waiting prompt to the front of its queue — the user wants it next,
+   * ahead of everything typed before it. `taskId` guards against an id from
+   * another task. Returns the entry and the key it waits under.
+   */
+  promote(id: string, taskId?: string): { key: string; entry: QueuedEntry<Options> } | undefined {
+    for (const [key, queue] of this.byKey) {
+      const index = queue.findIndex((entry) => entry.id === id);
+      const found = index < 0 ? undefined : queue[index];
+      if (!found) continue;
+      if (taskId && found.taskId !== taskId) return undefined;
+      queue.splice(index, 1);
+      queue.unshift(found);
+      return { key, entry: found };
     }
     return undefined;
   }

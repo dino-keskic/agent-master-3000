@@ -55,6 +55,10 @@ export const tasksApi = {
   removeQueuedTurn: (taskId: string, queuedId: string) =>
     del<BoardTask>(`/api/tasks/${taskId}/queued/${encodeURIComponent(queuedId)}`),
 
+  /** Send a queued prompt now, interrupting the turn it is waiting on. */
+  sendQueuedTurnNow: (taskId: string, queuedId: string) =>
+    post<BoardTask>(`/api/tasks/${taskId}/queued/${encodeURIComponent(queuedId)}/now`),
+
   /** Summarize the session so far so it can continue with a smaller context. */
   compactTask: (taskId: string) => post<BoardTask>(`/api/tasks/${taskId}/compact`),
 

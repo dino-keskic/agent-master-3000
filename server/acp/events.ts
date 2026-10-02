@@ -76,6 +76,11 @@ export function turnSuperseded(sessionId: string): AcpEvent {
   return { type: 'status_change', sessionId };
 }
 
+/** The user sent a queued prompt now, cutting off the turn it was waiting on. */
+export function turnInterrupted(sessionId: string): TaskLogItem {
+  return note('info', 'Turn Interrupted', 'Turn interrupted to send a queued prompt now.', sessionId);
+}
+
 export function turnFinished(sessionId: string, stopReason: string): AcpEvent {
   if (stopReason === 'cancelled') {
     return {

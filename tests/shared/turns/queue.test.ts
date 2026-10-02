@@ -172,3 +172,35 @@ test('the composer sees its own session, plus turns queued before one existed', 
   assert.deepStrictEqual(queuedForSession(task, undefined).map((turn) => turn.id), ['a']);
   assert.deepStrictEqual(queuedForSession({}, 'ses_1'), []);
 });
+
+test('sending one now moves it to the front and keeps the rest in order', () => {
+  const queue = new TurnQueue<Options>();
+  const [, , third] = fill(queue, 'ses_1', ['first', 'second', 'third']);
+  fill(queue, 'ses_2', ['elsewhere']);
+
+  const promoted = queue.promote(third!.id, 'TASK-1');
+
+  assert.strictEqual(promoted?.key, 'ses_1');
+  assert.strictEqual(promoted?.entry.prompt, 'third');
+  assert.deepStrictEqual(queue.list('ses_1').map((turn) => turn.prompt), ['third', 'first', 'second']);
+  assert.deepStrictEqual(queue.list('ses_2').map((turn) => turn.prompt), ['elsewhere']);
+});
+
+test('sending one now refuses an id from another task, or one already gone', () => {
+  const queue = new TurnQueue<Options>();
+  const [first, second] = fill(queue, 'ses_1', ['first', 'second']);
+
+  assert.strictEqual(queue.promote(second!.id, 'TASK-2'), undefined);
+  assert.strictEqual(queue.promote('missing', 'TASK-1'), undefined);
+  queue.shift('ses_1');
+  assert.strictEqual(queue.promote(first!.id, 'TASK-1'), undefined);
+  assert.deepStrictEqual(queue.list('ses_1').map((turn) => turn.prompt), ['second']);
+});
+
+test('the task\'s queue shows a prompt sent now first, as the card\'s next', () => {
+  const queue = new TurnQueue<Options>();
+  const [, urgent] = fill(queue, 'ses_1', ['first', 'urgent']);
+  queue.promote(urgent!.id, 'TASK-1');
+
+  assert.deepStrictEqual(queue.forTask('TASK-1').map((turn) => turn.prompt), ['urgent', 'first']);
+});

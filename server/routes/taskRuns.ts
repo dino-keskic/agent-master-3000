@@ -83,6 +83,18 @@ export function registerTaskRunRoutes(app: Express, { publisher, orchestrator, t
     res.json(publisher.updated(task));
   }));
 
+  /** Send a queued prompt now, interrupting the turn it was waiting on. */
+  app.post('/api/tasks/:id/queued/:queuedId/now', route(async (req: Request<{ id: string; queuedId: string }>, res: Response) => {
+    const { id, queuedId } = req.params;
+    const task = taskStore.getTask(id);
+    if (!task) return res.status(404).json({ error: 'Task not found' });
+
+    if (!await orchestrator.sendQueuedNow(task, queuedId)) {
+      return res.status(404).json({ error: 'That prompt is no longer queued — it may have already started' });
+    }
+    res.json(publisher.present(taskStore.getTask(id) || task));
+  }));
+
   app.post('/api/tasks/:id/stop', route(async (req: Request<IdParams>, res: Response) => {
     const task = taskStore.getTask(req.params.id);
     if (!task) return res.status(404).json({ error: 'Task not found' });
