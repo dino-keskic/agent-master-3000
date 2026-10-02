@@ -1,5 +1,6 @@
 import { useCallback, useRef, useState } from 'react';
-import { PromptImage, imageRejection } from '../../../shared/composer/promptImages';
+import { PromptImage, attachmentRejection } from '../../../shared/composer/promptImages';
+import { isVideoType } from '../../../shared/composer/videoSheet';
 import { api } from '../../api';
 
 /**
@@ -8,8 +9,9 @@ import { api } from '../../api';
  * A drop uploads immediately rather than at send: the bytes are then already
  * on the server when the turn goes out, the send stays the same small request
  * it always was, and the thumbnail beside the box is the very file the agent
- * will be given. What may be attached at all is `shared/composer/promptImages`; what is
- * held here is only the waiting.
+ * will be given. A video goes up as-is and comes back as the one contact-sheet
+ * image the server made of it. What may be attached at all is
+ * `shared/composer/promptImages`; what is held here is only the waiting.
  */
 
 export interface PromptImages {
@@ -54,7 +56,7 @@ export function usePromptImages(): PromptImages {
 
     try {
       for (const file of files) {
-        const rejection = imageRejection(file, attached.current);
+        const rejection = attachmentRejection(file, attached.current);
         if (rejection) {
           setError(rejection);
           continue;
@@ -62,8 +64,9 @@ export function usePromptImages(): PromptImages {
 
         attached.current += 1;
         try {
-          const data = await readAsDataUrl(file);
-          const stored = await api.uploadImage({ name: file.name, mimeType: file.type, data });
+          const stored = isVideoType(file.type)
+            ? await api.uploadVideo(file)
+            : await api.uploadImage({ name: file.name, mimeType: file.type, data: await readAsDataUrl(file) });
           setItems((prev) => [...prev, stored]);
         } catch (e) {
           attached.current -= 1;

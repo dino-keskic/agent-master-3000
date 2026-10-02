@@ -2,6 +2,7 @@ import crypto from 'crypto';
 import fs from 'fs';
 import path from 'path';
 import {
+  MAX_CAPTION_LENGTH,
   MAX_IMAGE_BYTES,
   PromptImage,
   imageExtension,
@@ -46,6 +47,15 @@ function mimeOf(id: string): string {
   return extension === 'jpg' ? 'image/jpeg' : `image/${extension}`;
 }
 
+/**
+ * A fresh place to write one attachment: its id and the full path. For files
+ * the board makes itself (a video's contact sheet) rather than receives.
+ */
+export function newAttachment(extension: string): { id: string; file: string } {
+  const id = `${crypto.randomUUID()}.${extension}`;
+  return { id, file: path.join(ensureDirectory(), id) };
+}
+
 export interface ImageUpload {
   /** What the file was called where it came from. */
   name?: string;
@@ -80,8 +90,8 @@ export function saveImage(upload: ImageUpload): PromptImage {
     throw new Error(`That image is larger than ${Math.round(MAX_IMAGE_BYTES / (1024 * 1024))} MB`);
   }
 
-  const id = `${crypto.randomUUID()}.${imageExtension(mimeType)}`;
-  fs.writeFileSync(path.join(ensureDirectory(), id), bytes);
+  const { id, file } = newAttachment(imageExtension(mimeType));
+  fs.writeFileSync(file, bytes);
   return { id, name: upload.name?.slice(0, 200) || id, mimeType, size: bytes.length };
 }
 
@@ -99,14 +109,16 @@ export function readImage(id: string): { mimeType: string; bytes: Buffer } | nul
  * itself stored; anything else is dropped rather than failing the send. Each
  * entry may be a bare id or the `{ id, name }` the upload handed back — the
  * name is the user's filename and only ever shown, the size and type are
- * re-read from the file.
+ * re-read from the file. A caption the board wrote at upload rides along.
  */
 export function resolveImages(input: unknown): PromptImage[] {
   if (!Array.isArray(input)) return [];
   const images: PromptImage[] = [];
   for (const entry of input) {
-    const id = typeof entry === 'string' ? entry : (entry as PromptImage | undefined)?.id;
-    const name = typeof entry === 'string' ? undefined : (entry as PromptImage | undefined)?.name;
+    const ref = typeof entry === 'string' ? undefined : (entry as Partial<PromptImage> | undefined);
+    const id = typeof entry === 'string' ? entry : ref?.id;
+    const name = ref?.name;
+    const caption = typeof ref?.caption === 'string' ? ref.caption.slice(0, MAX_CAPTION_LENGTH) : undefined;
     if (typeof id !== 'string') continue;
     const file = fileOf(id);
     if (!file) continue;
@@ -119,10 +131,18 @@ export function resolveImages(input: unknown): PromptImage[] {
     }
     const mimeType = mimeOf(id);
     if (!isSupportedImageType(mimeType)) continue;
-    images.push({ id, name: typeof name === 'string' ? name.slice(0, 200) : id, mimeType, size });
+    images.push({
+      id,
+      name: typeof name === 'string' ? name.slice(0, 200) : id,
+      mimeType,
+      size,
+      ...(caption ? { caption } : {})
+    });
   }
   return images;
 }
+
+type LoadedImage = { mimeType: string; base64: string; caption?: string };
 
 /**
  * The images as ACP wants them: base64, inline. Read at dispatch, never held —
@@ -130,15 +150,19 @@ export function resolveImages(input: unknown): PromptImage[] {
  * An image whose file has gone is skipped, so a stale reference in an old
  * queued turn cannot fail the send.
  */
-export function loadImageData(images: PromptImage[] = []): { mimeType: string; base64: string }[] {
-  const loaded: { mimeType: string; base64: string }[] = [];
+export function loadImageData(images: PromptImage[] = []): LoadedImage[] {
+  const loaded: LoadedImage[] = [];
   for (const image of images) {
     const file = readImage(image.id);
     if (!file) {
       console.warn(`[Attachments] Image ${image.id} is gone; sending the turn without it`);
       continue;
     }
-    loaded.push({ mimeType: image.mimeType || file.mimeType, base64: file.bytes.toString('base64') });
+    loaded.push({
+      mimeType: image.mimeType || file.mimeType,
+      base64: file.bytes.toString('base64'),
+      ...(image.caption ? { caption: image.caption } : {})
+    });
   }
   return loaded;
 }

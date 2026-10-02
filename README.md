@@ -15,7 +15,8 @@ All your projects in place. Instead of long lists of sessions spread across many
 - **OpenCode** on your `PATH`, signed in to at least one provider. Tested with
   OpenCode 1.14.51 to 1.18.32 (the sandbox e2e below pins the newest).
 - Optional: `gh` (GitHub mentions and PR status), `acli` (Jira mentions and
-  ticket status), `uv` or `whisper-server` (voice dictation).
+  ticket status), `uv` or `whisper-server` (voice dictation), `ffmpeg`
+  (videos on prompts).
 
 ## Install
 
@@ -118,7 +119,8 @@ npm start                          # the same app as above, on 3737
   read review comments, manage its task's links and move its session.
 - **Slash commands and skills** from the project's `.opencode/` / `.claude/`
   and your OpenCode config dir, plus the board's own `/compact`.
-- **Attachments, dictation, notifications.** Images on prompts; local voice
+- **Attachments, dictation, notifications.** Images on prompts, and videos,
+  sampled at 2 fps by ffmpeg into one captioned contact sheet; local voice
   dictation (Parakeet via `uv` on Apple Silicon, or `whisper-server`); browser
   notifications when a task you are not looking at needs you or finishes.
 
@@ -158,7 +160,8 @@ environment wins over the [setup file](#where-things-are).
 | `HOST` | `127.0.0.1` | Bind address (`--host`). Read [Security](#security) before changing it |
 | `AGENT_MASTER_DATA_DIR` | see [Install](#install); `./data` in dev | Where state and attachments go (`--data-dir`) |
 | `BOARD_STATE_FILE` | `<data dir>/board_state.json` | The board document; transcripts go in `<file>.logs/` beside it |
-| `BOARD_ATTACHMENTS_DIR` | `<data dir>/attachments` | Uploaded images |
+| `BOARD_ATTACHMENTS_DIR` | `<data dir>/attachments` | Uploaded images and video contact sheets |
+| `FFMPEG_PATH`, `FFPROBE_PATH` | searched | ffmpeg and ffprobe, when not on `PATH` or in Homebrew |
 | `BOARD_ALLOWED_HOSTS` | unset | Extra hostnames the server answers to, comma separated |
 | `BOARD_TOKEN` | unset | Require this token from every client; see [Security](#security) |
 | `AGENT_MASTER_CONFIG` | see [Where things are](#where-things-are) | The setup file (`--config`) |

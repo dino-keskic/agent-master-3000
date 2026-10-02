@@ -36,7 +36,7 @@ export const PromptImageStrip: React.FC<PromptImageStripProps> = ({
           <div
             key={image.id}
             className="relative w-14 h-14 rounded-md overflow-hidden border border-line bg-surface-2 group"
-            title={image.name}
+            title={image.caption ? `${image.name} — frames sampled from the video` : image.name}
           >
             <img src={imageUrl(image)} alt={image.name} className="w-full h-full object-cover" />
             <button

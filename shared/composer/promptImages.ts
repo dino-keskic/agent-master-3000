@@ -11,6 +11,8 @@
  * writing the files themselves is `server/board/attachments.ts`.
  */
 
+import { isVideoType, videoRejection } from './videoSheet.js';
+
 /** A stored image, as the board refers to it everywhere but the wire to ACP. */
 export interface PromptImage {
   /** Filename on disk, without the directory: `<uuid>.<ext>`. */
@@ -20,7 +22,15 @@ export interface PromptImage {
   mimeType: string;
   /** Bytes on disk, so the UI can label a thumbnail without fetching it. */
   size: number;
+  /**
+   * Told to the agent right after the picture, for an image that is not what
+   * it looks like — a video's contact sheet says it is frames over time.
+   */
+  caption?: string;
 }
+
+/** A caption is client input on the way back in; past this it is not a caption. */
+export const MAX_CAPTION_LENGTH = 1000;
 
 /**
  * What OpenCode accepts as an image part. SVG is deliberately absent: it is a
@@ -53,6 +63,8 @@ export function imageUrl(image: Pick<PromptImage, 'id'>): string {
   return `/api/attachments/${encodeURIComponent(image.id)}`;
 }
 
+const tooMany = () => `A turn can carry ${MAX_IMAGES_PER_TURN} images; drop the extra ones into a follow-up.`;
+
 /**
  * Why this file cannot be attached, or `undefined` if it can. One sentence,
  * shown as-is: the drop already failed, and a code the user has to look up
@@ -63,15 +75,26 @@ export function imageRejection(
   alreadyAttached: number
 ): string | undefined {
   if (!isSupportedImageType(file.type)) {
-    return `${file.name || 'That file'} is not an image the agent can read (PNG, JPEG, GIF or WebP).`;
+    return `${file.name || 'That file'} is not an image or video the agent can read (PNG, JPEG, GIF, WebP or a video).`;
   }
+  if (alreadyAttached >= MAX_IMAGES_PER_TURN) return tooMany();
   if (file.size > MAX_IMAGE_BYTES) {
     return `${file.name || 'That image'} is larger than ${Math.round(MAX_IMAGE_BYTES / (1024 * 1024))} MB.`;
   }
-  if (alreadyAttached >= MAX_IMAGES_PER_TURN) {
-    return `A turn can carry ${MAX_IMAGES_PER_TURN} images; drop the extra ones into a follow-up.`;
-  }
   return undefined;
+}
+
+/**
+ * The same, for anything dropped on the composer. A video becomes one contact
+ * sheet on the server, so it counts as one image toward the per-turn cap.
+ */
+export function attachmentRejection(
+  file: { name: string; type: string; size: number },
+  alreadyAttached: number
+): string | undefined {
+  if (!isVideoType(file.type)) return imageRejection(file, alreadyAttached);
+  if (alreadyAttached >= MAX_IMAGES_PER_TURN) return tooMany();
+  return videoRejection(file);
 }
 
 /**
@@ -103,17 +126,17 @@ export type PromptBlock =
  * Images come first: a model reads the instruction against the picture it has
  * already seen, and the text is what refers to "this screenshot". A turn with
  * only images is legitimate — the empty text block is dropped rather than sent
- * as a blank instruction.
+ * as a blank instruction. A caption follows its own image, so it is read as
+ * being about that picture and not the next one.
  */
 export function promptBlocks(
   text: string,
-  images: { mimeType: string; base64: string }[] = []
+  images: { mimeType: string; base64: string; caption?: string }[] = []
 ): PromptBlock[] {
-  const blocks: PromptBlock[] = images.map((image) => ({
-    type: 'image',
-    mimeType: image.mimeType,
-    data: image.base64
-  }));
+  const blocks: PromptBlock[] = images.flatMap((image): PromptBlock[] => {
+    const picture: PromptBlock = { type: 'image', mimeType: image.mimeType, data: image.base64 };
+    return image.caption ? [picture, { type: 'text', text: image.caption }] : [picture];
+  });
   if (text.trim()) blocks.push({ type: 'text', text });
   return blocks;
 }

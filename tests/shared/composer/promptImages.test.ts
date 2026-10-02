@@ -4,6 +4,7 @@ import {
   MAX_IMAGES_PER_TURN,
   MAX_IMAGE_BYTES,
   PromptImage,
+  attachmentRejection,
   dragHasFiles,
   imageCountLabel,
   imageExtension,
@@ -81,6 +82,29 @@ test('an image on its own is a turn; blank text is not sent as an instruction', 
   ]);
   assert.deepStrictEqual(promptBlocks('just text'), [{ type: 'text', text: 'just text' }]);
   assert.deepStrictEqual(promptBlocks(''), []);
+});
+
+test('a caption follows its own picture, ahead of the next one', () => {
+  const blocks = promptBlocks('what happens here?', [
+    { mimeType: 'image/jpeg', base64: 'U0hFRVQ=', caption: 'A contact sheet.' },
+    { mimeType: 'image/png', base64: 'QUJD' }
+  ]);
+  assert.deepStrictEqual(blocks, [
+    { type: 'image', mimeType: 'image/jpeg', data: 'U0hFRVQ=' },
+    { type: 'text', text: 'A contact sheet.' },
+    { type: 'image', mimeType: 'image/png', data: 'QUJD' },
+    { type: 'text', text: 'what happens here?' }
+  ]);
+});
+
+test('a video is attachable, and counts as one image toward the cap', () => {
+  const clip = { name: 'flow.mov', type: 'video/quicktime', size: 50 * 1024 * 1024 };
+  assert.strictEqual(attachmentRejection(clip, 0), undefined);
+  assert.ok(attachmentRejection(clip, MAX_IMAGES_PER_TURN)?.includes(String(MAX_IMAGES_PER_TURN)));
+  assert.ok(attachmentRejection({ ...clip, size: 10 * 1024 * 1024 * 1024 }, 0)?.includes('flow.mov'));
+  // Anything else is judged as an image, exactly as before.
+  assert.ok(attachmentRejection({ name: 'notes.pdf', type: 'application/pdf', size: 10 }, 0)?.includes('notes.pdf'));
+  assert.strictEqual(attachmentRejection({ name: 'ok.png', type: 'image/png', size: 10 }, 0), undefined);
 });
 
 test('two turns match only when they carry the same pictures in the same order', () => {

@@ -1,6 +1,6 @@
 /**
  * What the prompt box looks things up with while you type: mentions, files,
- * slash commands, dropped images and dictation.
+ * slash commands, dropped images and videos, and dictation.
  */
 
 import { SpeechStatus } from '../../shared/composer/dictation';
@@ -37,6 +37,17 @@ export const composerApi = {
    */
   uploadImage: (input: { name: string; mimeType: string; data: string }) =>
     post<PromptImage>('/api/attachments', input),
+
+  /**
+   * Send a dropped video as its raw bytes; the server samples it into one
+   * contact-sheet image and answers with that image's reference.
+   */
+  uploadVideo: (file: File) =>
+    request<PromptImage>(`/api/attachments/video?name=${encodeURIComponent(file.name)}`, {
+      method: 'POST',
+      body: file,
+      headers: { 'Content-Type': file.type || 'application/octet-stream' }
+    }),
 
   /** Whether the local speech model can run, and whether it is loaded. */
   speechStatus: () => request<SpeechStatus>('/api/speech'),
