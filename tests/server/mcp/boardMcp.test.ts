@@ -83,6 +83,13 @@ test('the built app points OpenCode at the bundled MCP entry, not at tsx', () =>
   assert.match(server.args[0] || '', /dist-server[\\/]boardMcp\.mjs$/);
 });
 
+test('inside the desktop app the MCP entry runs on Electron as plain Node', () => {
+  const env = (electron: boolean) =>
+    Object.fromEntries(boardMcpServer('TASK-155', true, electron).env.map((item) => [item.name, item.value]));
+  assert.strictEqual(env(true).ELECTRON_RUN_AS_NODE, '1');
+  assert.strictEqual(env(false).ELECTRON_RUN_AS_NODE, undefined);
+});
+
 test('the advertised tools are the comment ones, the link ones and the workspace ones', () => {
   assert.deepStrictEqual(
     BOARD_MCP_TOOLS.map((tool) => tool.name),

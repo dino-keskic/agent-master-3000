@@ -48,7 +48,8 @@ WORKDIR /app
 # node_modules is built in the image: the host tree is darwin-arm64 and its
 # esbuild/rollup binaries cannot run here.
 COPY package.json package-lock.json ./
-RUN npm ci
+# Electron is only for packing the Mac app; the sandbox never runs it.
+RUN ELECTRON_SKIP_BINARY_DOWNLOAD=1 npm ci
 
 # After `npm ci`, so building another version for the compatibility run only
 # redoes this layer (see README.md). The default is the newest version the e2e

@@ -23,5 +23,5 @@
     "noUncheckedIndexedAccess": true,
     "verbatimModuleSyntax": false
   },
-  "include": ["src", "server", "shared", "tests", "sandbox", "vite.config.ts"]
+  "include": ["src", "server", "desktop", "shared", "tests", "sandbox", "vite.config.ts"]
 }

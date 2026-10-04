@@ -93,6 +93,7 @@ Three layers, and the rule that keeps them apart:
 | `shared/` | Pure logic: decisions, formatting, merges, parsing. Imported by the server, the client and the tests alike. | Reach for `fs`, `child_process`, `window`, `api`, React, or the clock as an ambient input. |
 | `server/` | I/O: the ACP child process, HTTP routes, the state file, git, the OpenCode database. | Hold decisions that could be made without any of it. |
 | `src/` | React: what is on screen, and the hooks that feed it. | Hold logic the tests cannot reach. |
+| `desktop/` | The Mac app's Electron main process: starting the board, its window, the menu. | Hold decisions; those go in `shared/desktop/`. |
 
 **Pure logic goes in `shared/` and gets a test in the same commit. I/O stays in
 `server/`. `src/` arranges.** There is no jsdom or React Testing Library in this
@@ -111,6 +112,7 @@ used by every feature.
 |---|---|
 | `server/` | `acp/` the agent process and protocol · `turns/` running a turn · `opencode/` its DB, config and HTTP API · `board/` the task store and state file · `live/` publishing to sockets · `git/` · `mcp/` the board's own MCP server · `toolCatalog/` what tools a session has · `trackers/` Jira/GitHub lookups · `speech/` · `setup/` locations and first run · `app/` the board's own paths, shutdown, opening things on the desktop · `http/` the Express app, the built client, request guards · `routes/` one file per API area |
 | `shared/` | Mirrors those features (`agent/`, `board/`, `task/`, `sessions/`, `review/`, `notifications/`, `spend/`, `composer/`, …). A feature's report types live beside it (`spend/types.ts`); `types.ts` holds only what the board's state is made of. |
+| `desktop/` | `main.ts` the app and its window · `boardProcess.ts` the board in a utility process · `shellEnv.ts` the login shell's environment. Built by `scripts/build-desktop.mjs`, packed by `electron-builder.yml` (`npm run desktop`). |
 | `src/` | `app/` the shell and board-wide hooks · `api/` one file per feature, merged into `api` by `index.ts` · `components/<feature>/` a feature's screen and its hooks · `speech/` dictation |
 
 Tests mirror the source tree: `server/board/taskStore.ts` is tested in
@@ -136,8 +138,9 @@ around it, so in `server/`:
 - A non-code file loaded by `import.meta.url` must be added to `ASSETS` in
   `scripts/build-server.mjs`, or the installed app will not have it.
 
-Do not run the built app on the host either: it reads the host's OpenCode just
-like the dev server. Smoke-test a tarball in Docker (`node:22`, fake agent).
+Do not run the built app on the host either — nor the desktop app from
+`release/`: both read the host's OpenCode just like the dev server. The desktop
+app runs on Linux too, so try it in Docker under `xvfb-run` with the fake agent. Smoke-test a tarball in Docker (`node:22`, fake agent).
 
 ## Size
 

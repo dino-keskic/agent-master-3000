@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <!-- The favicon's board, on the 824 px rounded square a macOS icon sits in. -->
+  <g transform="translate(100 100) scale(25.75)">
+    <rect width="32" height="32" rx="7" fill="#0b0f19"/>
+    <rect x="6"  y="7"  width="6" height="13" rx="1.5" fill="#3b82f6"/>
+    <rect x="13" y="7"  width="6" height="18" rx="1.5" fill="#22d3ee"/>
+    <rect x="20" y="7"  width="6" height="9"  rx="1.5" fill="#64748b"/>
+  </g>
+</svg>

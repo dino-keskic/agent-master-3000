@@ -34,8 +34,11 @@ export interface AcpMcpServer {
  * How OpenCode is told to start this file, bound to one task. From a checkout
  * that is this very `.ts` under `tsx`; in the built app, where there is no
  * `tsx`, it is the bundle `scripts/build-server.mjs` makes of it.
+ *
+ * In the desktop app `process.execPath` is the Electron binary, which opens a
+ * second copy of the app unless it is told to behave as plain Node.
  */
-export function boardMcpServer(taskId: string, bundled = IS_BUNDLED): AcpMcpServer {
+export function boardMcpServer(taskId: string, bundled = IS_BUNDLED, electron = !!process.versions.electron): AcpMcpServer {
   const args = bundled
     ? [path.join(SERVER_BUNDLE_DIR, 'boardMcp.mjs')]
     : [path.join(process.cwd(), 'node_modules/tsx/dist/cli.mjs'), fileURLToPath(new URL('./boardMcp.ts', import.meta.url))];
@@ -49,7 +52,8 @@ export function boardMcpServer(taskId: string, bundled = IS_BUNDLED): AcpMcpServ
       { name: 'AGENT_MASTER_MCP', value: '1' },
       { name: 'AGENT_MASTER_URL', value: localBoardUrl(host, port) },
       { name: 'AGENT_MASTER_TASK_ID', value: taskId },
-      ...(token ? [{ name: 'AGENT_MASTER_TOKEN', value: token }] : [])
+      ...(token ? [{ name: 'AGENT_MASTER_TOKEN', value: token }] : []),
+      ...(electron ? [{ name: 'ELECTRON_RUN_AS_NODE', value: '1' }] : [])
     ]
   };
 }

@@ -1,0 +1,28 @@
+# The desktop app: `npm run desktop` builds the board and packs it as a Mac app
+# into release/. See desktop/main.ts for what the app does.
+appId: com.github.dino-keskic.agent-master-3000
+productName: Agent Master 3000
+directories:
+  output: release
+  buildResources: desktop/build
+# Unpacked rather than in an asar archive: OpenCode starts the board's MCP
+# server from dist-server/ as an ordinary file, and the server's worker thread
+# and static files are read the same way.
+asar: false
+files:
+  - package.json
+  - dist/**
+  - dist-server/**
+  - dist-desktop/**
+mac:
+  category: public.app-category.developer-tools
+  icon: desktop/build/icon.png
+  target:
+    - target: dmg
+      arch: [arm64]
+  # Unsigned until there is a Developer ID to sign with.
+  identity: null
+  extendInfo:
+    NSMicrophoneUsageDescription: Dictating prompts uses the microphone.
+dmg:
+  title: Agent Master 3000

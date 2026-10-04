@@ -43,6 +43,21 @@ The installed board keeps its state in `~/.local/share/agent-master-3000` (or
 `$XDG_DATA_HOME/agent-master-3000`; `%LOCALAPPDATA%\agent-master-3000` on Windows). Nothing is
 published to the npm registry.
 
+### As a Mac app
+
+`npm run desktop` builds the board and packs it as **Agent Master 3000.app**,
+in a `.dmg` under `release/` (Apple Silicon). The app runs the same board as
+the command, on the same port (3737) and with the same data folder, on
+Electron's own Node — no Node install needed. It picks up the environment of
+your login shell, so `opencode`, `ffmpeg` and your provider keys are found the
+way a terminal finds them, and `BOARD_TOKEN` from your profile protects it.
+Closing the window leaves the board running; quitting stops it. If a board is
+already running on 3737, the app offers to show that one instead. The board's
+log is under **Board → Show Server Log**.
+
+The app is not signed yet: the first time, right-click it and choose **Open**
+(or run `xattr -dr com.apple.quarantine "/Applications/Agent Master 3000.app"`).
+
 ### Where things are
 
 The first time it opens, the board shows where it keeps its data and where it

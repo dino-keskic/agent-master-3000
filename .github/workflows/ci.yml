@@ -16,6 +16,10 @@ on:
 permissions:
   contents: read
 
+# Electron is only for packing the Mac app, which CI does not do.
+env:
+  ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
+
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true

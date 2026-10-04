@@ -4,6 +4,8 @@ node_modules/
 # Build
 dist/
 dist-server/
+dist-desktop/
+release/
 *.tgz
 
 # The board's own state and logs when run from a checkout
