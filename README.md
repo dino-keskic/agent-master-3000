@@ -1,4 +1,4 @@
-# Agent Master 3000
+<h1 align="center"><img src="docs/logo.svg" alt="Agent Master 3000" width="440"></h1>
 
  A better UI for working with AI agents and keeping track of all of your [OpenCode](https://opencode.ai) sessions. Kanban board inspired way
  that allows you a better overview of your work with AI agents.
