@@ -6,7 +6,8 @@ import {
   GuardVerdict,
   isAllowedOrigin,
   isLoopbackBind,
-  RequestGuardConfig
+  RequestGuardConfig,
+  tokenLinkHandoff
 } from '../../shared/http/requestGuard.js';
 
 /**
@@ -35,21 +36,35 @@ function header(value: string | string[] | undefined): string | undefined {
   return Array.isArray(value) ? value[0] : value;
 }
 
-function verdictFor(req: IncomingMessage): GuardVerdict {
-  return checkRequest(
-    {
-      host: header(req.headers.host),
-      origin: header(req.headers.origin),
-      fetchSite: header(req.headers['sec-fetch-site']),
-      authorization: header(req.headers.authorization),
-      cookie: header(req.headers.cookie)
-    },
-    guardConfig
-  );
+function guardInput(req: IncomingMessage) {
+  return {
+    host: header(req.headers.host),
+    origin: header(req.headers.origin),
+    fetchSite: header(req.headers['sec-fetch-site']),
+    authorization: header(req.headers.authorization),
+    cookie: header(req.headers.cookie)
+  };
 }
 
-/** First middleware on the app: refuses what `checkRequest` refuses, as JSON. */
+function verdictFor(req: IncomingMessage): GuardVerdict {
+  return checkRequest(guardInput(req), guardConfig);
+}
+
+/**
+ * First middleware on the app: a token link is turned into the cookie here,
+ * and anything else `checkRequest` refuses is answered as JSON.
+ */
 export function requestGuard(req: Request, res: Response, next: NextFunction): void {
+  const handoff = tokenLinkHandoff(
+    { ...guardInput(req), method: req.method, url: req.originalUrl, secure: req.secure },
+    guardConfig
+  );
+  if (handoff) {
+    res.setHeader('Set-Cookie', handoff.cookie);
+    res.setHeader('Cache-Control', 'no-store');
+    return res.redirect(302, handoff.location);
+  }
+
   const verdict = verdictFor(req);
   if (verdict.ok) return next();
   res.status(verdict.status).json({ error: verdict.reason });

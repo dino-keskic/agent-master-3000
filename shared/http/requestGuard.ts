@@ -13,7 +13,7 @@
  *   `<img>` or `<script>` GET from another site carries, since those send no
  *   Origin at all.
  * - With a token configured, every request must present it — as a bearer
- *   header (the board's MCP server) or the cookie the UI sets from `?token=`.
+ *   header (the board's MCP server) or the cookie a `?token=` link sets.
  *
  * A client that is not a browser can say whatever it likes in these headers;
  * the loopback bind is what keeps those out, and the token is what is left
@@ -220,4 +220,26 @@ export function takeTokenParam(href: string): { token?: string; href: string } {
   // The `?task=A,B` deep link spells its commas out; keep it that way.
   url.search = url.searchParams.toString().replace(/%2C/gi, ',');
   return { token: token || undefined, href: url.toString() };
+}
+
+/**
+ * What to answer a page load that carries a correct `?token=`: set the cookie
+ * and redirect to the same address without it. The page's own script cannot
+ * do this alone — with a token configured the guard refuses the page itself,
+ * so the script that would store the cookie is never sent. Everything else the
+ * guard checks still applies; a wrong token gets no handoff, and the request
+ * falls through to the ordinary 401.
+ */
+export function tokenLinkHandoff(
+  input: GuardInput & { method?: string; url: string; secure: boolean },
+  config: RequestGuardConfig
+): { cookie: string; location: string } | undefined {
+  if (!config.token || input.method?.toUpperCase() !== 'GET') return undefined;
+  // Only the path and query matter here; the base just makes it parseable.
+  const { token, href } = takeTokenParam(new URL(input.url, 'http://board.invalid').toString());
+  if (!token || !sameSecret(token, config.token)) return undefined;
+  if (!checkRequest({ ...input, authorization: `Bearer ${token}` }, config).ok) return undefined;
+
+  const clean = new URL(href);
+  return { cookie: tokenCookie(token, input.secure), location: `${clean.pathname}${clean.search}` };
 }

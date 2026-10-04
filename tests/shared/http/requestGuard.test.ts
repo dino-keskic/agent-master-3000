@@ -11,6 +11,7 @@ import {
   normalizeHostname,
   sameSecret,
   takeTokenParam,
+  tokenLinkHandoff,
   tokenCookie
 } from '../../../shared/http/requestGuard.js';
 
@@ -159,4 +160,26 @@ test('a token link hands its token over and leaves the address bar', () => {
 test('the token cookie never rides along on another site\'s request', () => {
   assert.equal(tokenCookie('a b', false), 'agent_master_token=a%20b; Path=/; Max-Age=31536000; SameSite=Strict');
   assert.match(tokenCookie('x', true), /; Secure$/);
+});
+
+test('a correct token link is answered with the cookie and the same page without it', () => {
+  const config = { ...LOCAL, token: 'secret' };
+  const link = { host: 'localhost:3737', method: 'GET', secure: false };
+  assert.deepEqual(tokenLinkHandoff({ ...link, url: '/?token=secret&task=TASK-1,TASK-2' }, config), {
+    cookie: tokenCookie('secret', false),
+    location: '/?task=TASK-1,TASK-2'
+  });
+  assert.equal(tokenLinkHandoff({ ...link, url: '/?token=secret' }, config)?.location, '/');
+  assert.match(tokenLinkHandoff({ ...link, url: '/?token=secret', secure: true }, config)?.cookie ?? '', /; Secure$/);
+});
+
+test('anything but a correct, same-site GET token link falls through to the guard', () => {
+  const config = { ...LOCAL, token: 'secret' };
+  const link = { host: 'localhost:3737', method: 'GET', secure: false, url: '/?token=secret' };
+  assert.equal(tokenLinkHandoff({ ...link, url: '/?token=wrong' }, config), undefined);
+  assert.equal(tokenLinkHandoff({ ...link, url: '/' }, config), undefined);
+  assert.equal(tokenLinkHandoff({ ...link, method: 'POST' }, config), undefined);
+  assert.equal(tokenLinkHandoff({ ...link, host: 'evil.example' }, config), undefined);
+  assert.equal(tokenLinkHandoff({ ...link, fetchSite: 'cross-site' }, config), undefined);
+  assert.equal(tokenLinkHandoff(link, LOCAL), undefined);
 });
