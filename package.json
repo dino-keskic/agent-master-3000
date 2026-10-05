@@ -52,7 +52,7 @@
     "@eslint/js": "^9.39.5",
     "@mantine/core": "^7.17.8",
     "@mantine/hooks": "^7.17.8",
-    "@mantine/notifications": "^7.17.8",
+    "@mantine/notifications": "^9.6.3",
     "@types/cors": "^2.8.17",
     "@types/express": "^4.17.21",
     "@types/node": "^26.2.0",
