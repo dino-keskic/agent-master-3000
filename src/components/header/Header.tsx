@@ -1,6 +1,5 @@
 import React from 'react';
 import { Group, Stack } from '@mantine/core';
-import { LayoutGrid } from 'lucide-react';
 import { OpenCodeAgent, OpenCodeModel } from '../../../shared/sessions/types';
 import { BoardTask, GlobalSettings, ProjectFolder } from '../../../shared/types';
 import { worktreeName } from '../../../shared/git/worktree';
@@ -11,6 +10,7 @@ import { Composer } from '../composer/Composer';
 import { BoardActions } from './BoardActions';
 import { TaskTargetBar } from './TaskTargetBar';
 import { useNewTaskDraft } from './useNewTaskDraft';
+import { LogoMark } from '../brand/LogoMark';
 
 interface HeaderProps {
   settings: GlobalSettings;
@@ -89,9 +89,7 @@ export const Header: React.FC<HeaderProps> = ({
       <Stack className="max-w-[2200px] mx-auto" gap="sm">
         <Group justify="space-between" align="center">
           <Group gap="sm">
-            <div className="bg-acc-tile rounded-lg p-[7px]">
-              <LayoutGrid className="w-4 h-4 text-white" />
-            </div>
+            <LogoMark size={30} />
             <Group gap={8} align="baseline">
               <h1 className="text-[17px] font-bold tracking-[-0.02em] text-ink m-0">
                 Agent Master 3000
