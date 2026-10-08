@@ -1,5 +1,6 @@
 import { TaskLogItem, ToolCallInfo } from '../../shared/types.js';
 import { normalizeToolStatus, toolLabel } from '../../shared/agent/toolCall.js';
+import { codeModeCalls } from '../../shared/agent/codeMode.js';
 import { newId } from '../../shared/ids.js';
 import { MAX_LOG_TEXT } from '../../shared/task/logWrites.js';
 import { extractToolOutput, ParsedUpdate, SessionUpdate } from './schema.js';
@@ -7,6 +8,11 @@ import { AcpEvent } from './events.js';
 import { AcpSessionRegistry } from './sessionRegistry.js';
 
 type ChunkType = 'agent_say' | 'thought' | 'user_say';
+
+/** A tool's `rawOutput.metadata`, where Code Mode lists the calls it made. */
+function outputMetadata(rawOutput: unknown): unknown {
+  return rawOutput && typeof rawOutput === 'object' ? (rawOutput as Record<string, unknown>).metadata : undefined;
+}
 
 interface OpenBuffers {
   taskId: string;
@@ -179,6 +185,13 @@ export class TranscriptStream {
       output: output ?? previous?.output,
       locations: locations && locations.length > 0 ? locations : previous?.locations
     };
+    // What a finished Code Mode call reports it ran outranks the script's call
+    // sites, so a late update without its output must not read them again.
+    const settled = previous?.status === 'completed' || previous?.status === 'failed';
+    const ran = settled && update.rawOutput === undefined
+      ? previous.codeModeCalls
+      : codeModeCalls(info, outputMetadata(update.rawOutput));
+    if (ran) info.codeModeCalls = ran;
     toolCalls.set(toolCallId, info);
 
     return {

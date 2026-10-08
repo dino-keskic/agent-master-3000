@@ -95,6 +95,14 @@ winning, and **Settings** lists every layer with the files it found:
    one, not instead of it;
 5. the board's own tool rules from **Settings → Tools**.
 
+On OpenCode 2 the tool rules go in a file of the board's own instead, named by
+`OPENCODE_CONFIG` (`board_state.opencode.json`, beside the board's state).
+OpenCode 2 watches that file, so a switch reaches a running agent on its next
+turn, with no restart. The file sits at layer 2, so a project's own config has
+the last word over it, and the Tools tab marks a switch it outvotes. If you set
+`OPENCODE_CONFIG` yourself, the rules stay at layer 5 and need a restart, as on
+1.x.
+
 Models are read in every board project, so a provider set up in one project's
 `opencode.json` is offered too, marked *(only in that project)*. OpenCode reads
 its config once when it starts; when a config file or agent changes, the board

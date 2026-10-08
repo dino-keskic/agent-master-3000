@@ -4,6 +4,7 @@ import readline from 'readline';
 import { toolPolicySignature } from '../../shared/agent/tools.js';
 import { McpConfigEntry, V2_BUILTIN_TOOLS, readV2ToolConfig } from '../../shared/toolCatalog/opencodeV2.js';
 import { opencodeEnv } from '../opencode/env.js';
+import { livePolicyFile } from '../opencode/policyFile.js';
 import { childBaseEnv, opencodeBin } from '../setup/locations.js';
 import { cwdCache } from './cache.js';
 
@@ -35,6 +36,8 @@ export interface OpencodeSnapshot {
   mcpConfig: Record<string, McpConfigEntry>;
   tools: Record<string, boolean>;
   agents: Record<string, { tools?: Record<string, boolean> }>;
+  /** 2.x: what the documents OpenCode merges after the board's file say, which outvote it. */
+  overrides?: Record<string, boolean>;
   warnings: string[];
 }
 
@@ -63,15 +66,18 @@ interface OpencodeServer {
 async function withOpencodeServer<T>(
   cwd: string,
   policy: Record<string, boolean> | undefined,
-  use: (server: OpencodeServer) => Promise<T>
+  use: (server: OpencodeServer, policyFile: string | undefined) => Promise<T>
 ): Promise<T> {
   const password = randomBytes(24).toString('base64url');
   const authorization = `Basic ${Buffer.from(`opencode:${password}`).toString('base64')}`;
-  // Same overlay the agent runs with, so the panel resolves the same list.
+  // Same delivery the agent runs with — overlay or file — so the panel
+  // resolves the same list.
+  const base = childBaseEnv();
+  const policyFile = livePolicyFile(opencodeBin(), base, policy);
   const child = spawn(opencodeBin(), ['serve', '--port', '0', '--hostname', '127.0.0.1'], {
     cwd,
     stdio: ['ignore', 'pipe', 'pipe'],
-    env: { ...opencodeEnv(childBaseEnv(), policy), OPENCODE_SERVER_PASSWORD: password }
+    env: { ...opencodeEnv(base, policy, policyFile), OPENCODE_SERVER_PASSWORD: password }
   });
 
   const stop = () => {
@@ -105,7 +111,7 @@ async function withOpencodeServer<T>(
       child.on('exit', (code) => done(new Error(`opencode serve exited (code ${code})`)));
     });
 
-    return await use({ get: (path) => getJson(`${baseUrl}${path}`, authorization) });
+    return await use({ get: (path) => getJson(`${baseUrl}${path}`, authorization) }, policyFile);
   } finally {
     stop();
   }
@@ -142,8 +148,8 @@ export async function readOpencode(cwd: string, policy: Record<string, boolean> 
   if (cached) return cached;
 
   const warnings: string[] = [];
-  const snapshot = await withOpencodeServer(cwd, policy, async (server) =>
-    (await v2Version(server)) ? readV2(server, cwd, warnings) : readV1(server, cwd, warnings)
+  const snapshot = await withOpencodeServer(cwd, policy, async (server, policyFile) =>
+    (await v2Version(server)) ? readV2(server, cwd, warnings, policyFile) : readV1(server, cwd, warnings)
   );
 
   snapshotCache.set(cacheKey, snapshot);
@@ -208,7 +214,12 @@ async function readV1(server: OpencodeServer, cwd: string, warnings: string[]): 
  * lists until it has loaded it — every directory has agents, so the agent
  * list filling in is the sign it has.
  */
-async function readV2(server: OpencodeServer, cwd: string, warnings: string[]): Promise<OpencodeSnapshot> {
+async function readV2(
+  server: OpencodeServer,
+  cwd: string,
+  warnings: string[],
+  policyFile: string | undefined
+): Promise<OpencodeSnapshot> {
   const location = `location%5Bdirectory%5D=${encodeURIComponent(cwd)}`;
   const deadline = Date.now() + V2_LOAD_TIMEOUT_MS;
   let agents: unknown = null;
@@ -232,6 +243,6 @@ async function readV2(server: OpencodeServer, cwd: string, warnings: string[]): 
       return null;
     })
   ]);
-  const read = readV2ToolConfig(config, agents, mcp);
+  const read = readV2ToolConfig(config, agents, mcp, policyFile);
   return { toolIds: [...V2_BUILTIN_TOOLS], ...read, warnings };
 }

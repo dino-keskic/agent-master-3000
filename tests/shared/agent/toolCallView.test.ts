@@ -35,6 +35,12 @@ test('with no location the most identifying input wins, in order', () => {
   assert.equal(summarizeToolCall(call({ rawInput: { command: '  ' } })), null, 'blank is not a summary');
 });
 
+test('a Code Mode call reads as the tools it ran, not its script', () => {
+  const execute = call({ name: 'execute', rawInput: { code: 'await tools.a.x()' }, codeModeCalls: ['a.x', 'b.y'] });
+  assert.equal(summarizeToolCall(execute), 'a.x +1 more');
+  assert.equal(summarizeToolCall(call({ name: 'execute', rawInput: { description: 'd' }, codeModeCalls: [] })), 'd');
+});
+
 test('a long summary is cut, and a long path is still shortened after the cut', () => {
   const summary = summarizeToolCall(call({ rawInput: { command: 'x'.repeat(200) } }))!;
   assert.equal(summary.length, 73, '72 characters and an ellipsis');

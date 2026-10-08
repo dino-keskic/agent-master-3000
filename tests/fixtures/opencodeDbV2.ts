@@ -105,7 +105,12 @@ export function makeV2Fixture(): { file: string; dir: string } {
         status: 'completed', input: { agent: 'general', description: 'Child label', prompt: 'child-task' },
         content: [{ type: 'text', text: '<subagent sessionID="ses_child" state="completed">\nDone\n</subagent>' }],
         metadata: { sessionID: CHILD, status: 'completed', truncated: false }
-      }, time: { created: V2_NOW - 65, ran: V2_NOW - 64, completed: V2_NOW - 45 } }
+      }, time: { created: V2_NOW - 65, ran: V2_NOW - 64, completed: V2_NOW - 45 } },
+      { type: 'tool', id: 'call_3', name: 'execute', executed: false, state: {
+        status: 'completed', input: { code: 'return await tools["echo-board"].echo({ text: "hi" });' },
+        content: [{ type: 'text', text: 'hi' }],
+        metadata: { toolCalls: [{ tool: 'echo-board.echo', status: 'completed', input: { text: 'hi' } }], truncated: false }
+      }, time: { created: V2_NOW - 44, ran: V2_NOW - 43, completed: V2_NOW - 42 } }
     ],
     snapshot: { start: 'a', end: 'a', files: [] },
     finish: 'tool-calls', cost: 0.25, tokens

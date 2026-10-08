@@ -3,6 +3,7 @@ import readline from 'readline';
 import { AgentExit, agentExitMessage, appendStderr } from '../../shared/agent/agentExit.js';
 import { toolPolicySignature } from '../../shared/agent/tools.js';
 import { opencodeEnv } from '../opencode/env.js';
+import { agentPolicyFile, writeBoardPolicyFile } from '../opencode/policyFile.js';
 import { childBaseEnv, opencodeBin } from '../setup/locations.js';
 import { isIncomingJsonRpcRequest, jsonRpcMessageSchema, JsonRpcId } from './schema.js';
 
@@ -30,7 +31,8 @@ function retryDelay(failures: number): number {
 }
 
 /**
- * The board's tool policy, read at spawn time.
+ * The board's tool policy, read at spawn time — and, on OpenCode 2, written to
+ * the file it watches whenever it changes (`applyToolPolicyLive`).
  *
  * A function rather than a value: the agent process is created lazily on first
  * use, which can happen before — or after — the server has loaded its state.
@@ -92,8 +94,10 @@ export class AcpTransport {
   private child: ChildProcess | null = null;
   private requestId = 1;
   private readonly pending = new Map<JsonRpcId, PendingCall>();
-  /** Signature of the tool policy the running agent process was started with. */
+  /** Signature of the tool policy the running agent process has. */
   private appliedToolPolicy = '';
+  /** The policy file the running agent watches (OpenCode 2), if it has one. */
+  private policyFile: string | undefined;
   /** The config fingerprint the running agent process was started with. */
   private appliedConfigStamp = '';
   /** Settled when the process being restarted has gone. */
@@ -115,6 +119,24 @@ export class AcpTransport {
   /** True when settings hold a tool policy the running agent has not picked up. */
   policyPending(): boolean {
     return toolPolicySignature(toolPolicySource()) !== this.appliedToolPolicy;
+  }
+
+  /**
+   * Hand the running agent the current tool policy without restarting it —
+   * true when that was possible: an OpenCode 2 watching the board's file picks
+   * the change up on its next turn. Otherwise the policy waits for `restart`.
+   */
+  applyToolPolicyLive(): boolean {
+    if (!this.child || !this.policyFile) return false;
+    const policy = toolPolicySource();
+    try {
+      writeBoardPolicyFile(policy, this.policyFile);
+    } catch (e) {
+      console.warn('[ACP] Could not write the tool policy file:', e);
+      return false;
+    }
+    this.appliedToolPolicy = toolPolicySignature(policy);
+    return true;
   }
 
   /** True when an OpenCode config file changed after the running agent read them. */
@@ -219,11 +241,13 @@ export class AcpTransport {
     try {
       const [bin, args] = acpCommand();
       const policy = toolPolicySource();
+      const base = childBaseEnv();
       this.appliedToolPolicy = toolPolicySignature(policy);
       this.appliedConfigStamp = configStampSource();
+      this.policyFile = agentPolicyFile(bin, args, base, policy);
       const child = spawn(bin, args, {
         stdio: ['pipe', 'pipe', 'pipe'],
-        env: opencodeEnv(childBaseEnv(), policy)
+        env: opencodeEnv(base, policy, this.policyFile)
       });
       this.child = child;
 

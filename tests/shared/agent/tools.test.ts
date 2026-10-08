@@ -141,6 +141,19 @@ test('toolUsage counts calls and ignores everything else', () => {
   assert.deepEqual(toolUsage(undefined), {});
 });
 
+test('toolUsage counts what a Code Mode call ran against the MCP tools themselves', () => {
+  const execute: TaskLogItem = {
+    ...toolLog('execute'),
+    toolCall: {
+      toolCallId: 'cm',
+      name: 'execute',
+      status: 'completed',
+      codeModeCalls: ['echo-board.echo', 'echo-board.echo', 'opencode.list_mcp_resources']
+    }
+  };
+  assert.deepEqual(toolUsage([execute, toolLog('echo-board_echo')]), { execute: 1, 'echo-board_echo': 3 });
+});
+
 test('toolUsage keeps to one session when asked, and keeps unstamped logs', () => {
   const logs = [toolLog('bash', 'ses_a'), toolLog('read', 'ses_b'), toolLog('grep')];
   assert.deepEqual(toolUsage(logs, 'ses_a'), { bash: 1, grep: 1 });
@@ -267,4 +280,46 @@ test('clearing an override drops it, and waits for a re-read to say more', () =>
   assert.ok(!('policy' in next.tools[0]!));
   assert.strictEqual(next.tools[0]?.enabled, true);
   assert.strictEqual(next.tools[0]?.disabledBy, undefined);
+});
+
+test('a config merged after the board file outvotes its switch, either way', () => {
+  assert.deepEqual(resolveToolState('grep', { policy: { grep: false }, overrides: { grep: true } }), {
+    enabled: true,
+    policy: false,
+    policyOverridden: true
+  });
+  assert.deepEqual(resolveToolState('slack_search', { policy: { slack_search: true }, overrides: { 'slack_*': false } }), {
+    enabled: false,
+    disabledBy: 'config',
+    disabledByRule: 'slack_*',
+    policy: true,
+    policyOverridden: true
+  });
+  // A later config that agrees, or says nothing, leaves the board in charge.
+  assert.deepEqual(resolveToolState('grep', { policy: { grep: false }, overrides: { grep: false, bash: true } }), {
+    enabled: false,
+    disabledBy: 'board',
+    disabledByRule: 'grep',
+    policy: false
+  });
+});
+
+test('applyToolPolicyRule keeps a later config in charge, and takes the restart from the server', () => {
+  const next = applyToolPolicyRule(
+    { ...inventory([tool('grep'), tool('bash')]), overrides: { grep: true } },
+    '*',
+    false,
+    { '*': false },
+    false
+  );
+  const [grep, bash] = next.tools;
+  assert.strictEqual(grep?.enabled, true);
+  assert.strictEqual(grep?.policyOverridden, true);
+  assert.strictEqual(bash?.enabled, false);
+  assert.strictEqual(bash?.disabledBy, 'board');
+  assert.strictEqual(next.pendingRestart, false);
+
+  // Switching it back on clears the outvoted mark.
+  const back = applyToolPolicyRule(next, 'grep', true, { '*': false, grep: true }, false);
+  assert.strictEqual(back.tools[0]?.policyOverridden, undefined);
 });

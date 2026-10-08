@@ -202,10 +202,12 @@ export async function sessionToolInventory(input: InventoryInput): Promise<Sessi
   }
 
   // The agent's own tool map wins over the global one, and the board's policy
-  // over both — one resolver so every source below agrees on that order.
+  // over both, unless a config OpenCode 2 merges after the board's file says
+  // otherwise — one resolver so every source below agrees on that order.
   const agentTools = agent ? snapshot.agents[agent]?.tools : undefined;
+  const { overrides } = snapshot;
   const resolve: ResolveState = (name) =>
-    resolveToolState(name, { tools: snapshot.tools, agentTools, policy });
+    resolveToolState(name, { tools: snapshot.tools, agentTools, policy, overrides });
 
   const mcp = await mcpTools(snapshot, cwd, usage, resolve);
   const servers = [...mcp.servers];
@@ -228,6 +230,7 @@ export async function sessionToolInventory(input: InventoryInput): Promise<Sessi
     tools: sortTools(tools),
     servers,
     warnings: [...snapshot.warnings],
+    ...(overrides ? { overrides } : {}),
     generatedAt: Date.now()
   };
 }
