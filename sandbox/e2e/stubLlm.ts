@@ -8,8 +8,9 @@ import http from 'node:http';
  * 127.0.0.1, so a real `opencode acp` turn needs no network, no account and no
  * key. Replies are scripted, not generated, so the test can assert exact text:
  *
- * - a prompt containing `TOOL_TRIGGER` gets a `bash` tool call first, and the
- *   reply after the tool has run quotes its output back;
+ * - a prompt containing `TOOL_TRIGGER` gets a shell tool call first — `bash`
+ *   on OpenCode 1.x, `shell` on 2.x — and the reply after the tool has run
+ *   quotes its output back;
  * - a prompt containing `e2e:echo:<marker>` gets `STUB-ECHO <marker>`, so
  *   each of several follow-ups has a reply of its own to look for;
  * - `e2e:slow:<marker>` gets the same reply, streamed over a few seconds, so
@@ -62,6 +63,9 @@ function textOf(message: ChatMessage | undefined): string {
   return '';
 }
 
+/** What each OpenCode calls its shell tool. */
+const SHELL_TOOLS = ['bash', 'shell'];
+
 /**
  * What to answer. Only the tail of the conversation matters: OpenCode resends
  * the whole history every step, so a tool result as the last message means the
@@ -72,17 +76,18 @@ export function decide(body: ChatRequest): Answer {
   const last = messages[messages.length - 1];
   if (last?.role === 'tool') return { text: `${TOOL_REPLY_PREFIX} ${textOf(last).trim()}` };
 
-  const hasBash = (body.tools ?? []).some((tool) => tool.function?.name === 'bash');
+  const offered = (body.tools ?? []).map((tool) => tool.function?.name);
+  const shell = SHELL_TOOLS.find((name) => offered.includes(name));
   const lastUser = [...messages].reverse().find((m) => m.role === 'user');
   // Only a request that offers tools is the turn itself; the title request
   // quotes the same prompt and must not answer for it.
-  const echo = hasBash ? new RegExp(`(${ECHO_TRIGGER}|${SLOW_TRIGGER})(\\S+)`).exec(textOf(lastUser)) : null;
+  const echo = shell ? new RegExp(`(${ECHO_TRIGGER}|${SLOW_TRIGGER})(\\S+)`).exec(textOf(lastUser)) : null;
   if (echo?.[2]) return { text: echoReply(echo[2]), slow: echo[1] === SLOW_TRIGGER };
-  if (hasBash && textOf(lastUser).includes(TOOL_TRIGGER)) {
+  if (shell && textOf(lastUser).includes(TOOL_TRIGGER)) {
     return {
       toolCall: {
         id: `call_${Date.now().toString(36)}`,
-        name: 'bash',
+        name: shell,
         arguments: JSON.stringify({ command: `echo ${TOOL_OUTPUT}`, description: 'Print the e2e marker' })
       }
     };

@@ -16,6 +16,7 @@ services:
       args:
         # Unset → the Dockerfile's pinned default. Set it to run the e2e
         # against another release: OPENCODE_VERSION=1.18.32 npm run sandbox:e2e
+        # (2.x too: OPENCODE_VERSION=2.0.24)
         - OPENCODE_VERSION
     image: agent-master-3000-e2e:${OPENCODE_VERSION:-pinned}
     init: true

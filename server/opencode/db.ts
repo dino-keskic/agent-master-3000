@@ -1,6 +1,7 @@
 import fs from 'fs';
 import { DatabaseSync } from 'node:sqlite';
 import { opencodeDbPath } from '../setup/locations.js';
+import { installV2Views } from './schemaV2.js';
 
 /** Set in the reader thread, which reads whatever file the main thread resolved. */
 let pinnedPath: string | null = null;
@@ -46,17 +47,42 @@ export function openDb(readOnly = true): DatabaseSync | null {
  */
 let sharedDb: DatabaseSync | null = null;
 let sharedDbFile: string | null = null;
+/** Whether the shared handle reads OpenCode 2's tables through `schemaV2.ts`. */
+let sharedDbIsV2 = false;
+let schemaCheckedAt = 0;
+
+/**
+ * How often a 1.x handle looks again for 2.x's tables. Upgrading OpenCode
+ * migrates the file under a running board; from that moment the 1.x tables
+ * stop moving, and a handle that never noticed would show every session as
+ * frozen where the upgrade left it.
+ */
+const SCHEMA_RECHECK_MS = 30_000;
+
+/** A readable handle on 2.x reads it as 1.x; see `schemaV2.ts`. */
+function adoptSchema(db: DatabaseSync): void {
+  schemaCheckedAt = Date.now();
+  try {
+    sharedDbIsV2 = installV2Views(db);
+  } catch (e) {
+    console.warn('[OpenCode DB] Could not read the OpenCode 2 schema:', e);
+  }
+}
 
 export function readDb(): DatabaseSync | null {
   const file = dbPath();
   // A changed OPENCODE_DB, or a database swapped underneath us, has to win
   // over the cached handle rather than being served stale forever.
   if (sharedDb && sharedDbFile !== file) closeReadDb();
-  if (sharedDb) return sharedDb;
+  if (sharedDb) {
+    if (!sharedDbIsV2 && Date.now() - schemaCheckedAt > SCHEMA_RECHECK_MS) adoptSchema(sharedDb);
+    return sharedDb;
+  }
   const db = openDb(true);
   if (!db) return null;
   sharedDb = db;
   sharedDbFile = file;
+  adoptSchema(db);
   return sharedDb;
 }
 
@@ -65,6 +91,7 @@ export function closeReadDb(): void {
   const db = sharedDb;
   sharedDb = null;
   sharedDbFile = null;
+  sharedDbIsV2 = false;
   if (db) {
     try { db.close(); } catch { /* ignore */ }
   }

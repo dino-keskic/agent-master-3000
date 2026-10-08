@@ -67,7 +67,8 @@ state volume.
 
 ### OpenCode versions
 
-The image installs `opencode-ai@$OPENCODE_VERSION`, and the Dockerfile default is
+The image installs `opencode-ai@$OPENCODE_VERSION` — `@opencode/cli` for a 2.x
+version, which is what OpenCode 2 is published as — and the Dockerfile default is
 the pin. To run the e2e against another release (the image is tagged
 `agent-master-3000-e2e:<version>`, and only the OpenCode layer rebuilds):
 
@@ -80,6 +81,26 @@ pin). OpenCode 1.14 sends a permission request with empty `rawInput`,
 and the board takes the arguments from the tool call's earlier update. Older
 releases are untested. When you bump the pin, run the e2e on the new version
 first.
+
+OpenCode 2 passes on 2.0.24 (`OPENCODE_VERSION=2.0.24 npm run sandbox:e2e`).
+What changed under the board, and where it is handled:
+
+- **Sessions** move to `session_v2` and `session_message`, one row per
+  message with its parts inside. The 1.x tables stay behind, frozen at the
+  migration. `server/opencode/schemaV2.ts` puts views named after the 1.x
+  tables over the new ones, so every reader works unchanged; forking writes
+  the 2.x tables (`clone.ts`).
+- **The HTTP API** moves under `/api/`, takes `location[directory]=`, and
+  needs the server password. A folder's agents and MCP servers load on the
+  first request about it, so the first answer is empty. There is no tool
+  registry: `shared/toolCatalog/opencodeV2.ts` has the built-in list and reads
+  permission rules back into on/off maps.
+- **Tools**: `bash` is now `shell` and `task` is now `subagent`. `execute` is
+  Code Mode: it runs JavaScript, and MCP tools are called from inside it, not
+  offered to the model as tools of their own. Turning an MCP tool off as
+  `<server>_<tool>` still removes it. Denying `edit` or `write` removes both.
+- **The model list** is no longer `models.json`. 2.x caches the models.dev
+  catalog in its database (`kv`, `models-dev:catalog:*`).
 
 Node: the unit suite passes on 22.13+, 24 and 26 (the image). Below 22.13
 `node:sqlite` needs a flag, so `engines` says `>=22.13`.

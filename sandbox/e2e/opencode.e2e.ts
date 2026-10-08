@@ -70,8 +70,9 @@ function freePort(): Promise<number> {
 }
 
 /**
- * OpenCode's config for the run: the stub as the only provider, and bash set to
- * ask, so a tool call has to go through the board's permission prompt.
+ * OpenCode's config for the run: the stub as the only provider, and the shell
+ * set to ask, so a tool call has to go through the board's permission prompt.
+ * 1.x calls it `bash`, 2.x `shell`; each ignores the other's name.
  */
 function writeOpenCodeConfig(dir: string, stubPort: number): void {
   fs.mkdirSync(dir, { recursive: true });
@@ -81,7 +82,7 @@ function writeOpenCodeConfig(dir: string, stubPort: number): void {
     small_model: MODEL,
     autoupdate: false,
     share: 'disabled',
-    permission: { bash: 'ask' },
+    permission: { bash: 'ask', shell: 'ask' },
     provider: {
       [PROVIDER_ID]: {
         npm: '@ai-sdk/openai-compatible',

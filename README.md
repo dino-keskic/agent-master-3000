@@ -13,7 +13,8 @@ All your projects in place. Instead of long lists of sessions spread across many
 - **Node.js 22.13 or newer.** The board reads OpenCode's SQLite database with
   `node:sqlite`, which needs 22.13 (or 23.4+).
 - **OpenCode** on your `PATH`, signed in to at least one provider. Tested with
-  OpenCode 1.14.51 to 1.18.32 (the sandbox e2e below pins the newest).
+  OpenCode 1.14.51 to 1.18.32 (the sandbox e2e below pins the newest), and
+  OpenCode 2.0.24 (npm `@opencode/cli`).
 - Optional: `gh` (GitHub mentions and PR status), `acli` (Jira mentions and
   ticket status), `uv` or `whisper-server` (voice dictation), `ffmpeg`
   (videos on prompts).
@@ -255,6 +256,7 @@ for coding agents working on this repo.
 npm run sandbox:test                            # the unit suite in a container with no network
 npm run sandbox:e2e                             # the board against a real `opencode acp` and a stub model
 OPENCODE_VERSION=1.16.2 npm run sandbox:e2e     # the same, against another OpenCode release
+OPENCODE_VERSION=2.0.24 npm run sandbox:e2e     # … or against OpenCode 2
 npm run sandbox:board                           # the board at http://127.0.0.1:4999, fake agent
 ```
 

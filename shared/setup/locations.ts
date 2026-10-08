@@ -7,8 +7,8 @@ import { LOCATION_KEYS, LocationKey, LocationSource } from './report.js';
  * the board's setup file and what a search of the disk turned up — in that
  * order of precedence.
  *
- * The defaults follow OpenCode's own rules (checked against 1.18 in the
- * sandbox), so the board reads what the agent writes:
+ * The defaults follow OpenCode's own rules (checked against 1.18 and 2.0 in
+ * the sandbox), so the board reads what the agent writes:
  *
  * - config: `$XDG_CONFIG_HOME/opencode`, always. `OPENCODE_CONFIG_DIR` adds a
  *   folder on top of it rather than replacing it, and `OPENCODE_CONFIG` adds a
@@ -18,7 +18,8 @@ import { LOCATION_KEYS, LocationKey, LocationSource } from './report.js';
  *   `opencode-<channel>.db` beside it for a non-release build. `OPENCODE_DB`
  *   overrides it, relative to that folder when it is not absolute.
  * - model list: `$XDG_CACHE_HOME/opencode/models.json`, or
- *   `OPENCODE_MODELS_PATH`.
+ *   `OPENCODE_MODELS_PATH`. 2.x writes no such file and caches the list in
+ *   the sessions DB instead (`server/opencode/models.ts`).
  *
  * XDG applies on macOS and Windows too: OpenCode uses `~/.config` and friends
  * everywhere. A location changed in the setup file is handed to every OpenCode
