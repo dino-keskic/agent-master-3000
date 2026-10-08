@@ -54,6 +54,26 @@ test('a tool call keeps what earlier updates said about it within the turn', () 
   assert.deepStrictEqual(done.toolCall?.rawInput, { command: 'ls' });
 });
 
+test('a Code Mode call shows what its script calls, then what it reported running', () => {
+  const stream = new TranscriptStream(new AcpSessionRegistry());
+  const update = (u: Record<string, unknown>) => ({ kind: 'tool_call' as const, update: { toolCallId: 'cm-1', ...u } });
+  stream.toEvent('TASK-1', update({ title: 'execute', kind: 'other', status: 'pending' }), 'ses-a');
+  const running = logOf(stream.toEvent('TASK-1', update({
+    status: 'in_progress',
+    rawInput: { code: 'await tools["echo-board"].echo({ text: "hi" })' }
+  }), 'ses-a'));
+  assert.deepStrictEqual(running.toolCall?.codeModeCalls, ['echo-board.echo']);
+
+  const done = logOf(stream.toEvent('TASK-1', update({
+    status: 'completed',
+    rawOutput: { metadata: { toolCalls: [{ tool: 'echo-board.echo' }, { tool: 'echo-board.echo' }] } }
+  }), 'ses-a'));
+  assert.deepStrictEqual(done.toolCall?.codeModeCalls, ['echo-board.echo', 'echo-board.echo']);
+
+  const late = logOf(stream.toEvent('TASK-1', update({ status: 'completed' }), 'ses-a'));
+  assert.deepStrictEqual(late.toolCall?.codeModeCalls, ['echo-board.echo', 'echo-board.echo'], 'the report is kept');
+});
+
 test('a message longer than the store keeps stops growing in memory', () => {
   const stream = new TranscriptStream(new AcpSessionRegistry());
   const piece = 'x'.repeat(1000);

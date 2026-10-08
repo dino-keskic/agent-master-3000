@@ -99,6 +99,14 @@ What changed under the board, and where it is handled:
   Code Mode: it runs JavaScript, and MCP tools are called from inside it, not
   offered to the model as tools of their own. Turning an MCP tool off as
   `<server>_<tool>` still removes it. Denying `edit` or `write` removes both.
+  A finished `execute` lists the MCP tools its script called in
+  `rawOutput.metadata.toolCalls` (the database keeps the same list), and the
+  board shows and counts those calls (`shared/agent/codeMode.ts`).
+- **Config is watched.** 2.x reloads its config files while it runs, including
+  the `OPENCODE_CONFIG` file. The board puts its tool switches there
+  (`shared/toolCatalog/policyDelivery.ts`), and a running session picks them up
+  within about a second, with no restart. The e2e checks this. The file is
+  merged before the project's config, so a project can outvote it.
 - **The model list** is no longer `models.json`. 2.x caches the models.dev
   catalog in its database (`kv`, `models-dev:catalog:*`).
 

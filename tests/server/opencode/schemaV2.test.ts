@@ -58,7 +58,7 @@ test('OpenCode 2 database', async (t) => {
       installV2Views(db);
       const parts = db.prepare('SELECT data FROM part WHERE session_id = ? ORDER BY time_created, id').all(ROOT) as any[];
       const types = parts.map((p) => JSON.parse(p.data).type + ':' + (JSON.parse(p.data).tool ?? ''));
-      assert.deepStrictEqual(types, ['text:', 'reasoning:', 'tool:shell', 'tool:subagent', 'text:']);
+      assert.deepStrictEqual(types, ['text:', 'reasoning:', 'tool:shell', 'tool:subagent', 'tool:execute', 'text:']);
       const shell = JSON.parse(parts[2].data);
       assert.strictEqual(shell.state.output, 'built\n');
       assert.strictEqual(shell.state.time.start, V2_NOW - 84);
@@ -71,14 +71,20 @@ test('OpenCode 2 database', async (t) => {
   await t.test('history reads prompts, thinking, tools and answers', () => {
     const history = loadSessionHistory(ROOT);
     const types = history.logs.map((l) => l.type);
-    assert.deepStrictEqual(types, ['user_say', 'thought', 'tool_call', 'tool_call', 'agent_say']);
+    assert.deepStrictEqual(types, ['user_say', 'thought', 'tool_call', 'tool_call', 'tool_call', 'agent_say']);
     assert.strictEqual(history.logs[0]!.text, 'Please fix the build.');
     assert.strictEqual(history.logs[1]!.text, 'Check the compiler first.');
     assert.strictEqual(history.logs[2]!.toolCall?.status, 'completed');
-    assert.strictEqual(history.logs[4]!.text, 'The build is green.');
-    assert.strictEqual(history.logs[4]!.metadata?.model, 'stub/m');
-    assert.strictEqual(history.logs[4]!.metadata?.agent, 'build');
+    assert.strictEqual(history.logs[5]!.text, 'The build is green.');
+    assert.strictEqual(history.logs[5]!.metadata?.model, 'stub/m');
+    assert.strictEqual(history.logs[5]!.metadata?.agent, 'build');
     assert.ok(!history.logs.some((l) => l.text === 'stale prompt'));
+  });
+
+  await t.test('a Code Mode call keeps what it reported running', () => {
+    const call = loadSessionHistory(ROOT).logs[4]!;
+    assert.strictEqual(call.toolCall?.name, 'execute');
+    assert.deepStrictEqual(call.toolCall?.codeModeCalls, ['echo-board.echo']);
   });
 
   await t.test('a subagent call links to the session it started', () => {

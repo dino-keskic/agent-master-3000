@@ -78,6 +78,7 @@ const sessionUpdateSchema = z.object({
   kind: z.unknown().optional(),
   status: z.unknown().optional(),
   rawInput: z.record(z.string(), z.unknown()).optional(),
+  rawOutput: z.unknown().optional(),
   locations: z.array(toolLocationSchema).optional()
 });
 

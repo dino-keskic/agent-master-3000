@@ -8,18 +8,24 @@ import { boardConfigOverlay } from '../../shared/agent/tools.js';
  * tool from the request that reaches the model, and everything else in the
  * user's config (providers, MCP servers, agents) survives untouched.
  *
+ * On OpenCode 2 the policy goes in a file instead (`policyFile`, written by
+ * `policyFile.ts`), which it keeps watching; the content would outrank the
+ * file and freeze it, so then it carries none of the policy.
+ *
  * Both the agent process and the short-lived server the Tools panel reads from
  * go through here, so the panel shows the same list the agent will run with.
  */
 export function opencodeEnv(
   base: NodeJS.ProcessEnv,
-  policy: Record<string, boolean> | undefined
+  policy: Record<string, boolean> | undefined,
+  policyFile?: string
 ): NodeJS.ProcessEnv {
   // The board's token is for clients of the board, not for the agent's shell.
   if ('BOARD_TOKEN' in base) {
     const { BOARD_TOKEN: _token, ...rest } = base;
     base = rest;
   }
+  if (policyFile) return { ...base, OPENCODE_CONFIG: policyFile };
   const overlay = boardConfigOverlay(policy);
   if (!overlay.tools) return base;
 

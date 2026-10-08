@@ -72,7 +72,7 @@ export function useSessionTools(
     setSaving(true);
     try {
       const result = await api.setToolPolicy(rule, enabled);
-      setInventory((prev) => (prev ? applyToolPolicyRule(prev, rule, enabled, result.policy) : prev));
+      setInventory((prev) => (prev ? applyToolPolicyRule(prev, rule, enabled, result.policy, result.pendingRestart) : prev));
     } catch (e) {
       reportError('Could not change that tool', e);
     } finally {

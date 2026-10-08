@@ -11,6 +11,11 @@ import { SessionTool } from '../../../shared/agent/tools';
  * lead to different places to go and fix it.
  */
 function stateLabel(tool: SessionTool): string {
+  if (tool.policyOverridden) {
+    const said = tool.policy ? 'on' : 'off';
+    const does = tool.enabled ? 'back on' : `off with \`${tool.disabledByRule}\``;
+    return `Switched ${said} here, but an OpenCode config read after the board's — most likely this project's — turns it ${does}, and has the last word.`;
+  }
   if (tool.disabledBy === 'board') return 'Blocked here — the agent is never offered this tool.';
   if (tool.disabledBy === 'agent') return `Turned off for this agent by \`${tool.disabledByRule}\` in your OpenCode config.`;
   if (tool.disabledBy === 'config') return `Turned off by \`${tool.disabledByRule}\` in your OpenCode config.`;
@@ -75,7 +80,14 @@ export const ToolRow: React.FC<{
         </Button>
       </Tooltip>
     )}
-    {!tool.enabled && tool.disabledBy !== 'board' && (
+    {tool.policyOverridden && (
+      <Tooltip label={stateLabel(tool)} withArrow multiline w={260}>
+        <Badge size="xs" variant="light" color="yellow" className="shrink-0">
+          outvoted
+        </Badge>
+      </Tooltip>
+    )}
+    {!tool.enabled && tool.disabledBy !== 'board' && !tool.policyOverridden && (
       <Tooltip label={stateLabel(tool)} withArrow multiline w={260}>
         <Badge size="xs" variant="light" color="gray" className="shrink-0">
           {tool.disabledBy === 'server' ? 'no server' : 'config'}

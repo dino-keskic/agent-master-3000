@@ -496,6 +496,68 @@ describe('board ↔ opencode acp ↔ stub LLM', () => {
       task = await followUp('after-ctrl-c');
     } catch (e) { withServerLog(e); }
   });
+  /** The tools OpenCode offered the model in the last request that offered any. */
+  function lastOffered(): string[] {
+    const turn = [...stub.requests].reverse().find((r) => (r.tools ?? []).length > 0);
+    return (turn?.tools ?? []).map((t) => t.function?.name ?? '');
+  }
+
+  it('hands a tool switch to the running agent — live on 2.x, at the next restart on 1.x', async () => {
+    try {
+      const major = Number(/(\d+)\./.exec(execFileSync('opencode', ['--version'], { env: boardEnv, encoding: 'utf8' }))?.[1]);
+      assert.ok(lastOffered().includes('webfetch'), `webfetch was never offered: ${lastOffered().join(', ')}`);
+
+      const switched = await api<{ pendingRestart: boolean }>(board, 'POST', '/api/tools/policy', { name: 'webfetch', enabled: false });
+      assert.strictEqual(switched.pendingRestart, major < 2);
+      if (major >= 2) {
+        // OpenCode 2 watches the board's file, and reloads it a moment later:
+        // a turn from then on runs without the tool, in the same process.
+        const switchedAt = Date.now();
+        let turns = 0;
+        await waitFor('a turn without webfetch', async () => {
+          task = await followUp(`webfetch-off-${++turns}`);
+          if (!lastOffered().includes('webfetch')) return true;
+          await new Promise((r) => setTimeout(r, 500));
+          return undefined;
+        }, 15_000);
+        console.log(`[e2e] the switch reached the running agent after ${Date.now() - switchedAt}ms (${turns} turns)`);
+        assert.doesNotMatch(board.output(), /restart/i, 'the agent was restarted for the switch');
+        const tools = await api<{ tools: { name: string; enabled: boolean; policy?: boolean }[]; pendingRestart: boolean }>(
+          board, 'GET', `/api/tasks/${task.id}/tools`);
+        assert.strictEqual(tools.pendingRestart, false);
+        assert.deepStrictEqual(tools.tools.find((t) => t.name === 'webfetch'), {
+          ...tools.tools.find((t) => t.name === 'webfetch'), enabled: false, policy: false
+        });
+
+        // The project's config is merged after the board's file and outvotes
+        // it; the panel has to say so rather than show a switch that did nothing.
+        const projectConfig = path.join(workspace, 'opencode.json');
+        fs.writeFileSync(projectConfig, JSON.stringify({ tools: { webfetch: true } }));
+        try {
+          const outvoted = await api<{ tools: { name: string; enabled: boolean; policyOverridden?: boolean }[] }>(
+            board, 'GET', `/api/tasks/${task.id}/tools?refresh=1`);
+          const webfetch = outvoted.tools.find((t) => t.name === 'webfetch');
+          assert.strictEqual(webfetch?.enabled, true, 'the project config did not turn webfetch back on');
+          assert.strictEqual(webfetch?.policyOverridden, true, 'the panel does not say the board was outvoted');
+        } finally {
+          fs.rmSync(projectConfig);
+        }
+      }
+
+      const cleared = await api<{ pendingRestart: boolean }>(board, 'POST', '/api/tools/policy', { name: 'webfetch', enabled: null });
+      assert.strictEqual(cleared.pendingRestart, false, 'back to the policy the agent started with');
+      if (major >= 2) {
+        let turns = 0;
+        await waitFor('webfetch to come back', async () => {
+          task = await followUp(`webfetch-on-${++turns}`);
+          if (lastOffered().includes('webfetch')) return true;
+          await new Promise((r) => setTimeout(r, 500));
+          return undefined;
+        }, 15_000);
+      }
+    } catch (e) { withServerLog(e); }
+  });
+
   it('offers a provider one project adds, marked with that project, without a restart by hand', async () => {
     try {
       // A second project with no config of its own: the new model is not offered there.

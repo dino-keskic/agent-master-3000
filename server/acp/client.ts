@@ -110,6 +110,11 @@ export class AcpManager {
     return this.transport.policyPending();
   }
 
+  /** Hand a running OpenCode 2 the current tool policy; false when it needs a restart. */
+  public applyToolPolicy(): boolean {
+    return this.transport.applyToolPolicyLive();
+  }
+
   /** True when an OpenCode config file changed after the running agent read them. */
   public configPending(): boolean {
     return this.transport.configPending();
@@ -338,6 +343,7 @@ export const acpManager = {
   killBackgroundProcesses: (spec: ProcessKillSpec) => getAcpManager().killBackgroundProcesses(spec),
   agentPid: () => getAcpManager().agentPid(),
   toolPolicyPending: () => getAcpManager().toolPolicyPending(),
+  applyToolPolicy: () => getAcpManager().applyToolPolicy(),
   configPending: () => getAcpManager().configPending(),
   refreshConfig: (busy: () => boolean) => getAcpManager().refreshConfig(busy),
   restartAgent: () => getAcpManager().restartAgent(),

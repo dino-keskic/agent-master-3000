@@ -42,6 +42,11 @@ export interface V2ToolConfig {
   agents: Record<string, { tools?: Record<string, boolean> }>;
   mcpConfig: Record<string, McpConfigEntry>;
   mcpStatus: Record<string, { status?: string }>;
+  /**
+   * When the board's switches came in its own file: what the documents merged
+   * after it say, which outvote the board for the tools they name.
+   */
+  overrides?: Record<string, boolean>;
 }
 
 interface PermissionRule {
@@ -139,13 +144,24 @@ function mcpEntry(raw: unknown): McpConfigEntry {
  * the config's global rules, which so have the last word (2.0.24 in the
  * sandbox) — so that list is what decides an agent's tools. The global map
  * comes from the config documents alone.
+ *
+ * `boardFile` is the board's own policy file, when the switches went there
+ * (`policyDelivery.ts`). It is merged before the project's config, so the
+ * documents after it are kept apart as `overrides`. The `*` allow is kept in
+ * those: a later document allowing everything really does turn a switch back
+ * on.
  */
-export function readV2ToolConfig(config: unknown, agents: unknown, mcp: unknown): V2ToolConfig {
+export function readV2ToolConfig(config: unknown, agents: unknown, mcp: unknown, boardFile?: string): V2ToolConfig {
   const tools: Record<string, boolean> = {};
   const mcpConfig: Record<string, McpConfigEntry> = {};
+  let overrides: Record<string, boolean> | undefined;
   for (const doc of asArray(config)) {
-    const info = asRecord(asRecord(doc).info);
-    toolMapFromRules(rulesOf(info.permissions), tools);
+    const record = asRecord(doc);
+    const info = asRecord(record.info);
+    const rules = rulesOf(info.permissions);
+    toolMapFromRules(rules, tools);
+    if (overrides) toolMapFromRules(rules, overrides);
+    else if (boardFile && record.path === boardFile) overrides = {};
     for (const [name, server] of Object.entries(asRecord(asRecord(info.mcp).servers))) {
       mcpConfig[name] = { ...mcpConfig[name], ...mcpEntry(server) };
     }
@@ -168,5 +184,5 @@ export function readV2ToolConfig(config: unknown, agents: unknown, mcp: unknown)
     mcpStatus[server.name] = { status: typeof status === 'string' ? status : undefined };
   }
 
-  return { tools, agents: agentMap, mcpConfig, mcpStatus };
+  return { tools, agents: agentMap, mcpConfig, mcpStatus, ...(overrides ? { overrides } : {}) };
 }

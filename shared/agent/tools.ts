@@ -1,4 +1,5 @@
 import { TaskLogItem } from '../types.js';
+import { codeModeTarget } from './codeMode.js';
 
 /**
  * What the agent can actually call in a session.
@@ -49,6 +50,11 @@ export interface SessionTool {
   disabledByRule?: string;
   /** The board's own override for this tool, when it has one. */
   policy?: boolean;
+  /**
+   * The board's override is outvoted: on OpenCode 2 its switches sit in a
+   * config file merged before the project's, and that config says otherwise.
+   */
+  policyOverridden?: boolean;
   /** Calls in the transcript of the session being viewed. */
   used: number;
 }
@@ -75,6 +81,8 @@ export interface SessionToolInventory {
   error?: string;
   /** The board's overrides, exactly as stored in settings. */
   policy: Record<string, boolean>;
+  /** OpenCode 2: what the configs merged after the board's file say (`readV2ToolConfig`). */
+  overrides?: Record<string, boolean>;
   /**
    * True when the policy has changed since the agent process started. The list
    * above already reflects the new policy; the running agent does not.
@@ -124,10 +132,24 @@ export function decidingRule(
   return best;
 }
 
+type ToolState = Pick<SessionTool, 'enabled' | 'disabledBy' | 'disabledByRule' | 'policy' | 'policyOverridden'>;
+
+/** The board's switch for a tool, unless a config merged after it says otherwise. */
+function boardState(name: string, rule: string, value: boolean, overrides?: Record<string, boolean>): ToolState {
+  const later = decidingRule(overrides, name);
+  if (later && later.value !== value) {
+    return later.value
+      ? { enabled: true, policy: value, policyOverridden: true }
+      : { enabled: false, disabledBy: 'config', disabledByRule: later.rule, policy: value, policyOverridden: true };
+  }
+  return value ? { enabled: true, policy: true } : { enabled: false, disabledBy: 'board', disabledByRule: rule, policy: false };
+}
+
 /**
  * Resolve one tool against the config. The board's own policy is the outermost
  * layer — it is written into the agent's config overlay, which wins over both
- * the file config and the agent's map. Below that, the agent's map is consulted
+ * the file config and the agent's map — except for `overrides`, the configs
+ * OpenCode 2 merges after the board's own file. Below that, the agent's map is consulted
  * before the global one: a `build` agent that re-enables `read` keeps it even
  * under a global `*: false`.
  */
@@ -137,14 +159,11 @@ export function resolveToolState(
     tools?: Record<string, boolean>;
     agentTools?: Record<string, boolean>;
     policy?: Record<string, boolean>;
+    overrides?: Record<string, boolean>;
   }
-): { enabled: boolean; disabledBy?: ToolDisabledBy; disabledByRule?: string; policy?: boolean } {
+): ToolState {
   const fromBoard = decidingRule(config.policy, name);
-  if (fromBoard) {
-    return fromBoard.value
-      ? { enabled: true, policy: true }
-      : { enabled: false, disabledBy: 'board', disabledByRule: fromBoard.rule, policy: false };
-  }
+  if (fromBoard) return boardState(name, fromBoard.rule, fromBoard.value, config.overrides);
 
   const fromAgent = decidingRule(config.agentTools, name);
   if (fromAgent) {
@@ -169,6 +188,7 @@ export function resolveToolState(
  * Names come from the transcript, which is the only place MCP tools show up
  * under the exact name the model used — worth keeping even for tools the
  * catalog already knows about, and the only evidence for the ones it doesn't.
+ * A Code Mode `execute` counts once itself and once for each MCP tool it ran.
  */
 export function toolUsage(logs: TaskLogItem[] | undefined, sessionId?: string): Record<string, number> {
   const counts: Record<string, number> = {};
@@ -178,6 +198,13 @@ export function toolUsage(logs: TaskLogItem[] | undefined, sessionId?: string): 
     const name = log.toolCall.name.trim();
     if (!name) continue;
     counts[name] = (counts[name] || 0) + 1;
+    // Under Code Mode an MCP tool is only ever called from inside `execute`.
+    for (const call of log.toolCall.codeModeCalls || []) {
+      const target = codeModeTarget(call);
+      if (!target) continue;
+      const wire = mcpToolName(target.server, target.tool);
+      counts[wire] = (counts[wire] || 0) + 1;
+    }
   }
   return counts;
 }
@@ -267,30 +294,36 @@ export function groupToolsBySource(tools: SessionTool[]): {
  * Clearing an override (`enabled: null`) is the one case that cannot be
  * resolved here — the config below decides again and only a re-read knows what
  * it says — so the tool is shown available until the next read corrects it.
+ *
+ * `pendingRestart` is the server's answer: an OpenCode 2 agent took the switch
+ * live, and has nothing to restart for.
  */
 export function applyToolPolicyRule(
   inventory: SessionToolInventory,
   rule: string,
   enabled: boolean | null,
-  policy: Record<string, boolean>
+  policy: Record<string, boolean>,
+  pendingRestart = true
 ): SessionToolInventory {
   return {
     ...inventory,
     policy,
-    pendingRestart: true,
+    pendingRestart,
     tools: inventory.tools.map((tool) => {
       if (!matchesToolPattern(rule, tool.name)) return tool;
-      if (enabled === null) {
-        const { policy: _cleared, ...rest } = tool;
-        return { ...rest, enabled: true, disabledBy: undefined, disabledByRule: undefined };
-      }
-      return {
+      const cleared: SessionTool = {
         ...tool,
-        policy: enabled,
-        enabled,
-        disabledBy: enabled ? undefined : ('board' as const),
-        disabledByRule: enabled ? undefined : rule
+        enabled: true,
+        disabledBy: undefined,
+        disabledByRule: undefined,
+        policy: undefined,
+        policyOverridden: undefined
       };
+      if (enabled === null) {
+        const { policy: _policy, policyOverridden: _overridden, ...rest } = cleared;
+        return rest;
+      }
+      return { ...cleared, ...boardState(tool.name, rule, enabled, inventory.overrides) };
     })
   };
 }

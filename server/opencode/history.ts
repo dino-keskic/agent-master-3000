@@ -1,6 +1,7 @@
 import { DatabaseSync } from 'node:sqlite';
 import { TaskLogItem } from '../../shared/types.js';
 import { isSubagentTool, replayedToolStatus, toolKind } from '../../shared/agent/toolCall.js';
+import { codeModeCalls } from '../../shared/agent/codeMode.js';
 import { turnAttributionFromMessage } from '../../shared/turns/attribution.js';
 import { parseSessionModel } from './models.js';
 import { readDb } from './db.js';
@@ -144,6 +145,8 @@ function toolLog(id: string, { part, timestamp }: ParsedPart, resolveSubagent: S
   const output = typeof state.output === 'string' ? clipImportText(state.output) : undefined;
   const filePath = state.input?.filePath || state.input?.path;
   const subagent = isSubagentTool(name) ? resolveSubagent(part, timestamp) : undefined;
+  const rawInput = state.input && typeof state.input === 'object' ? state.input : undefined;
+  const ran = codeModeCalls({ name, rawInput }, state.metadata);
   return {
     id,
     timestamp,
@@ -155,9 +158,10 @@ function toolLog(id: string, { part, timestamp }: ParsedPart, resolveSubagent: S
       name,
       kind: toolKind(name),
       status: replayedToolStatus(state.status),
-      rawInput: state.input && typeof state.input === 'object' ? state.input : undefined,
+      rawInput,
       output,
       locations: typeof filePath === 'string' ? [filePath] : undefined,
+      ...(ran ? { codeModeCalls: ran } : {}),
       ...subagent
     }
   };

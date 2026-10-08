@@ -40,7 +40,8 @@ export function registerToolRoutes(app: Express, { orchestrator }: RouteContext)
   /**
    * Turn one tool off (or back on) for every session the board runs. `enabled:
    * null` drops the override and hands the decision back to the user's own
-   * OpenCode config. The agent picks the change up when it restarts.
+   * OpenCode config. An OpenCode 2 agent picks the change up on its next turn,
+   * from the file it watches; 1.x needs the restart `pendingRestart` asks for.
    */
   app.post('/api/tools/policy', (req: Request, res: Response) => {
     const name = typeof req.body?.name === 'string' ? req.body.name.trim() : '';
@@ -52,6 +53,7 @@ export function registerToolRoutes(app: Express, { orchestrator }: RouteContext)
     else return res.status(400).json({ error: 'enabled must be true, false, or null' });
 
     const settings = taskStore.updateSettings({ toolPolicy: policy });
+    acpManager.applyToolPolicy();
     clearToolCatalogCache();
     res.json({ policy: settings.toolPolicy || {}, pendingRestart: acpManager.toolPolicyPending() });
   });

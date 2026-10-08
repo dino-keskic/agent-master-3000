@@ -2,6 +2,7 @@ import { ToolCallInfo } from '../types.js';
 import { isExecuteTool } from './backgroundTasks.js';
 import { languageFromPath } from '../transcript/highlight.js';
 import { toolKind } from './toolCall.js';
+import { summarizeCodeModeCalls } from './codeMode.js';
 
 /**
  * What a tool call looks like when you show it: the one-line gist, which
@@ -29,6 +30,11 @@ export function summarizeToolCall(info: ToolCallInfo): string | null {
   if (info.locations && info.locations.length > 0) {
     const first = tailOfPath(info.locations[0] ?? '');
     return info.locations.length > 1 ? `${first} +${info.locations.length - 1} more` : first;
+  }
+
+  if (info.codeModeCalls) {
+    const ran = summarizeCodeModeCalls(info.codeModeCalls);
+    if (ran) return ran;
   }
 
   const input = info.rawInput;

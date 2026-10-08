@@ -177,3 +177,35 @@ test('MCP servers come out of the config documents and the status list', () => {
 test('nothing to read is an empty snapshot, not an error', () => {
   assert.deepStrictEqual(readV2ToolConfig(null, { data: [] }, undefined), { tools: {}, agents: {}, mcpConfig: {}, mcpStatus: {} });
 });
+
+// With file delivery the board's switches are a document of their own,
+// merged before the project's config.
+const boardFile = '/data/board_state.opencode.json';
+const fileConfig = [
+  config[0],
+  { type: 'document', path: boardFile, info: { permissions: [{ action: 'grep', resource: '*', effect: 'deny' }, { action: 'webfetch', resource: '*', effect: 'deny' }] } },
+  { type: 'document', path: '/work/web-app/opencode.json', info: { permissions: [{ action: 'grep', resource: '*', effect: 'allow' }] } }
+];
+
+test('what the documents after the board file say is kept apart, to outvote it', () => {
+  const read = readV2ToolConfig(fileConfig, agents, mcp, boardFile);
+  assert.deepStrictEqual(read.overrides, { grep: true });
+  // The merged map is still what OpenCode ends up with.
+  assert.deepStrictEqual(read.tools, { shell: true, webfetch: false, grep: true });
+});
+
+test('a later allow of everything outvotes every switch', () => {
+  const read = readV2ToolConfig(
+    [fileConfig[1], { type: 'document', path: '/p/opencode.json', info: { permissions: [{ action: '*', resource: '*', effect: 'allow' }] } }],
+    { data: [] },
+    null,
+    boardFile
+  );
+  assert.deepStrictEqual(read.overrides, { '*': true });
+});
+
+test('no board file, or none in the list, has no overrides to report', () => {
+  assert.strictEqual(readV2ToolConfig(fileConfig, agents, mcp).overrides, undefined);
+  assert.strictEqual(readV2ToolConfig(config, agents, mcp, boardFile).overrides, undefined);
+  assert.deepStrictEqual(readV2ToolConfig([fileConfig[1]], { data: [] }, null, boardFile).overrides, {});
+});

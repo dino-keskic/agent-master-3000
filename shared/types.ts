@@ -145,6 +145,8 @@ export interface ToolCallInfo {
   subagentSessionId?: string;
   /** Which subagent ran it — the requested type, else the child session's agent. */
   subagentName?: string;
+  /** For OpenCode 2's Code Mode `execute`: the `server.tool` calls its script made. */
+  codeModeCalls?: string[];
 }
 
 /**

@@ -51,3 +51,11 @@ test('a non-object overlay does not become the config', () => {
   const merged = parse(opencodeEnv({ OPENCODE_CONFIG_CONTENT: '["nope"]' }, { bash: false }));
   assert.deepEqual(merged, { tools: { bash: false } });
 });
+
+test('with a policy file, OPENCODE_CONFIG names it and the content carries none of the policy', () => {
+  const base = { OPENCODE_CONFIG_CONTENT: JSON.stringify({ model: 'x/y' }), BOARD_TOKEN: 's3cret' };
+  const env = opencodeEnv(base, { bash: false }, '/data/board_state.opencode.json');
+  assert.equal(env.OPENCODE_CONFIG, '/data/board_state.opencode.json');
+  assert.deepEqual(parse(env), { model: 'x/y' });
+  assert.equal(env.BOARD_TOKEN, undefined);
+});
