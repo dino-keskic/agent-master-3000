@@ -10,6 +10,12 @@ import { ToolCallStatus } from '../types.js';
 /** ACP `kind` values the board understands. */
 export type ToolKind = 'read' | 'edit' | 'execute' | 'search' | 'fetch' | 'other';
 
+/**
+ * By tool name, for history (which records no kind) and agents that send none.
+ * `execute` is deliberately absent: OpenCode 2's tool of that name runs
+ * JavaScript in its Code Mode runtime — it is how MCP tools are reached — not a
+ * shell. A live shell call still says so in its ACP kind.
+ */
 const KIND_BY_TOOL: Record<string, ToolKind> = {
   read: 'read',
   edit: 'edit',
@@ -17,7 +23,6 @@ const KIND_BY_TOOL: Record<string, ToolKind> = {
   apply_patch: 'edit',
   patch: 'edit',
   bash: 'execute',
-  execute: 'execute',
   shell: 'execute',
   glob: 'search',
   grep: 'search',
@@ -33,8 +38,8 @@ export function toolKind(name: string): ToolKind {
 
 /**
  * Tools that hand the work to a child session instead of doing it inline.
- * OpenCode spells it `task`. Both the transcript link and the tool-call UI key
- * off this, so the spelling lives in one place.
+ * OpenCode 1.x spells it `task`, 2.x `subagent`. Both the transcript link and
+ * the tool-call UI key off this, so the spelling lives in one place.
  */
 const SUBAGENT_TOOLS: ReadonlySet<string> = new Set(['task', 'agent', 'subagent']);
 

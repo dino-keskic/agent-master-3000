@@ -55,7 +55,9 @@ RUN ELECTRON_SKIP_BINARY_DOWNLOAD=1 npm ci
 # redoes this layer (see README.md). The default is the newest version the e2e
 # has passed on; the tested range is in README.md.
 ARG OPENCODE_VERSION=1.18.32
-RUN npm install -g opencode-ai@${OPENCODE_VERSION} && opencode --version
+# OpenCode 2 is published under its own package name; both install `opencode`.
+RUN case "${OPENCODE_VERSION}" in 2.*) pkg=@opencode/cli ;; *) pkg=opencode-ai ;; esac \
+  && npm install -g "${pkg}@${OPENCODE_VERSION}" && opencode --version
 
 COPY sandbox/entrypoint.sh /usr/local/bin/sandbox-entrypoint
 RUN chmod +x /usr/local/bin/sandbox-entrypoint

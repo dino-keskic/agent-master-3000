@@ -3,6 +3,7 @@ import { parseJsonc } from '../../shared/jsonc.js';
 import { ModelPrice } from '../../shared/sessions/cost.js';
 import { mergedConfigFilePaths } from '../setup/configLayers.js';
 import { opencodeModelsPath } from '../setup/locations.js';
+import { readDb } from './db.js';
 
 export interface ModelInfo extends ModelPrice {
   provider: string;
@@ -149,20 +150,67 @@ export function overlayConfigLimits(
   return catalog;
 }
 
+export interface CachedCatalog {
+  /** Changes whenever the catalog does, for the cache key. */
+  stamp: string;
+  read(): unknown;
+}
+
+/**
+ * OpenCode 2 writes no `models.json`: it keeps the models.dev catalog in its
+ * database, in `kv` under `models-dev:catalog:<hash of the URL>`, as
+ * `{ updatedAt, digest, body }` with the same JSON as a string in `body`.
+ * The newest one is the one it fetched last. Null on 1.x, which has no `kv`.
+ */
+export function catalogFromDb(): CachedCatalog | null {
+  const db = readDb();
+  if (!db) return null;
+  let row: { value: string; time_updated: number } | undefined;
+  try {
+    row = db
+      .prepare(`SELECT value, time_updated FROM kv WHERE key LIKE 'models-dev:catalog:%' ORDER BY time_updated DESC LIMIT 1`)
+      .get() as typeof row;
+  } catch {
+    return null;
+  }
+  if (!row) return null;
+  const { value } = row;
+  return {
+    stamp: `kv:${row.time_updated}`,
+    read: () => {
+      try {
+        const body = asRecord(JSON.parse(value)).body;
+        return typeof body === 'string' ? JSON.parse(body) : null;
+      } catch {
+        return null;
+      }
+    }
+  };
+}
+
 /**
  * OpenCode's model list, with the context limits from every config file it
  * merges laid over it in the same order — so a limit set in the extra config
  * folder beats the global one, as it does for the agent, and a model a project
  * defines for itself has its limit too.
+ *
+ * The list is 1.x's `models.json`, or, when there is none, what 2.x cached in
+ * its database.
  */
 export function loadModelCatalog(
   catalogPath = opencodeModelsPath(),
-  configPaths: readonly string[] = mergedConfigFilePaths()
+  configPaths: readonly string[] = mergedConfigFilePaths(),
+  fallback: () => CachedCatalog | null = catalogFromDb
 ): Map<string, ModelInfo> {
-  const key = [catalogPath, ...configPaths].map((file) => `${file}:${fileMtime(file)}`).join('|');
+  const fromFile = fileMtime(catalogPath) > 0;
+  const fromDb = fromFile ? null : fallback();
+  const key = [
+    fromDb ? fromDb.stamp : `${catalogPath}:${fileMtime(catalogPath)}`,
+    ...configPaths.map((file) => `${file}:${fileMtime(file)}`)
+  ].join('|');
   if (cached && cachedKey === key) return cached;
 
-  const parsed = parseModelCatalog(readJsonObject(catalogPath) || {});
+  const parsed = parseModelCatalog((fromDb ? fromDb.read() : readJsonObject(catalogPath)) || {});
   for (const file of configPaths) overlayConfigLimits(parsed, readJsonObject(file));
   cached = parsed;
   cachedKey = key;

@@ -1,6 +1,6 @@
 import { spawn } from 'child_process';
 import readline from 'readline';
-import { McpConfigEntry } from './opencode.js';
+import { McpConfigEntry } from '../../shared/toolCatalog/opencodeV2.js';
 import { cwdCache } from './cache.js';
 
 const MCP_LIST_TIMEOUT_MS = 10_000;
