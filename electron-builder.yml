@@ -26,3 +26,6 @@ mac:
     NSMicrophoneUsageDescription: Dictating prompts uses the microphone.
 dmg:
   title: Agent Master 3000
+# No spaces: GitHub renames release assets that have them, and the Release
+# workflow globs for this name.
+artifactName: agent-master-3000-${version}-${arch}.${ext}

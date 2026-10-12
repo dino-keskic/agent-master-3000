@@ -1,6 +1,6 @@
 # Publishes a GitHub Release for a version tag: the npm tarball users install
-# with `npm install -g <url>`, its SHA-256, and notes generated from the PRs
-# and commits since the previous tag.
+# with `npm install -g <url>`, the Mac app's dmg, their SHA-256s, and notes
+# generated from the PRs and commits since the previous tag.
 #
 # Cut a release with `npm version <x.y.z>` (bumps package.json and tags
 # v<x.y.z>) and push the tag. To redo one, run this workflow by hand with
@@ -28,9 +28,37 @@ jobs:
     name: CI
     uses: ./.github/workflows/ci.yml
 
+  desktop:
+    name: Pack the Mac app
+    needs: checks
+    if: github.ref_type == 'tag'
+    # arm64, which is the only arch electron-builder.yml packs.
+    runs-on: macos-latest
+    timeout-minutes: 30
+    env:
+      # electron-builder needs the real Electron; the CI jobs skip it.
+      ELECTRON_SKIP_BINARY_DOWNLOAD: ''
+      # Unsigned (identity: null); without this it still hunts the keychain.
+      CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      # --publish never: on a tag electron-builder would otherwise try to make
+      # its own release; the release job below owns that.
+      - run: npm run desktop -- --publish never
+      - uses: actions/upload-artifact@v4
+        with:
+          name: desktop
+          path: release/*.dmg
+          if-no-files-found: error
+
   release:
     name: Pack and publish the release
-    needs: checks
+    needs: [checks, desktop]
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
@@ -72,14 +100,18 @@ jobs:
         env:
           VERSION: ${{ steps.version.outputs.version }}
 
+      - uses: actions/download-artifact@v4
+        with:
+          name: desktop
+
       - name: Checksums
-        run: sha256sum "agent-master-3000-${VERSION}.tgz" | tee SHA256SUMS.txt
+        run: sha256sum "agent-master-3000-${VERSION}.tgz" agent-master-3000-*.dmg | tee SHA256SUMS.txt
         env:
           VERSION: ${{ steps.version.outputs.version }}
 
       - name: Create or update the GitHub Release
         run: |
-          files=("agent-master-3000-${VERSION}.tgz" SHA256SUMS.txt)
+          files=("agent-master-3000-${VERSION}.tgz" agent-master-3000-*.dmg SHA256SUMS.txt)
           if gh release view "${GITHUB_REF_NAME}" > /dev/null 2>&1; then
             gh release upload "${GITHUB_REF_NAME}" "${files[@]}" --clobber
           else
