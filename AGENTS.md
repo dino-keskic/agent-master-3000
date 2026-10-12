@@ -210,3 +210,35 @@ npx tsc --noEmit && npx eslint . && npm test && npm run build
 `eslint` must report **zero errors**; the standing warnings are the ones the
 config explains. `npm test` runs `node:test` through `tsx` — tests live in
 `tests/`, one file per module, at the same path as the module it tests.
+
+## Commit messages
+
+[Conventional Commits](https://www.conventionalcommits.org/): `type(scope): summary`,
+with the summary in the imperative and no trailing period. The release notes are
+generated from these subjects, so write them for the person reading those.
+
+| Type | For |
+|---|---|
+| `feat` | Something a user of the board can now do |
+| `fix` | Something that was broken and is not any more |
+| `perf` | The same behaviour, faster or lighter |
+| `refactor` | Code moved or reshaped, behaviour unchanged |
+| `test` | Tests only |
+| `docs` | README, AGENTS.md, comments-only changes |
+| `build` | Bundling, packaging, dependencies, the desktop app's packing |
+| `ci` | `.github/workflows/` |
+| `chore` | Everything else, including `chore(release): x.y.z` |
+
+The scope is optional and names the feature as it is named in the tree:
+`fix(acp): …`, `feat(composer): …`, `build(desktop): …`. A breaking change gets
+a `!` after the type (`feat(api)!: …`) and a `BREAKING CHANGE:` paragraph in
+the body. The body, when there is one, says why — the diff already says what.
+
+## Releasing
+
+Bump with `npm version <x.y.z> --no-git-tag-version`, commit it as
+`chore(release): x.y.z`, tag `vx.y.z` (annotated) and push the commit and that
+one tag — never `git push --tags`. The Release workflow
+(`.github/workflows/release.yml`) runs CI, packs the npm tarball and the Mac
+app (`npm run desktop` on a macOS runner), and publishes both with their
+SHA-256s on the GitHub Release.
