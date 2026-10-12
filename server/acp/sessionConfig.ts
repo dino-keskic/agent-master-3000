@@ -228,7 +228,6 @@ export class SessionConfigurator {
         this.pushWaiters.delete(sessionId);
         resolve(undefined);
       }, this.earlyListWaitMs);
-      timer.unref();
       this.pushWaiters.set(sessionId, (options) => {
         clearTimeout(timer);
         resolve(options);
