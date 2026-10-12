@@ -160,6 +160,11 @@ export class AcpManager {
   private onAgentNotification(method: string, params: unknown): void {
     if (!method.startsWith('session/')) return;
     const { sessionId, parsed } = parseSessionUpdate(params);
+    // Probes have no task, and their lists matter as much as a task's.
+    if (parsed.kind === 'config_options') {
+      if (sessionId) this.config.onPushed(sessionId, parsed.options);
+      return;
+    }
     const taskId = sessionId ? this.sessions.taskForSession(sessionId) : undefined;
     if (!taskId || (sessionId && this.sessions.isSuppressedReplay(sessionId))) return;
     const event = this.transcript.toEvent(taskId, parsed, sessionId);

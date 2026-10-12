@@ -27,6 +27,20 @@ test('parseSessionUpdate', async (t) => {
     });
     assert.deepStrictEqual(parsed, { kind: 'agent_chunk', messageId: undefined, text: 'hi' });
   });
+
+  await t.test("reads the lists OpenCode 2 pushes with config_option_update", () => {
+    const options = [{ id: 'mode', currentValue: 'build', options: [{ value: 'build' }, { value: 'ceo' }] }];
+    const { sessionId, parsed } = parseSessionUpdate({
+      sessionId: 'ses_1',
+      update: { sessionUpdate: 'config_option_update', configOptions: options }
+    });
+    assert.strictEqual(sessionId, 'ses_1');
+    assert.deepStrictEqual(parsed, { kind: 'config_options', options });
+    assert.deepStrictEqual(
+      parseSessionUpdate({ sessionId: 'ses_1', update: { sessionUpdate: 'config_option_update' } }).parsed,
+      { kind: 'ignored' }
+    );
+  });
 });
 
 test('JSON-RPC incoming requests are distinct from responses that reuse an id', () => {

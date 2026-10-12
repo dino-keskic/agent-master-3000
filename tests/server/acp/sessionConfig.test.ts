@@ -191,3 +191,115 @@ test('SessionConfigurator.applyTo', async (t) => {
     assert.ok(calls.includes('session/set_config_option:opencode/big-pickle'));
   });
 });
+
+/**
+ * OpenCode 2 on a folder's first session: `build` and `plan` only, then the
+ * folder's own agents from the next request on. `known` is what exists.
+ */
+function coldAgentTransport(known: string[], opts: { staleSwitch?: boolean; staysCold?: boolean } = {}) {
+  const calls: string[] = [];
+  const failures: string[] = [];
+  let warm = false;
+  let staleOnce = !!opts.staleSwitch;
+  let mode = 'build';
+  const options = () => [
+    { ...MODELS, currentValue: 'opencode/big-pickle' },
+    { id: 'mode', currentValue: mode, options: (warm ? known : ['build', 'plan']).map((value) => ({ value })) }
+  ];
+  const transport = {
+    request(method: string, params: { configId?: string; value?: string }) {
+      calls.push(method === 'session/set_config_option' ? `${params.configId}:${params.value}` : method);
+      if (method === 'session/new') {
+        const first = options();
+        warm = !opts.staysCold;
+        return Promise.resolve({ sessionId: 'probe', configOptions: first });
+      }
+      if (method === 'session/set_config_option') {
+        warm = !opts.staysCold;
+        const value = params.value ?? '';
+        if (params.configId === 'mode') {
+          if (!known.includes(value)) {
+            failures.push(value);
+            return Promise.reject(new Error(`Invalid params: mode not found: ${value}`));
+          }
+          // The switch takes, but the answer is the lists from just before it.
+          const before = options();
+          mode = value;
+          if (staleOnce && value !== 'build') {
+            staleOnce = false;
+            return Promise.resolve({ configOptions: before });
+          }
+        }
+        return Promise.resolve({ configOptions: options() });
+      }
+      return Promise.reject(new Error(`unexpected ${method}`));
+    }
+  };
+  const cold = () => [
+    { ...MODELS, currentValue: 'opencode/big-pickle' },
+    { id: 'mode', currentValue: 'build', options: [{ value: 'build' }, { value: 'plan' }] }
+  ];
+  return { transport: transport as unknown as AcpTransport, calls, failures, cold };
+}
+
+test('SessionConfigurator and a list read too early', async (t) => {
+  const AGENTS = ['build', 'plan', 'ceo', 'acme-pr'];
+  const ceoTask: BoardTask = { ...TASK, agent: 'CEO' };
+
+  await t.test('asks again before calling an agent missing, and sends its 2.x name', async () => {
+    const { transport, calls, failures, cold } = coldAgentTransport(AGENTS);
+    const warnings: unknown[] = [];
+    const config = new SessionConfigurator(transport, new AcpSessionRegistry(), (_id, e) => warnings.push(e));
+
+    await config.applyTo(ceoTask, 'ses-1', cold());
+
+    assert.deepStrictEqual(calls, ['mode:build', 'mode:ceo'], 're-read once, then switched');
+    assert.deepStrictEqual(failures, []);
+    assert.deepStrictEqual(warnings, []);
+  });
+
+  await t.test('an agent that really is missing is still tried, as written and lower-cased', async () => {
+    const { transport, failures, cold } = coldAgentTransport(['build', 'plan']);
+    const warnings: string[] = [];
+    const config = new SessionConfigurator(transport, new AcpSessionRegistry(), (_id, e) => warnings.push(JSON.stringify(e)));
+
+    await config.applyTo(ceoTask, 'ses-1', cold());
+
+    assert.deepStrictEqual(failures, ['CEO', 'ceo']);
+    assert.ok(warnings.some((w) => w.includes('not in OpenCode')));
+    assert.ok(warnings.some((w) => w.includes('It is still build')));
+  });
+
+  await t.test("a probe's lists are the second answer, not the first", async () => {
+    const { transport } = coldAgentTransport(AGENTS);
+    const config = new SessionConfigurator(transport, new AcpSessionRegistry(), () => {});
+
+    const { agents } = await config.fetchOptions();
+    assert.deepStrictEqual(agents.map((a) => a.name), AGENTS);
+  });
+
+  await t.test('a switch answered with the lists from before it is asked about again', async () => {
+    const { transport, calls, cold } = coldAgentTransport(AGENTS, { staleSwitch: true });
+    const registry = new AcpSessionRegistry();
+    const warnings: unknown[] = [];
+    const config = new SessionConfigurator(transport, registry, (_id, e) => warnings.push(e));
+
+    await config.applyTo(ceoTask, 'ses-1', cold());
+
+    assert.deepStrictEqual(calls, ['mode:build', 'mode:ceo', 'mode:ceo']);
+    assert.strictEqual(registry.configOptions('ses-1')?.find((o) => o.id === 'mode')?.currentValue, 'ceo');
+    assert.deepStrictEqual(warnings, []);
+  });
+
+  await t.test('lists OpenCode pushes later reach the probe they belong to', async () => {
+    const { transport } = coldAgentTransport(AGENTS, { staysCold: true });
+    const config = new SessionConfigurator(transport, new AcpSessionRegistry(), () => {});
+
+    assert.deepStrictEqual((await config.fetchOptions()).agents.map((a) => a.name), ['build', 'plan']);
+    config.onPushed('probe', [
+      { ...MODELS, currentValue: 'opencode/big-pickle' },
+      { id: 'mode', currentValue: 'build', options: AGENTS.map((value) => ({ value })) }
+    ]);
+    assert.deepStrictEqual((await config.fetchOptions()).agents.map((a) => a.name), AGENTS);
+  });
+});

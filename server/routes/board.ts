@@ -1,6 +1,6 @@
 import { Express, Request, Response } from 'express';
 import { AcpConfigOptionsResult, ConfigFreshness, acpManager } from '../acp/client.js';
-import { pickDefaultAgent } from '../../shared/agent/agents.js';
+import { findAgentName, pickDefaultAgent } from '../../shared/agent/agents.js';
 import { liveTasks } from '../../shared/task/archive.js';
 import { route } from '../http/app.js';
 import { stripLogs } from '../live/hub.js';
@@ -65,7 +65,10 @@ export function registerBoardRoutes(app: Express, { sync, orchestrator }: RouteC
     const settingsPatch: Partial<typeof state.settings> = {};
     // Never copy the scratch ACP session's current model/agent onto the board —
     // that is OpenCode's last-used mode for this repo, not the user's default.
-    if (config.agents.length > 0 && !config.agents.some(a => a.name === state.settings.defaultAgent)) {
+    // Matched ignoring case, and rewritten to OpenCode's spelling: 2.x calls a
+    // 1.x "CEO" agent "ceo", and that is not a reason to fall back to another.
+    const listedDefault = findAgentName(config.agents.map(a => a.name), state.settings.defaultAgent);
+    if (config.agents.length > 0 && (!listedDefault || listedDefault !== state.settings.defaultAgent)) {
       settingsPatch.defaultAgent = pickDefaultAgent(config.agents, state.settings.defaultAgent);
     }
     if (Object.keys(settingsPatch).length) taskStore.updateSettings(settingsPatch);

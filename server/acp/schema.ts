@@ -79,7 +79,9 @@ const sessionUpdateSchema = z.object({
   status: z.unknown().optional(),
   rawInput: z.record(z.string(), z.unknown()).optional(),
   rawOutput: z.unknown().optional(),
-  locations: z.array(toolLocationSchema).optional()
+  locations: z.array(toolLocationSchema).optional(),
+  /** `config_option_update`'s lists; parsed with `configOptionsSchema` below. */
+  configOptions: z.unknown().optional()
 });
 
 export const sessionNotificationSchema = z.object({
@@ -96,6 +98,7 @@ export type ParsedUpdate =
   | { kind: 'thought_chunk'; messageId?: string; text: string }
   | { kind: 'tool_call'; update: SessionUpdate }
   | { kind: 'session_info'; title?: string }
+  | { kind: 'config_options'; options: ConfigOption[] }
   | { kind: 'ignored' };
 
 const USER_CHUNK = new Set(['user_message_chunk']);
@@ -133,6 +136,12 @@ export function parseSessionUpdate(params: unknown): { sessionId?: string; parse
   if (discriminator === 'session_info_update' || discriminator === 'session_info') {
     const title = typeof update.title === 'string' ? update.title : undefined;
     return { sessionId, parsed: { kind: 'session_info', title } };
+  }
+  // OpenCode 2 pushes a session's lists when they change: a switch, and the
+  // folder's own agents arriving after its first session already answered.
+  if (discriminator === 'config_option_update') {
+    const options = configOptionsSchema.parse(update.configOptions);
+    return { sessionId, parsed: options.length ? { kind: 'config_options', options } : { kind: 'ignored' } };
   }
 
   return { sessionId, parsed: { kind: 'ignored' } };

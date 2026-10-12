@@ -2,6 +2,7 @@ import { OpenCodeAgent, OpenCodeModel } from '../../shared/sessions/types.js';
 import { BoardTask, SessionChoice } from '../../shared/types.js';
 import { sessionRunSettings } from '../../shared/task/sessions.js';
 import { mergeFolderModels } from '../../shared/agent/modelScope.js';
+import { agentIdGuesses } from '../../shared/agent/agents.js';
 import {
   ConfigOption,
   findOption,
@@ -16,6 +17,18 @@ import { AcpTransport } from './transport.js';
 const CONFIG_CACHE_TTL_MS = 60000;
 /** A probe answers in milliseconds even mid-turn; longer means the agent is wedged. */
 const PROBE_TIMEOUT_MS = 8000;
+/**
+ * How long to wait before each re-read of a session whose lists lack a value.
+ * The first is immediate: in the sandbox, OpenCode 2 had read the folder's
+ * agents by the very next request. The rest cover a slow disk, ~2s in all.
+ */
+const REREAD_DELAYS_MS = [0, 250, 500, 1000];
+/**
+ * A new probe's re-reads. In the sandbox a cold folder's agents arrived ~50ms
+ * after its first answer, so an immediate re-read can still be too early; the
+ * second waits. Paid once per folder per agent process.
+ */
+const SETTLE_DELAYS_MS = [0, 300];
 
 export interface AcpConfigOptionsResult {
   models: OpenCodeModel[];
@@ -85,6 +98,8 @@ export class SessionConfigurator {
    * project and nowhere else.
    */
   private readonly probes = new Map<string, Promise<Probe>>();
+  /** The same probes by session id, for the lists OpenCode pushes to them. */
+  private readonly probeSessions = new Map<string, Probe>();
 
   constructor(
     private readonly transport: AcpTransport,
@@ -95,6 +110,7 @@ export class SessionConfigurator {
   /** The agent process is gone; its probe sessions and cached lists went with it. */
   reset(): void {
     this.probes.clear();
+    this.probeSessions.clear();
     this.cache.clear();
     this.learned.clear();
   }
@@ -154,16 +170,68 @@ export class SessionConfigurator {
     if (!probe) {
       probe = this.transport
         .request('session/new', { cwd: folder, mcpServers: [] }, PROBE_TIMEOUT_MS)
-        .then((raw) => {
+        .then(async (raw) => {
           const created = sessionResultSchema.parse(raw);
           if (!created.sessionId) throw new Error('OpenCode did not open a session');
-          return { id: created.sessionId, baseOptions: created.configOptions ?? [], queue: Promise.resolve() };
+          const opened: Probe = { id: created.sessionId, baseOptions: created.configOptions ?? [], queue: Promise.resolve() };
+          this.probeSessions.set(opened.id, opened);
+          opened.baseOptions = await this.settle(opened.id, opened.baseOptions);
+          return opened;
         });
       // A failed open is not remembered: the next read tries again.
       probe.catch(() => this.probes.delete(folder));
       this.probes.set(folder, probe);
     }
     return probe;
+  }
+
+  /**
+   * A new probe's lists, read again until they hold still. OpenCode 2 answers
+   * a folder's first session before it has read that folder's agent files —
+   * `build` and `plan` and nothing of the user's — and a probe's first lists
+   * are what the composer offers and what the board's default agent is checked
+   * against. A list pushed later still lands (`onPushed`), but after the board
+   * has already been answered.
+   */
+  private async settle(sessionId: string, first: ConfigOption[]): Promise<ConfigOption[]> {
+    const mode = findOption(first, 'mode')?.currentValue;
+    if (!mode) return first;
+    const model = findOption(first, 'model')?.currentValue;
+    let latest = first;
+    for (const delayMs of SETTLE_DELAYS_MS) {
+      if (delayMs) await new Promise((resolve) => setTimeout(resolve, delayMs));
+      try {
+        const again = sessionResultSchema.parse(
+          await this.transport.request('session/set_config_option', { sessionId, configId: 'mode', value: mode }, PROBE_TIMEOUT_MS)
+        ).configOptions;
+        if (!again || findOption(again, 'model')?.currentValue !== model) return latest;
+        const grew = optionValues(again, 'mode').length > optionValues(latest, 'mode').length;
+        latest = again;
+        if (grew) return latest;
+      } catch {
+        return latest;
+      }
+    }
+    return latest;
+  }
+
+  /**
+   * Lists OpenCode pushed for a session (`config_option_update`). For a probe
+   * they replace its own lists only while it is still on the model it opened
+   * with — a probe switched to read another model is reporting that model's.
+   */
+  onPushed(sessionId: string, options: ConfigOption[]): void {
+    const probe = this.probeSessions.get(sessionId);
+    if (probe) {
+      const model = findOption(options, 'model')?.currentValue;
+      if (model && model === findOption(probe.baseOptions, 'model')?.currentValue) {
+        probe.baseOptions = options;
+        this.cache.clear();
+      }
+    } else if (this.registry.configOptions(sessionId)) {
+      this.registry.setConfigOptions(sessionId, options);
+    }
+    this.learn(options);
   }
 
   /**
@@ -259,6 +327,10 @@ export class SessionConfigurator {
     return this.registry.configOptions(sessionId) ?? [];
   }
 
+  private currentOf(sessionId: string, configId: string): string | undefined {
+    return findOption(this.optionsFor(sessionId), configId)?.currentValue;
+  }
+
   /**
    * Push one composer value onto the OpenCode session. Skips the round-trip
    * when it is already current. Never "gives up and uses the session default"
@@ -271,45 +343,92 @@ export class SessionConfigurator {
     requested: string,
     label: string
   ): Promise<void> {
-    const options = this.optionsFor(sessionId);
-    const current = findOption(options, configId)?.currentValue;
-    const resolved = resolveConfigValue(options, configId, requested) || requested;
-    if (current && current === resolved) return;
+    const current = this.currentOf(sessionId, configId);
+    let target = resolveConfigValue(this.optionsFor(sessionId), configId, requested);
+    // OpenCode 2 answers a folder's first session before it has read the
+    // folder's agent files, so a list without the value may just be early.
+    if (!target && current) target = await this.reread(sessionId, configId, current, requested);
+    if (current && current === target) return;
 
-    const allowed = optionValues(options, configId);
-    if (allowed.length > 0 && !allowed.includes(resolved)) {
+    if (!target) {
+      const allowed = optionValues(this.optionsFor(sessionId), configId);
       this.warn(
         task.id,
         `${label} "${requested}" is not in OpenCode's list (${allowed.slice(0, 8).join(', ')}${allowed.length > 8 ? '…' : ''}). Trying it anyway.`
       );
     }
 
-    if (!(await this.setOption(task.id, sessionId, configId, resolved))) {
+    const guesses = target ? [target] : configId === 'mode' ? agentIdGuesses(requested) : [requested];
+    let applied: string | undefined;
+    let error: string | undefined;
+    for (const guess of guesses) {
+      error = await this.setOption(sessionId, configId, guess);
+      if (!error) {
+        applied = guess;
+        break;
+      }
+    }
+    // OpenCode 2 can answer a switch with the lists from just before it — the
+    // switch took, and its own update says so. Asking again settles which.
+    // A session whose answers carry no lists has nothing to check against.
+    const reported = findOption(this.optionsFor(sessionId), configId);
+    if (applied && reported && reported.currentValue !== applied) {
+      error = await this.setOption(sessionId, configId, applied);
+      if (!error && this.currentOf(sessionId, configId) !== applied) {
+        error = `OpenCode is still on ${this.currentOf(sessionId, configId) || 'its default'}`;
+      }
+      if (error) applied = undefined;
+    }
+    if (!applied) {
+      this.warn(task.id, `Could not apply ${configId} "${requested}": ${error}`);
       this.warn(
         task.id,
         `Could not switch this session to ${label.toLowerCase()} "${requested}". It is still ${current || 'on the session default'}.`
       );
       return;
     }
-    if (configId === 'model' && resolved !== current) {
-      this.emit(task.id, configInfo(`This turn is running as ${resolved}.`));
+    if (configId === 'model' && applied !== current) {
+      this.emit(task.id, configInfo(`This turn is running as ${applied}.`));
     }
   }
 
-  /** Sends one `set_config_option` and records the options it answers with. */
-  private async setOption(taskId: string, sessionId: string, configId: string, value: string): Promise<boolean> {
-    const res = await this.transport
-      .request('session/set_config_option', { sessionId, configId, value })
-      .catch((e: Error) => {
-        this.warn(taskId, `Could not apply ${configId} "${value}": ${e.message}`);
-        return null;
-      });
+  /**
+   * Ask the session for its lists again — by re-setting `configId` to what it
+   * already is, which changes nothing and answers with fresh options — until
+   * they name `requested`. What it resolves to, or undefined if they never do.
+   */
+  private async reread(
+    sessionId: string,
+    configId: string,
+    current: string,
+    requested: string
+  ): Promise<string | undefined> {
+    for (const delayMs of REREAD_DELAYS_MS) {
+      if (delayMs) await new Promise((resolve) => setTimeout(resolve, delayMs));
+      if (await this.setOption(sessionId, configId, current)) return undefined;
+      const target = resolveConfigValue(this.optionsFor(sessionId), configId, requested);
+      if (target) return target;
+    }
+    return undefined;
+  }
+
+  /**
+   * Sends one `set_config_option` and records the options it answers with.
+   * The error OpenCode gave, or undefined once it took.
+   */
+  private async setOption(sessionId: string, configId: string, value: string): Promise<string | undefined> {
+    let res: unknown;
+    try {
+      res = await this.transport.request('session/set_config_option', { sessionId, configId, value });
+    } catch (e) {
+      return (e as Error).message;
+    }
     const parsed = sessionResultSchema.safeParse(res);
     if (parsed.success && parsed.data.configOptions) {
       this.registry.setConfigOptions(sessionId, parsed.data.configOptions);
       this.learn(parsed.data.configOptions);
     }
-    return !!res;
+    return res ? undefined : 'no answer';
   }
 
   /** What this session is actually running as, for stamping on its messages. */

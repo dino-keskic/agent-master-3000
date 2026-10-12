@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert';
-import { pickDefaultAgent } from '../../../shared/agent/agents.js';
+import { agentIdGuesses, findAgentName, pickDefaultAgent } from '../../../shared/agent/agents.js';
 
 const agents = [
   { name: 'Ask Agent', description: 'research' },
@@ -39,4 +39,26 @@ test('pickDefaultAgent', async (t) => {
     assert.strictEqual(pickDefaultAgent([{ name: 'Ask', description: 'r' }], 'gone'), 'Ask');
     assert.strictEqual(pickDefaultAgent([], 'coder'), '');
   });
+});
+
+test('findAgentName', async (t) => {
+  await t.test('finds a 1.x display name under the 2.x file name', () => {
+    assert.strictEqual(findAgentName(['build', 'plan', 'ceo'], 'CEO'), 'ceo');
+    assert.strictEqual(findAgentName(['build', 'CEO'], 'CEO'), 'CEO');
+  });
+
+  await t.test('is undefined for a name not listed, or none at all', () => {
+    assert.strictEqual(findAgentName(['build'], 'CEO'), undefined);
+    assert.strictEqual(findAgentName(['build'], undefined), undefined);
+  });
+});
+
+test('agentIdGuesses', () => {
+  assert.deepStrictEqual(agentIdGuesses('CEO'), ['CEO', 'ceo']);
+  assert.deepStrictEqual(agentIdGuesses('ceo'), ['ceo']);
+});
+
+test('pickDefaultAgent keeps a 1.x pick under its 2.x name', () => {
+  const v2 = [{ name: 'build', description: 'b' }, { name: 'plan', description: 'p' }, { name: 'ceo', description: 'c' }];
+  assert.strictEqual(pickDefaultAgent(v2, 'CEO'), 'ceo');
 });

@@ -111,6 +111,7 @@ export class TranscriptStream {
       case 'session_info':
         return parsed.title ? { type: 'session_info', sessionId, title: parsed.title } : null;
 
+      case 'config_options':
       case 'ignored':
         return null;
     }
