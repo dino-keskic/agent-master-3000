@@ -55,6 +55,7 @@ export class AcpManager {
   private readonly sessions: SessionLifecycle;
   private readonly turns: TurnRunner;
   private eventCallback: AcpEventCallback | null = null;
+  private configChanged: (() => void) | null = null;
   private folderResolver: ((taskId: string, sessionId: string) => string | undefined) | null = null;
   private lastConfigRestart = 0;
   private configRefresh: Promise<ConfigFreshness> | null = null;
@@ -78,7 +79,7 @@ export class AcpManager {
       knownToolCall: (taskId, toolCallId) => this.transcript.knownToolCall(taskId, toolCallId)
     });
     this.transcript = new TranscriptStream(this.registry);
-    this.config = new SessionConfigurator(this.transport, this.registry, emit);
+    this.config = new SessionConfigurator(this.transport, this.registry, emit, () => this.configChanged?.());
     this.sessions = new SessionLifecycle(
       this.transport,
       this.registry,
@@ -92,6 +93,11 @@ export class AcpManager {
 
   public setEventCallback(callback: AcpEventCallback): void {
     this.eventCallback = callback;
+  }
+
+  /** Called when option lists the board handed out turned out to be OpenCode 2's early ones. */
+  public setConfigChangedCallback(callback: () => void): void {
+    this.configChanged = callback;
   }
 
   /** How the manager learns which folder the board runs a session in. */
@@ -336,6 +342,7 @@ export const getAcpManager = (): AcpManager => {
  */
 export const acpManager = {
   setEventCallback: (cb: AcpEventCallback) => getAcpManager().setEventCallback(cb),
+  setConfigChangedCallback: (cb: () => void) => getAcpManager().setConfigChangedCallback(cb),
   setFolderResolver: (resolver: (taskId: string, sessionId: string) => string | undefined) =>
     getAcpManager().setFolderResolver(resolver),
   fetchConfigOptions: (modelId?: string, folders?: readonly string[]) =>

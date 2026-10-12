@@ -32,6 +32,27 @@ export function agentIdGuesses(requested: string): string[] {
   return lower === requested ? [requested] : [requested, lower];
 }
 
+/** OpenCode 2's own primary agents: all it lists for a folder before it has read that folder's config. */
+const BUILT_IN_PRIMARY = new Set(['build', 'plan']);
+
+/**
+ * Whether `listed` may be OpenCode 2's first answer for a folder rather than
+ * the folder's real agents. That answer comes before the config is read, so it
+ * is the built-ins even when the user disabled them; the real list follows as
+ * a `config_option_update` — but only when it differs, so waiting for one is
+ * only worth it while there is reason to expect a difference.
+ *
+ * `known` is every agent name the board has seen in a list it trusted, or
+ * undefined before it has trusted any. A user whose trusted lists were the
+ * built-ins too has nothing to wait for.
+ */
+export function mayBeEarlyAgentList(listed: readonly string[], known: ReadonlySet<string> | undefined): boolean {
+  if (listed.length === 0 || !listed.every((name) => BUILT_IN_PRIMARY.has(name))) return false;
+  if (!known) return true;
+  for (const name of known) if (!BUILT_IN_PRIMARY.has(name)) return true;
+  return false;
+}
+
 /**
  * The agent a new task should run as.
  *
@@ -61,4 +82,14 @@ export function pickDefaultAgent(agents: OpenCodeAgent[], current?: string): str
   // whatever exists rather than handing back an empty agent name.
   if (listed) return listed;
   return names[0] || '';
+}
+
+/**
+ * The major version an ACP `initialize` reply gives for the agent
+ * (`agentInfo.version`, e.g. "2.0.24" → 2), or undefined when it gives none.
+ */
+export function agentMajorVersion(reply: unknown): number | undefined {
+  const info = (reply as { agentInfo?: { version?: unknown } } | null | undefined)?.agentInfo;
+  const match = typeof info?.version === 'string' ? /^v?(\d+)\./.exec(info.version) : null;
+  return match ? Number(match[1]) : undefined;
 }

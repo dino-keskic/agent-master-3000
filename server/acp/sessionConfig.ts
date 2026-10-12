@@ -2,7 +2,7 @@ import { OpenCodeAgent, OpenCodeModel } from '../../shared/sessions/types.js';
 import { BoardTask, SessionChoice } from '../../shared/types.js';
 import { sessionRunSettings } from '../../shared/task/sessions.js';
 import { mergeFolderModels } from '../../shared/agent/modelScope.js';
-import { agentIdGuesses } from '../../shared/agent/agents.js';
+import { agentIdGuesses, mayBeEarlyAgentList } from '../../shared/agent/agents.js';
 import {
   ConfigOption,
   findOption,
@@ -24,11 +24,15 @@ const PROBE_TIMEOUT_MS = 8000;
  */
 const REREAD_DELAYS_MS = [0, 250, 500, 1000];
 /**
- * A new probe's re-reads. In the sandbox a cold folder's agents arrived ~50ms
- * after its first answer, so an immediate re-read can still be too early; the
- * second waits. Paid once per folder per agent process.
+ * How long a session whose first lists may be OpenCode 2's early answer waits
+ * for the real ones to be pushed. In the sandbox they came 80–120ms later; but
+ * none come at all when the real list is the early one, so this is also what a
+ * user with no agents of their own pays — once, after which `knownAgents` says
+ * there is nothing to wait for.
  */
-const SETTLE_DELAYS_MS = [0, 300];
+export const EARLY_LIST_WAIT_MS = 3000;
+/** Pushes kept for sessions not yet known to the board; see `onPushed`. */
+const UNCLAIMED_PUSH_CAP = 32;
 
 export interface AcpConfigOptionsResult {
   models: OpenCodeModel[];
@@ -100,11 +104,24 @@ export class SessionConfigurator {
   private readonly probes = new Map<string, Promise<Probe>>();
   /** The same probes by session id, for the lists OpenCode pushes to them. */
   private readonly probeSessions = new Map<string, Probe>();
+  /** Agent names from lists known to be real: what an early list is short of. */
+  private readonly knownAgents = new Set<string>();
+  /** Sessions waiting on `realLists` for OpenCode to push their lists. */
+  private readonly pushWaiters = new Map<string, (options: ConfigOption[]) => void>();
+  /**
+   * Pushes for sessions nobody had claimed yet. A session's reply and the push
+   * that follows it can come in one read from the pipe, and then the push is
+   * handled before whoever asked for the session has seen the reply.
+   */
+  private readonly unclaimedPushes = new Map<string, ConfigOption[]>();
 
   constructor(
     private readonly transport: AcpTransport,
     private readonly registry: AcpSessionRegistry,
-    private readonly emit: (taskId: string, event: AcpEvent) => void
+    private readonly emit: (taskId: string, event: AcpEvent) => void,
+    /** Lists the board already handed out turned out to be early; it should ask again. */
+    private readonly onListsChanged: () => void = () => {},
+    private readonly earlyListWaitMs: number = EARLY_LIST_WAIT_MS
   ) {}
 
   /** The agent process is gone; its probe sessions and cached lists went with it. */
@@ -113,6 +130,9 @@ export class SessionConfigurator {
     this.probeSessions.clear();
     this.cache.clear();
     this.learned.clear();
+    this.knownAgents.clear();
+    this.unclaimedPushes.clear();
+    // Whoever waits gets nothing more from a dead process; the timeout ends it.
   }
 
   // --- reading what is on offer ---
@@ -175,7 +195,7 @@ export class SessionConfigurator {
           if (!created.sessionId) throw new Error('OpenCode did not open a session');
           const opened: Probe = { id: created.sessionId, baseOptions: created.configOptions ?? [], queue: Promise.resolve() };
           this.probeSessions.set(opened.id, opened);
-          opened.baseOptions = await this.settle(opened.id, opened.baseOptions);
+          opened.baseOptions = await this.realLists(opened.id, opened.baseOptions);
           return opened;
         });
       // A failed open is not remembered: the next read tries again.
@@ -186,50 +206,81 @@ export class SessionConfigurator {
   }
 
   /**
-   * A new probe's lists, read again until they hold still. OpenCode 2 answers
-   * a folder's first session before it has read that folder's agent files —
-   * `build` and `plan` and nothing of the user's — and a probe's first lists
-   * are what the composer offers and what the board's default agent is checked
-   * against. A list pushed later still lands (`onPushed`), but after the board
-   * has already been answered.
+   * A new session's lists, once they can be believed. OpenCode 2 answers a
+   * folder's first session before it has read that folder's config — `build`
+   * and `plan`, even when the user disabled them, and none of the user's own
+   * agents — then pushes the real lists (`config_option_update`) a moment
+   * later, but only if they differ. A list that may be that early answer waits
+   * for the push; 1.x never answers early, so nothing there waits.
    */
-  private async settle(sessionId: string, first: ConfigOption[]): Promise<ConfigOption[]> {
-    const mode = findOption(first, 'mode')?.currentValue;
-    if (!mode) return first;
-    const model = findOption(first, 'model')?.currentValue;
-    let latest = first;
-    for (const delayMs of SETTLE_DELAYS_MS) {
-      if (delayMs) await new Promise((resolve) => setTimeout(resolve, delayMs));
-      try {
-        const again = sessionResultSchema.parse(
-          await this.transport.request('session/set_config_option', { sessionId, configId: 'mode', value: mode }, PROBE_TIMEOUT_MS)
-        ).configOptions;
-        if (!again || findOption(again, 'model')?.currentValue !== model) return latest;
-        const grew = optionValues(again, 'mode').length > optionValues(latest, 'mode').length;
-        latest = again;
-        if (grew) return latest;
-      } catch {
-        return latest;
-      }
+  private async realLists(sessionId: string, first: ConfigOption[]): Promise<ConfigOption[]> {
+    const stashed = this.unclaimedPushes.get(sessionId);
+    if (stashed) {
+      this.unclaimedPushes.delete(sessionId);
+      return stashed;
     }
-    return latest;
+    if (!this.mayBeEarly(first)) {
+      this.trust(first);
+      return first;
+    }
+    const pushed = await new Promise<ConfigOption[] | undefined>((resolve) => {
+      const timer = setTimeout(() => {
+        this.pushWaiters.delete(sessionId);
+        resolve(undefined);
+      }, this.earlyListWaitMs);
+      timer.unref();
+      this.pushWaiters.set(sessionId, (options) => {
+        clearTimeout(timer);
+        resolve(options);
+      });
+    });
+    if (pushed) return pushed;
+    // Nothing came, so the first answer was the real one.
+    this.trust(first);
+    return first;
+  }
+
+  /** True when `options` may be OpenCode 2's answer from before it read the folder's config. */
+  private mayBeEarly(options: ConfigOption[]): boolean {
+    if ((this.transport.agentMajor() ?? 2) < 2) return false;
+    return mayBeEarlyAgentList(optionValues(options, 'mode'), this.knownAgents.size ? this.knownAgents : undefined);
+  }
+
+  private trust(options: ConfigOption[]): void {
+    for (const name of optionValues(options, 'mode')) this.knownAgents.add(name);
   }
 
   /**
-   * Lists OpenCode pushed for a session (`config_option_update`). For a probe
-   * they replace its own lists only while it is still on the model it opened
-   * with — a probe switched to read another model is reporting that model's.
+   * Lists OpenCode pushed for a session (`config_option_update`). A push comes
+   * after OpenCode has read the folder's config, so its agents are real. For a
+   * probe they replace its own lists only while it is still on the model it
+   * opened with — a probe switched to read another model is reporting that
+   * model's.
    */
   onPushed(sessionId: string, options: ConfigOption[]): void {
+    this.trust(options);
+    const waiter = this.pushWaiters.get(sessionId);
+    if (waiter) {
+      this.pushWaiters.delete(sessionId);
+      waiter(options);
+    }
     const probe = this.probeSessions.get(sessionId);
     if (probe) {
       const model = findOption(options, 'model')?.currentValue;
       if (model && model === findOption(probe.baseOptions, 'model')?.currentValue) {
         probe.baseOptions = options;
         this.cache.clear();
+        // Without a waiter the probe already answered with its early lists,
+        // and the composer is showing them.
+        if (!waiter) this.onListsChanged();
       }
     } else if (this.registry.configOptions(sessionId)) {
       this.registry.setConfigOptions(sessionId, options);
+    } else if (!waiter) {
+      this.unclaimedPushes.set(sessionId, options);
+      if (this.unclaimedPushes.size > UNCLAIMED_PUSH_CAP) {
+        this.unclaimedPushes.delete(this.unclaimedPushes.keys().next().value!);
+      }
     }
     this.learn(options);
   }
@@ -278,11 +329,13 @@ export class SessionConfigurator {
    * File a live session's option lists under the model they describe.
    *
    * Every session reports its own options with each change, so a model the
-   * board has actually run is known without another probe round-trip.
+   * board has actually run is known without another probe round-trip — except
+   * a list that may be OpenCode 2's early answer, which is never filed.
    */
   private learn(options: ConfigOption[]): void {
     const model = findOption(options, 'model')?.currentValue;
-    if (!model) return;
+    // An early list filed here would be what every composer offers for a minute.
+    if (!model || this.mayBeEarly(options)) return;
     this.learned.set(model, { options, fetchedAt: Date.now() });
   }
 
@@ -304,6 +357,7 @@ export class SessionConfigurator {
     initialOptions: ConfigOption[],
     chosen?: SessionChoice
   ): Promise<void> {
+    initialOptions = await this.realLists(sessionId, initialOptions);
     this.registry.setConfigOptions(sessionId, initialOptions);
     this.learn(initialOptions);
     const settings = sessionRunSettings(task, chosen);

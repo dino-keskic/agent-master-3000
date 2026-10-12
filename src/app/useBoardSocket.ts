@@ -17,6 +17,8 @@ export interface BoardSocketHandlers {
   onSnapshot: (task: BoardTask, log?: TaskLogItem) => void;
   onProjects: (projects: ProjectFolder[]) => void;
   onTaskDeleted: (taskId: string) => void;
+  /** OpenCode's model/agent lists changed: what the board showed was read too early. */
+  onConfigUpdated: () => void;
 }
 
 /** True while the socket is up. */
@@ -51,6 +53,9 @@ export function useBoardSocket(handlers: BoardSocketHandlers): boolean {
               break;
             case 'TASK_DELETED':
               latest.current.onTaskDeleted(msg.taskId);
+              break;
+            case 'CONFIG_UPDATED':
+              latest.current.onConfigUpdated();
               break;
             case 'TASK_UPDATED':
             case 'TASK_LOG':

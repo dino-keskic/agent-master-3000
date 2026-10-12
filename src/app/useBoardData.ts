@@ -6,7 +6,7 @@ import { cloneDefaultColumns } from '../../shared/board/columns';
 import { DEFAULT_PERMISSION_MODE } from '../../shared/agent/permissions';
 import { api } from '../api';
 import { errorMessage, reportError } from './notify';
-import { rememberModelOptions, setBoardModel } from './modelOptions';
+import { reloadModelOptions, rememberModelOptions, setBoardModel } from './modelOptions';
 import { useBoardSocket } from './useBoardSocket';
 import { useSpend } from './useSpend';
 import { useTaskList } from './useTaskList';
@@ -119,7 +119,11 @@ export function useBoardData(): BoardData {
   const isConnected = useBoardSocket({
     onSnapshot: applySnapshot,
     onProjects: setProjects,
-    onTaskDeleted: (taskId) => removeTasks([taskId])
+    onTaskDeleted: (taskId) => removeTasks([taskId]),
+    onConfigUpdated: () => {
+      reloadModelOptions();
+      void refresh();
+    }
   });
 
   // Whatever changed while the socket was down — a turn that finished during a
@@ -128,7 +132,11 @@ export function useBoardData(): BoardData {
   const everConnected = useRef(false);
   useEffect(() => {
     if (!isConnected) return;
-    if (everConnected.current) void refresh();
+    if (everConnected.current) {
+      // A restarted server has a new agent process, whose lists may differ.
+      reloadModelOptions();
+      void refresh();
+    }
     everConnected.current = true;
   }, [isConnected, refresh]);
 

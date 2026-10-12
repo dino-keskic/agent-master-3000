@@ -554,7 +554,8 @@ export type WebSocketMessage =
   | { type: 'TASK_STATUS_CHANGED'; taskId: string; task: BoardTask; status: TaskRunState }
   | { type: 'ERROR'; taskId: string; task: BoardTask; message: string }
   | { type: 'TASK_AWAITING_INPUT'; taskId: string; task: BoardTask; request: PendingRequest }
-  | { type: 'PROJECTS_UPDATED'; projects: ProjectFolder[] };
+  | { type: 'PROJECTS_UPDATED'; projects: ProjectFolder[] }
+  | { type: 'CONFIG_UPDATED' };
 
 /** Variants that carry a full task snapshot the client should merge. */
 export type TaskSnapshotMessage = Extract<WebSocketMessage, { task: BoardTask }>;

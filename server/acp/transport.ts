@@ -1,6 +1,7 @@
 import { spawn, ChildProcess } from 'child_process';
 import readline from 'readline';
 import { AgentExit, agentExitMessage, appendStderr } from '../../shared/agent/agentExit.js';
+import { agentMajorVersion } from '../../shared/agent/agents.js';
 import { toolPolicySignature } from '../../shared/agent/tools.js';
 import { opencodeEnv } from '../opencode/env.js';
 import { agentPolicyFile, writeBoardPolicyFile } from '../opencode/policyFile.js';
@@ -111,9 +112,20 @@ export class AcpTransport {
   private startupFailures = 0;
   /** The process `restart` is stopping: its exit is ours, not a failure. */
   private stopping: ChildProcess | null = null;
+  /** The running agent's major version, from its `initialize` reply. */
+  private major: number | undefined;
 
   constructor(private readonly handlers: AcpTransportHandlers) {
     this.start();
+  }
+
+  /**
+   * The running OpenCode's major version, or undefined before it has answered
+   * `initialize` (or when it did not say). 2.x answers some things early that
+   * 1.x never did; see `SessionConfigurator.realLists`.
+   */
+  agentMajor(): number | undefined {
+    return this.major;
   }
 
   /** True when settings hold a tool policy the running agent has not picked up. */
@@ -245,6 +257,7 @@ export class AcpTransport {
       this.appliedToolPolicy = toolPolicySignature(policy);
       this.appliedConfigStamp = configStampSource();
       this.policyFile = agentPolicyFile(bin, args, base, policy);
+      this.major = undefined;
       const child = spawn(bin, args, {
         stdio: ['pipe', 'pipe', 'pipe'],
         env: opencodeEnv(base, policy, this.policyFile)
@@ -301,7 +314,8 @@ export class AcpTransport {
         protocolVersion: 1,
         clientInfo: { name: 'agent-master-3000', version: '1.0.0' },
         capabilities: {}
-      }).then(() => {
+      }).then((reply) => {
+        if (this.child === child) this.major = agentMajorVersion(reply);
         started = true;
         this.startupFailures = 0;
         console.log('[ACP] Initialized successfully with OpenCode ACP server');

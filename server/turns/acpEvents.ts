@@ -18,6 +18,9 @@ export function registerAcpEvents(publisher: BoardPublisher, orchestrator: TurnO
     return sessionCwd(task, listTaskSessions(task).find((link) => link.sessionId === sessionId));
   });
 
+  // The composer's lists were read too early; every open board asks again.
+  acpManager.setConfigChangedCallback(() => publisher.configUpdated());
+
   acpManager.setEventCallback((taskId, event) => {
     const task = taskStore.getTask(taskId);
     const sessionId = event.sessionId;

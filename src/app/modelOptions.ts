@@ -15,7 +15,8 @@ import { api, ConfigOptionsResponse } from '../api';
  * actually sitting next to.
  *
  * A model nobody has asked about yet is fetched on first use and remembered
- * for the tab's lifetime; nothing is invented while that is in flight.
+ * until the server says the lists changed (`reloadModelOptions`); nothing is
+ * invented while that is in flight.
  */
 
 export interface ModelOptions {
@@ -87,6 +88,16 @@ async function load(model: string, attempt = 0): Promise<void> {
   if (byModel.has(model)) return;
   const delay = RETRY_DELAYS_MS[Math.min(attempt, RETRY_DELAYS_MS.length - 1)];
   setTimeout(() => void load(model, attempt + 1), delay);
+}
+
+/**
+ * Ask again about every model already known. What the tab holds stays on
+ * screen until the new answer lands, and a failed read keeps it.
+ */
+export function reloadModelOptions(): void {
+  for (const model of byModel.keys()) {
+    api.getConfigOptions(model).then((config) => rememberModelOptions(model, config), () => undefined);
+  }
 }
 
 /**

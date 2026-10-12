@@ -84,6 +84,11 @@ export class BoardPublisher {
     this.hub.send({ type: 'PROJECTS_UPDATED', projects });
   }
 
+  /** OpenCode's model/agent lists changed under the board: clients re-read them. */
+  configUpdated(): void {
+    this.hub.send({ type: 'CONFIG_UPDATED' });
+  }
+
   /**
    * Record a log and push it as a delta.
    *
