@@ -20,8 +20,14 @@ mac:
   target:
     - target: dmg
       arch: [arm64]
-  # Unsigned until there is a Developer ID to sign with.
-  identity: null
+  # Ad-hoc signed until there is a Developer ID to sign with. Left unsigned,
+  # packing breaks the signature Electron ships with, and Apple Silicon calls a
+  # downloaded copy "damaged" with no way to open it. Ad-hoc, it is only
+  # "unverified": Privacy & Security → Open Anyway opens it. Hardened runtime
+  # would refuse Electron's frameworks under an ad-hoc signature (library
+  # validation), and it only matters for notarizing, which this cannot do.
+  identity: "-"
+  hardenedRuntime: false
   extendInfo:
     NSMicrophoneUsageDescription: Dictating prompts uses the microphone.
 dmg:

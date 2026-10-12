@@ -38,8 +38,6 @@ jobs:
     env:
       # electron-builder needs the real Electron; the CI jobs skip it.
       ELECTRON_SKIP_BINARY_DOWNLOAD: ''
-      # Unsigned (identity: null); without this it still hunts the keychain.
-      CSC_IDENTITY_AUTO_DISCOVERY: 'false'
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -50,6 +48,9 @@ jobs:
       # --publish never: on a tag electron-builder would otherwise try to make
       # its own release; the release job below owns that.
       - run: npm run desktop -- --publish never
+      # A broken signature is what macOS reports as "damaged"; fail here
+      # rather than ship one.
+      - run: codesign --verify --deep --strict --verbose=2 release/mac-arm64/*.app
       - uses: actions/upload-artifact@v4
         with:
           name: desktop
