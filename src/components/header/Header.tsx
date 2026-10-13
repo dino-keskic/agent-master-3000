@@ -3,7 +3,7 @@ import { Group, Stack } from '@mantine/core';
 import { OpenCodeAgent, OpenCodeModel } from '../../../shared/sessions/types';
 import { BoardTask, GlobalSettings, ProjectFolder } from '../../../shared/types';
 import { worktreeName } from '../../../shared/git/worktree';
-import { ticketInText } from '../../../shared/task/links';
+import { pullRequestIn, ticketInText } from '../../../shared/task/links';
 import { BoardLoadPhase, connectionLabel } from '../../../shared/board/load';
 import { Severity } from '../../../shared/setup/report';
 import { Composer } from '../composer/Composer';
@@ -130,6 +130,7 @@ export const Header: React.FC<HeaderProps> = ({
             projectPath={projectPath}
             worktree={draft.worktree}
             slugPreview={draft.prompt.trim() ? worktreeName(ticketInText(draft.prompt), draft.prompt) : undefined}
+            pullRequest={pullRequestIn(undefined, draft.prompt)}
             onSelectProject={(project) => void onUpdateSettings({
               selectedProjectId: project.id,
               defaultCwd: project.path

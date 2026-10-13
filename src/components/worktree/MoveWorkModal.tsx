@@ -3,7 +3,7 @@ import { Group, Modal, Select, Stack, Text } from '@mantine/core';
 import { BoardTask, ProjectFolder } from '../../../shared/types';
 import { projectOwning } from '../../../shared/board/projectPaths';
 import { worktreeName } from '../../../shared/git/worktree';
-import { taskTicket } from '../../../shared/task/links';
+import { pullRequestIn, taskTicket } from '../../../shared/task/links';
 import { TaskSessionView, sessionCwd } from '../../../shared/task/sessions';
 import { MoveTargetInput } from '../../api';
 import { useWorktreeTarget } from '../header/useWorktreeTarget';
@@ -98,7 +98,12 @@ export const MoveWorkModal: React.FC<MoveWorkModalProps> = ({
         {!detaching && project && (
           <Stack gap={4}>
             <Text size="xs" className="text-ink-3">Worktree</Text>
-            <WorktreePicker worktree={worktree} projectPath={project.path} slugPreview={worktreeName(taskTicket(task.links), task.title)} />
+            <WorktreePicker
+              worktree={worktree}
+              projectPath={project.path}
+              slugPreview={worktreeName(taskTicket(task.links), task.title)}
+              pullRequest={pullRequestIn(task.links, task.title)}
+            />
           </Stack>
         )}
 

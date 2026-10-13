@@ -302,6 +302,34 @@ export function ticketInText(text: string): TicketRef | undefined {
   return key?.[1] ? { ref: key[1], kind: 'jira' } : undefined;
 }
 
+/** `acme/web#9404` → the repository and the number, for a PR's short reference. */
+export function pullRequestOfRef(ref: string | undefined): { repo: string; number: number } | undefined {
+  const match = /^([A-Za-z0-9][A-Za-z0-9-]*\/[A-Za-z0-9._-]+)#(\d+)$/.exec((ref || '').trim());
+  return match ? { repo: match[1]!, number: Number(match[2]) } : undefined;
+}
+
+/**
+ * The pull request a task is about — one on the task, else one pasted into
+ * the text. A PR outranks a ticket here, unlike in `taskTicket`: a new
+ * worktree for work that already has a PR is that PR's branch, checked out,
+ * not a second branch beside it.
+ */
+export function pullRequestIn(
+  links: TaskLink[] | undefined,
+  text: string
+): { repo: string; number: number } | undefined {
+  for (const link of links || []) {
+    const pr = link.kind === 'pr' ? pullRequestOfRef(link.ref) : undefined;
+    if (pr) return pr;
+  }
+  for (const found of extractTrackerLinks(text || '')) {
+    const detected = classifyLink(found.url);
+    const pr = detected.kind === 'pr' ? pullRequestOfRef(detected.ref) : undefined;
+    if (pr) return pr;
+  }
+  return undefined;
+}
+
 /** How the sidebar and the card order links: trackers first, newest last. */
 export function sortTaskLinks(links: TaskLink[] | undefined): TaskLink[] {
   const rank = (link: TaskLink) => {

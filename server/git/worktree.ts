@@ -5,7 +5,11 @@ import { promisify } from 'util';
 import {
   WORKTREE_DIR,
   WorktreeEntry,
+  branchFolder,
+  parseRemotes,
+  pullRequestBranchName,
   parseWorktreeList,
+  remoteForRepo,
   worktreeBranch,
   worktreeName,
   worktreePath
@@ -60,6 +64,10 @@ export interface CreatedWorktree {
   base?: string;
   /** True when that base was refreshed from its remote first. */
   baseUpdated?: boolean;
+  /** The pull request whose branch this checkout holds. */
+  pullRequest?: number;
+  /** True when that branch already had a checkout, and this is it. */
+  existing?: boolean;
 }
 
 export interface WorktreeRequest {
@@ -67,6 +75,12 @@ export interface WorktreeRequest {
   name?: string;
   /** The tracked work this is for. Names the branch and the folder when present. */
   ticket?: TicketRef;
+  /**
+   * A pull request the work is on, with its branch already looked up. Its
+   * branch is checked out rather than a new one cut — falling back to a new
+   * branch only when this repository cannot reach it.
+   */
+  pullRequest?: { repo: string; number: number; branch: string; forkOwner?: string };
 }
 
 /** The remote to refresh from: `origin` when it exists, else whatever is configured. */
@@ -138,12 +152,18 @@ function excludeWorktreeDir(root: string): void {
  *
  * The name is the ticket's when the task has one — a branch called
  * `acp/web-1234` is the one everybody else can find — and only otherwise
- * derived from the text describing the work.
+ * derived from the text describing the work. Work on a pull request does not
+ * get a branch at all: it gets the PR's.
  */
 export async function createTaskWorktree(cwd: string, request: WorktreeRequest = {}): Promise<CreatedWorktree> {
   const info = await gitInfo(cwd);
   if (!info.isRepo || !info.root) {
     throw new Error('Not a git repository — cannot create a worktree');
+  }
+
+  if (request.pullRequest) {
+    const checkout = await checkoutPullRequest(info.root, request.pullRequest);
+    if (checkout) return checkout;
   }
 
   const slug = worktreeName(request.ticket, request.name || '', `task-${Date.now().toString(36)}`);
@@ -164,6 +184,64 @@ export async function createTaskWorktree(cwd: string, request: WorktreeRequest =
   await git(info.root, ['worktree', 'add', '-b', branch, dest, startPoint], 60000);
 
   return { path: dest, name: path.basename(dest), branch, root: info.root, base, baseUpdated: updated };
+}
+
+/**
+ * A checkout of a pull request's own branch, named after it.
+ *
+ * The branch is used as it is: a local one is checked out untouched — it may
+ * hold commits nobody pushed — and otherwise it is fetched and set to track
+ * the remote, so a push lands on the PR. A fork's branch is fetched through
+ * `pull/N/head`, under the name `pullRequestBranchName` gives it.
+ *
+ * Undefined when the PR is not this repository's, or its branch cannot be
+ * fetched: the caller cuts a new branch instead.
+ */
+async function checkoutPullRequest(
+  root: string,
+  pr: NonNullable<WorktreeRequest['pullRequest']>
+): Promise<CreatedWorktree | undefined> {
+  const config = await git(root, ['config', '--get-regexp', '^remote\\..*\\.url$']).catch(() => '');
+  const remote = remoteForRepo(parseRemotes(config), pr.repo);
+  if (!remote) {
+    console.warn(`[Git] ${pr.repo}#${pr.number} is not a pull request on ${root} — cutting a new branch`);
+    return undefined;
+  }
+
+  const branch = pullRequestBranchName(pr);
+  const made = { branch, root, pullRequest: pr.number };
+
+  // Git checks a branch out in one place only, so an open checkout of it is the answer.
+  const open = (await listWorktrees(root)).find((entry) => entry.branch === branch && !entry.prunable);
+  if (open) return { ...made, path: open.path, name: path.basename(open.path), existing: true };
+
+  const folder = branchFolder(branch) || `pr-${pr.number}`;
+  let dest = worktreePath(root, folder);
+  for (let n = 2; fs.existsSync(dest); n += 1) {
+    if (n > 20) throw new Error('Could not allocate a free worktree name');
+    dest = worktreePath(root, `${folder}-${n}`);
+  }
+
+  let args = ['worktree', 'add', dest, branch];
+  if (!(await refExists(root, `refs/heads/${branch}`))) {
+    const tracking = `refs/remotes/${remote}/${pr.branch}`;
+    try {
+      if (pr.forkOwner) {
+        await git(root, ['fetch', '--quiet', remote, `+refs/pull/${pr.number}/head:refs/heads/${branch}`], 60000);
+      } else {
+        await git(root, ['fetch', '--quiet', remote, `+refs/heads/${pr.branch}:${tracking}`], 60000);
+        args = ['worktree', 'add', '--track', '-b', branch, dest, `${remote}/${pr.branch}`];
+      }
+    } catch (e) {
+      console.warn(`[Git] Could not fetch the branch of ${pr.repo}#${pr.number}:`, e);
+      return undefined;
+    }
+  }
+
+  excludeWorktreeDir(root);
+  fs.mkdirSync(path.dirname(dest), { recursive: true });
+  await git(root, args, 60000);
+  return { ...made, path: dest, name: path.basename(dest) };
 }
 
 /** `ref` is a full ref name — `refs/heads/x`, `refs/remotes/origin/x`. */

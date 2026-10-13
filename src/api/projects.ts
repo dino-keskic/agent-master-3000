@@ -16,6 +16,16 @@ export interface CreatedWorktree {
   name: string;
   branch: string;
   root: string;
+  /** The pull request whose branch this checkout holds. */
+  pullRequest?: number;
+  /** True when that branch already had a checkout, and this is it. */
+  existing?: boolean;
+}
+
+/** A pull request's branch, as `gh` reports it. Empty when it could not say. */
+export interface PullRequestHead {
+  branch?: string;
+  forkOwner?: string;
 }
 
 export type PickFolderResult = { cancelled: true } | { cancelled?: false; path: string; name: string };
@@ -41,5 +51,9 @@ export const projectsApi = {
   listWorktrees: (cwd: string) => request<WorktreeEntry[]>(`/api/worktrees?cwd=${encodeURIComponent(cwd)}`),
 
   createWorktree: (cwd: string, name: string, taskId?: string) =>
-    post<CreatedWorktree>('/api/worktrees', { cwd, name, taskId })
+    post<CreatedWorktree>('/api/worktrees', { cwd, name, taskId }),
+
+  /** The branch a worktree for `owner/repo#N` would check out. */
+  pullRequestHead: (ref: string) =>
+    request<PullRequestHead>(`/api/worktrees/pull-request?ref=${encodeURIComponent(ref)}`)
 };

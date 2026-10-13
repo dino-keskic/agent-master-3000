@@ -5,14 +5,15 @@ import os from 'os';
 import path from 'path';
 import { promisify } from 'util';
 import { TaskChangeSummary } from '../../shared/git/changeSummary.js';
-import { taskTicket, ticketInText } from '../../shared/task/links.js';
+import { pullRequestIn, pullRequestOfRef, taskTicket, ticketInText } from '../../shared/task/links.js';
 import { listTaskSessions, sessionCwd } from '../../shared/task/sessions.js';
 import { taskWorkspaces } from '../../shared/task/workspaces.js';
 import { boardRoots, transcriptsNamePath } from '../board/queries.js';
 import { summarizeTaskWorkspaces } from '../git/changeSummary.js';
 import { DiffScope, taskDiff } from '../git/diff.js';
 import { mapLimit } from '../../shared/mapLimit.js';
-import { createTaskWorktree, gitInfo, listWorktrees } from '../git/worktree.js';
+import { WorktreeRequest, createTaskWorktree, gitInfo, listWorktrees } from '../git/worktree.js';
+import { pullRequestHead } from '../trackers/github.js';
 import { IdParams, route } from '../http/app.js';
 import { EDITORS, EditorId, absoluteTarget, availableEditors, isEditorId, openInEditor, resolveWithinRoots } from '../app/openExternal.js';
 import { taskStore } from '../board/taskStore.js';
@@ -50,6 +51,20 @@ function chooseFolderScript(startPath: string): string {
   ].join('\n');
 }
 
+/** The PR the work is on and its branch, when there is one and `gh` can say. */
+async function pullRequestBranch(
+  links: Parameters<typeof pullRequestIn>[0],
+  text: string
+): Promise<WorktreeRequest['pullRequest']> {
+  const pr = pullRequestIn(links, text);
+  if (!pr) return undefined;
+  const head = await pullRequestHead(pr.repo, pr.number).catch((e: unknown) => {
+    console.warn(`[Git] Could not look up the branch of ${pr.repo}#${pr.number}:`, errorMessage(e));
+    return null;
+  });
+  return head ? { ...pr, ...head } : undefined;
+}
+
 /** The filesystem and git side of the board: folders, worktrees, diffs, editors. */
 export function registerWorkspaceRoutes(app: Express): void {
   app.post('/api/fs/pick-folder', route(async (req: Request, res: Response) => {
@@ -85,6 +100,18 @@ export function registerWorkspaceRoutes(app: Express): void {
   }));
 
   /**
+   * The branch a new worktree for a pull request would check out, so the
+   * picker can say so before it is made. `ref` is `owner/repo#N`; an empty
+   * answer means `gh` could not tell, and the worktree will be named after
+   * the PR instead.
+   */
+  app.get('/api/worktrees/pull-request', route(async (req: Request, res: Response) => {
+    const pr = pullRequestOfRef(queryString(req, 'ref'));
+    if (!pr) return res.status(400).json({ error: 'ref must be owner/repo#number' });
+    res.json((await pullRequestHead(pr.repo, pr.number).catch(() => null)) || {});
+  }));
+
+  /**
    * Cut a worktree for a piece of work.
    *
    * `name` is whatever describes the work — a title, or the prompt it was
@@ -92,6 +119,10 @@ export function registerWorkspaceRoutes(app: Express): void {
    * so it is looked up here rather than trusted from the caller: the task the
    * board holds is the truth about which ticket the work is against, and a task
    * that does not exist yet still has its ticket written in the text.
+   *
+   * A pull request goes further than naming: its branch is looked up with
+   * `gh` and checked out. Without `gh`, or for a PR it cannot see, the
+   * worktree is still made — on a new branch named after the PR.
    */
   app.post('/api/worktrees', route(async (req: Request, res: Response) => {
     const cwd = typeof req.body?.cwd === 'string' ? req.body.cwd : '';
@@ -101,8 +132,8 @@ export function registerWorkspaceRoutes(app: Express): void {
     const task = taskId ? taskStore.getTask(taskId) : undefined;
     const ticket = (task ? taskTicket(task.links) : undefined) || ticketInText(name);
     try {
-      const created = await createTaskWorktree(cwd, { name, ticket });
-      res.status(201).json(created);
+      const created = await createTaskWorktree(cwd, { name, ticket, pullRequest: await pullRequestBranch(task?.links, name) });
+      res.status(created.existing ? 200 : 201).json(created);
     } catch (e) {
       res.status(400).json({ error: errorMessage(e) || 'Could not create worktree' });
     }

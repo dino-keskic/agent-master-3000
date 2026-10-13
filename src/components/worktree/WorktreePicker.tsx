@@ -4,6 +4,7 @@ import { GitBranch } from 'lucide-react';
 import { WorktreeEntry } from '../../../shared/git/worktree';
 import { WorktreeTarget } from '../header/useWorktreeTarget';
 import { InlineSelect } from '../ui/InlineSelect';
+import { usePullRequestBranch } from './usePullRequestBranch';
 
 /**
  * Which checkout of a project the work runs in.
@@ -27,10 +28,14 @@ interface WorktreePickerProps {
   projectPath?: string;
   /** The branch name a new worktree would get, from what is known of the work. */
   slugPreview?: string;
+  /** The pull request the work is on: a new worktree checks out its branch. */
+  pullRequest?: { repo: string; number: number };
 }
 
-export const WorktreePicker: React.FC<WorktreePickerProps> = ({ worktree, projectPath, slugPreview }) => {
+export const WorktreePicker: React.FC<WorktreePickerProps> = ({ worktree, projectPath, slugPreview, pullRequest }) => {
   const { checkouts, git, target, createNew } = worktree;
+  const prBranch = usePullRequestBranch(createNew && git?.isRepo ? pullRequest : undefined);
+  const preview = prBranch || slugPreview;
   const mainPath = git?.root;
   const current = target || projectPath;
   const listed = checkouts.map((w) => ({ value: w.path, label: worktreeLabel(w), keywords: w.path }));
@@ -45,11 +50,16 @@ export const WorktreePicker: React.FC<WorktreePickerProps> = ({ worktree, projec
   return (
     <Group gap="sm" wrap="nowrap" className="min-w-0">
       {createNew ? (
-        <Tooltip label={`Cuts a new git worktree${slugPreview ? ` (${slugPreview})` : ''} — isolated checkout`} withArrow>
+        <Tooltip
+          label={prBranch
+            ? `Checks out the pull request's branch ${prBranch} in its own worktree`
+            : `Cuts a new git worktree${slugPreview ? ` (${slugPreview})` : ''} — isolated checkout`}
+          withArrow
+        >
           <Group gap={6} wrap="nowrap" className="min-w-0 h-7 px-1">
             <GitBranch className="w-3.5 h-3.5 text-ink-3 shrink-0" />
             <Text size="xs" className="font-mono text-[11.5px] text-acc-fg truncate">
-              {slugPreview || 'new-worktree'}
+              {preview || 'new-worktree'}
             </Text>
           </Group>
         </Tooltip>

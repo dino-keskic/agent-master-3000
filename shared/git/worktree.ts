@@ -47,6 +47,65 @@ export function worktreeName(
   return (ticket?.ref ? ticketSlug(ticket.ref, ticket.kind) : undefined) || worktreeSlug(text, fallback);
 }
 
+/**
+ * The local branch a pull request is checked out as: its own name, except a
+ * fork's, which is kept under the fork owner — forks are where branches called
+ * `main` come from.
+ */
+export function pullRequestBranchName(head: { branch: string; forkOwner?: string }): string {
+  return head.forkOwner ? `${head.forkOwner}/${head.branch}` : head.branch;
+}
+
+/**
+ * The folder a pull request's checkout goes in: its branch, flattened —
+ * `fix/plan-editor-cap` becomes `fix-plan-editor-cap` — so the folder and the
+ * branch it holds read as the same thing. Case is kept; it is the branch's.
+ */
+export function branchFolder(branch: string): string | undefined {
+  const folder = (branch || '')
+    .trim()
+    .replace(/[^A-Za-z0-9._-]+/g, '-')
+    .replace(/^[-.]+|[-.]+$/g, '')
+    .slice(0, 60)
+    .replace(/[-.]+$/g, '');
+  return folder || undefined;
+}
+
+/**
+ * `owner/repo` a remote fetches from on GitHub, lower-cased — from any of the
+ * shapes `git remote -v` shows: `git@github.com:o/r.git`,
+ * `https://github.com/o/r`, `ssh://git@github.com/o/r.git`.
+ */
+export function githubRepoOfRemote(url: string): string | undefined {
+  const match = /github\.com[:/]+([^/\s]+\/[^/\s]+?)(?:\.git)?\/?$/i.exec((url || '').trim());
+  return match?.[1]?.toLowerCase();
+}
+
+/**
+ * The remote a pull request on `repo` is fetched through, `origin` first when
+ * more than one points there. None when the checkout is of another repository
+ * — a PR pasted into the wrong project has no branch here to check out.
+ */
+export function remoteForRepo(remotes: { name: string; url: string }[], repo: string): string | undefined {
+  const wanted = repo.toLowerCase();
+  const matching = remotes.filter((remote) => githubRepoOfRemote(remote.url) === wanted).map((remote) => remote.name);
+  return matching.includes('origin') ? 'origin' : matching[0];
+}
+
+/**
+ * Each remote's URL, from `git config --get-regexp '^remote\..*\.url$'`. The
+ * config as written rather than `git remote -v`, which shows URLs after any
+ * `insteadOf` rewrite — a mirror there would hide that it is GitHub's repo.
+ */
+export function parseRemotes(out: string): { name: string; url: string }[] {
+  const remotes: { name: string; url: string }[] = [];
+  for (const line of out.split('\n')) {
+    const match = /^remote\.(.+)\.url\s+(\S+)\s*$/.exec(line.trim());
+    if (match) remotes.push({ name: match[1]!, url: match[2]! });
+  }
+  return remotes;
+}
+
 export function worktreeBranch(slug: string): string {
   return `acp/${slug}`;
 }

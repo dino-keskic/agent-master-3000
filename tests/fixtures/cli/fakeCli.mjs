@@ -220,6 +220,8 @@ const GITHUB = {
     isDraft: true,
     headRefName: 'feat/mentions',
     baseRefName: 'master',
+    // From a fork, so a worktree for it fetches `pull/12/head`.
+    headRepositoryOwner: { login: 'ada-l' },
     body: 'Draft.',
     reviews: [],
     comments: [],
@@ -338,6 +340,8 @@ function gh() {
       isDraft: pr.isDraft,
       headRefName: pr.headRefName,
       baseRefName: pr.baseRefName,
+      isCrossRepository: Boolean(pr.headRepositoryOwner),
+      headRepositoryOwner: pr.headRepositoryOwner,
       comments: pr.comments,
       reviews: pr.reviews
     };

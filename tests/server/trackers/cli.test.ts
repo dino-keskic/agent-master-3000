@@ -3,7 +3,7 @@ import assert from 'node:assert';
 import path from 'path';
 import { MentionItem } from '../../../shared/trackers/mentions.js';
 import { mentionContext, resolveMention, searchMentions } from '../../../server/trackers/index.js';
-import { searchGithub } from '../../../server/trackers/github.js';
+import { pullRequestHead, searchGithub } from '../../../server/trackers/github.js';
 import { jiraComments, jiraDescription } from '../../../server/trackers/jira.js';
 import { FIXTURES_DIR } from '../../fixtures/paths.js';
 
@@ -141,4 +141,13 @@ test('an id that is not a Jira key never reaches acli', async () => {
   await assert.rejects(jiraComments({ ...ticket, id: 'SANDBOX-1 --json' }), /Not a Jira key/);
   const { error } = await mentionContext({ ...ticket, id: '--help' }, 'description');
   assert.ok(error);
+});
+
+test("a PR's head branch comes back, with the fork owner when it is from a fork", async () => {
+  assert.deepStrictEqual(await pullRequestHead('acme/web-app', 9404), { branch: 'fix/plan-editor-cap' });
+  assert.deepStrictEqual(
+    await pullRequestHead('acme/agent-master-3000', 12),
+    { branch: 'feat/mentions', forkOwner: 'ada-l' }
+  );
+  await assert.rejects(pullRequestHead('acme/web-app', 1));
 });

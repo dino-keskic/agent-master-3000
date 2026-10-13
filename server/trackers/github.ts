@@ -187,3 +187,23 @@ export async function resolveGithub(item: MentionItem): Promise<MentionItem> {
     subtitle: ref.repo
   };
 }
+
+/** The branch behind a pull request — what a worktree for it checks out. */
+export interface PullRequestHead {
+  /** `headRefName`: the branch as its author named it. */
+  branch: string;
+  /** The fork's owner when the branch lives in a fork rather than the repo itself. */
+  forkOwner?: string;
+}
+
+/** Null when `gh` has no such PR, or answers without a branch. */
+export async function pullRequestHead(repo: string, number: number): Promise<PullRequestHead | null> {
+  const raw = await runJson('gh', [
+    'pr', 'view', String(number), `--repo=${repo}`, '--json', 'headRefName,isCrossRepository,headRepositoryOwner'
+  ]);
+  const pr = (raw || {}) as { headRefName?: string; isCrossRepository?: boolean; headRepositoryOwner?: { login?: string } };
+  const branch = pr.headRefName?.trim();
+  if (!branch) return null;
+  const forkOwner = pr.isCrossRepository ? pr.headRepositoryOwner?.login?.trim() : undefined;
+  return forkOwner ? { branch, forkOwner } : { branch };
+}

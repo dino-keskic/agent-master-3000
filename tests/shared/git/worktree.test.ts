@@ -5,8 +5,13 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import {
+  branchFolder,
+  githubRepoOfRemote,
   parseGitPorcelain,
+  parseRemotes,
   parseWorktreeList,
+  pullRequestBranchName,
+  remoteForRepo,
   ticketSlug,
   worktreeBranch,
   worktreeName,
@@ -95,6 +100,30 @@ test('worktree slug and git worktree create', async (t) => {
     assert.strictEqual(worktreeName({ ref: 'WEB-1234' }, 'Fix navbar overflow'), 'web-1234');
     assert.strictEqual(worktreeName(undefined, 'Fix navbar overflow'), 'fix-navbar-overflow');
     assert.strictEqual(worktreeName({}, ''), 'task');
+  });
+
+  await t.test("a pull request's branch names its folder, and its remote is found by URL", () => {
+    assert.strictEqual(branchFolder('fix/plan-editor-cap'), 'fix-plan-editor-cap');
+    assert.strictEqual(branchFolder('ada-l/Feat/Mentions'), 'ada-l-Feat-Mentions');
+    assert.strictEqual(branchFolder('..//..'), undefined);
+    assert.strictEqual(pullRequestBranchName({ branch: 'main', forkOwner: 'ada-l' }), 'ada-l/main');
+    assert.strictEqual(pullRequestBranchName({ branch: 'fix/x' }), 'fix/x');
+
+    assert.strictEqual(githubRepoOfRemote('git@github.com:Acme/web-app.git'), 'acme/web-app');
+    assert.strictEqual(githubRepoOfRemote('https://github.com/acme/web-app'), 'acme/web-app');
+    assert.strictEqual(githubRepoOfRemote('ssh://git@github.com/acme/web-app.git/'), 'acme/web-app');
+    assert.strictEqual(githubRepoOfRemote('https://gitlab.com/acme/web-app.git'), undefined);
+
+    const remotes = parseRemotes([
+      'remote.fork.url git@github.com:ada-l/web-app.git',
+      'remote.upstream.url https://github.com/acme/web-app.git',
+      'remote.origin.url git@github.com:acme/web-app.git',
+      'remote.my.mirror.url /srv/mirror'
+    ].join('\n'));
+    assert.deepStrictEqual(remotes.map((r) => r.name), ['fork', 'upstream', 'origin', 'my.mirror']);
+    assert.strictEqual(remoteForRepo(remotes, 'acme/web-app'), 'origin');
+    assert.strictEqual(remoteForRepo(remotes.filter((r) => r.name !== 'origin'), 'ACME/web-app'), 'upstream');
+    assert.strictEqual(remoteForRepo(remotes, 'acme/other'), undefined);
   });
 
   await t.test('the ticket comes from the task links, or from the text', () => {

@@ -24,6 +24,8 @@ interface TaskTargetBarProps {
   worktree: WorktreeTarget;
   /** The branch name a new worktree would get, from what has been typed so far. */
   slugPreview?: string;
+  /** The pull request the typed text links to, whose branch a new worktree would use. */
+  pullRequest?: { repo: string; number: number };
   onSelectProject: (project: ProjectFolder) => void;
   onPickProjectFolder: () => void;
 }
@@ -34,6 +36,7 @@ export const TaskTargetBar: React.FC<TaskTargetBarProps> = ({
   projectPath,
   worktree,
   slugPreview,
+  pullRequest,
   onSelectProject,
   onPickProjectFolder
 }) => (
@@ -57,7 +60,7 @@ export const TaskTargetBar: React.FC<TaskTargetBarProps> = ({
     />
 
     {projectPath && (
-      <WorktreePicker worktree={worktree} projectPath={projectPath} slugPreview={slugPreview} />
+      <WorktreePicker worktree={worktree} projectPath={projectPath} slugPreview={slugPreview} pullRequest={pullRequest} />
     )}
   </Group>
 );

@@ -14,6 +14,8 @@ import {
   MAX_TASK_LINKS,
   mergeTaskLinks,
   normalizeLinkUrl,
+  pullRequestIn,
+  pullRequestOfRef,
   showRef,
   sortTaskLinks,
   trackerLinks
@@ -238,4 +240,24 @@ test('a title that already opens with the ref does not print it twice', () => {
   const pr = buildTaskLink({ url: 'https://github.com/acme/web/pull/9404', title: 'Fix the loop' }, 'l2')!;
   assert.strictEqual(showRef(pr), true);
   assert.strictEqual(formatTaskLink(pr).split('\n')[0], '[l2] Pull request acme/web#9404 — Fix the loop');
+});
+
+test('pullRequestIn finds the PR a task is on — its links first, then the text', () => {
+  const pr = link('https://github.com/acme/web-app/pull/9404');
+  const jira = link('https://acme.atlassian.net/browse/WEB-1');
+  // A PR outranks the ticket: the worktree for it is the PR's branch.
+  assert.deepStrictEqual(pullRequestIn([jira, pr], ''), { repo: 'acme/web-app', number: 9404 });
+  assert.deepStrictEqual(
+    pullRequestIn(undefined, 'address the review on https://github.com/acme/web-app/pull/12/files please'),
+    { repo: 'acme/web-app', number: 12 }
+  );
+  assert.strictEqual(pullRequestIn([jira], 'see https://github.com/acme/web-app/issues/3'), undefined);
+  assert.strictEqual(pullRequestIn(undefined, 'no link here'), undefined);
+});
+
+test('pullRequestOfRef accepts only the owner/repo#N shape', () => {
+  assert.deepStrictEqual(pullRequestOfRef('acme/web-app#9404'), { repo: 'acme/web-app', number: 9404 });
+  assert.strictEqual(pullRequestOfRef('web-app#9404'), undefined);
+  assert.strictEqual(pullRequestOfRef('acme/web app#1'), undefined);
+  assert.strictEqual(pullRequestOfRef('--repo=x/y#1'), undefined);
 });
