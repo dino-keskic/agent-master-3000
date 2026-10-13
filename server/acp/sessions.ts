@@ -2,6 +2,7 @@ import { AcpSessionSummary } from '../../shared/sessions/types.js';
 import { BoardTask } from '../../shared/types.js';
 import { ConfigOption, findOption, sessionListSchema, sessionResultSchema } from './schema.js';
 import { boardMcpServer } from '../mcp/boardMcp.js';
+import { adoptV1Session } from '../opencode/migrateV1.js';
 import { getOpenCodeSession } from '../opencode/sessionList.js';
 import { findRootSessionId, listChildSessionIds } from '../opencode/subagents.js';
 import { ApprovalDesk } from './approvals.js';
@@ -204,6 +205,9 @@ export class SessionLifecycle {
     this.registry.beginImport(taskId, sessionId, replayLogs);
 
     try {
+      // A session OpenCode 2's migration never reached is only in the 1.x
+      // tables, where 2.x cannot load it; copy it across first.
+      adoptV1Session(sessionId);
       // OpenCode runs a session's tools in the directory it was created in, and
       // ignores the cwd a load names. Permission replies are the exception: they
       // carry no session, so OpenCode routes them by the cwd given here. Load a

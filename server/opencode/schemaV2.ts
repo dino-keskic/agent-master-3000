@@ -10,6 +10,13 @@ import { DatabaseSync } from 'node:sqlite';
  * history across and leaves the old tables where they were, frozen; from then
  * on only the new ones move.
  *
+ * Not every 1.x session makes it: the migration runs once, newest first, and a
+ * row it chokes on stops it for good, while a 1.x install still writing to the
+ * file adds sessions it will never go back for. Those are only in the 1.x
+ * tables, so each view also carries the 1.x rows of every session `session_v2`
+ * does not have — their cost counts, they are listed, their history reads —
+ * until `migrateV1.ts` copies one across to be resumed.
+ *
  * Rather than teach a dozen readers two dialects, each read handle on a 2.x
  * database gets TEMP views named after the 1.x tables, shaped the way 1.x
  * wrote them. The temp schema is searched before `main`, so a view shadows the
@@ -42,6 +49,15 @@ function latestFromMessages(field: string, types: string[]): string {
            WHERE m.session_id = s.id AND m.type IN (${types.map((t) => `'${t}'`).join(', ')})
            ORDER BY m.seq DESC LIMIT 1)`;
 }
+
+/** The `session` view's columns, in order; a 1.x row is read into the same ones. */
+const SESSION_COLUMNS = [
+  'id', 'project_id', 'workspace_id', 'parent_id', 'slug', 'directory', 'path', 'title',
+  'version', 'share_url', 'summary_additions', 'summary_deletions', 'summary_files',
+  'summary_diffs', 'metadata', 'cost', 'tokens_input', 'tokens_output', 'tokens_reasoning',
+  'tokens_cache_read', 'tokens_cache_write', 'revert', 'permission', 'agent', 'model',
+  'time_created', 'time_updated', 'time_compacting', 'time_archived'
+];
 
 const SESSION_VIEW = `
 CREATE TEMP VIEW IF NOT EXISTS session AS
@@ -131,9 +147,37 @@ SELECT m.id || ':' || printf('%05d', c.key), m.id, m.session_id, m.time_created,
 FROM main.session_message m, json_each(m.data, '$.content') c
 WHERE m.type = 'assistant'`;
 
+/** The columns of one of `main`'s tables; none if it is not there. */
+function columnsOf(db: DatabaseSync, table: string): Set<string> {
+  return new Set((db.prepare(`SELECT name FROM pragma_table_info(?, 'main')`).all(table) as { name: string }[]).map((c) => c.name));
+}
+
+/** Sessions only the 1.x tables have. */
+const V1_ONLY = (column: string) => `NOT EXISTS (SELECT 1 FROM main.session_v2 v2 WHERE v2.id = ${column})`;
+
+/**
+ * The 1.x rows of sessions 2.x never took in, for each view to append. Each
+ * 1.x table is read column for column in the view's order, as NULL where an
+ * older 1.x never had the column; none at all if the table is gone.
+ */
+function v1Branches(db: DatabaseSync): { session: string; message: string; part: string } {
+  const branch = (table: string, columns: string[], key: string) => {
+    const has = columnsOf(db, table);
+    if (!has.has('id') || !has.has(key)) return '';
+    const list = columns.map((c) => (has.has(c) ? `o.${c}` : `NULL AS ${c}`)).join(', ');
+    return `\nUNION ALL\nSELECT ${list} FROM main.${table} o WHERE ${V1_ONLY(`o.${key}`)}`;
+  };
+  return {
+    session: branch('session', SESSION_COLUMNS, 'id'),
+    message: branch('message', ['id', 'session_id', 'time_created', 'time_updated', 'data'], 'session_id'),
+    part: branch('part', ['id', 'message_id', 'session_id', 'time_created', 'time_updated', 'data'], 'session_id')
+  };
+}
+
 /** Give this connection the 1.x tables, if its database is 2.x. Returns whether it was. */
 export function installV2Views(db: DatabaseSync): boolean {
   if (!isV2Schema(db)) return false;
-  db.exec(`${SESSION_VIEW};\n${MESSAGE_VIEW};\n${PART_VIEW};`);
+  const v1 = v1Branches(db);
+  db.exec(`${SESSION_VIEW}${v1.session};\n${MESSAGE_VIEW}${v1.message};\n${PART_VIEW}${v1.part};`);
   return true;
 }

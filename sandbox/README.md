@@ -89,7 +89,11 @@ What changed under the board, and where it is handled:
   message with its parts inside. The 1.x tables stay behind, frozen at the
   migration. `server/opencode/schemaV2.ts` puts views named after the 1.x
   tables over the new ones, so every reader works unchanged; forking writes
-  the 2.x tables (`clone.ts`).
+  the 2.x tables (`clone.ts`). A session OpenCode's migration never reached
+  (it stops at the first error and retries from there on the next start) is
+  read from the 1.x tables instead, and copied into the 2.x ones the first
+  time it is loaded or forked (`migrateV1.ts`, translated by
+  `shared/sessions/v1ToV2.ts`).
 - **The HTTP API** moves under `/api/`, takes `location[directory]=`, and
   needs the server password. A folder's agents and MCP servers load on the
   first request about it, so the first answer is empty. There is no tool

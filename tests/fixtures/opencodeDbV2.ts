@@ -157,3 +157,56 @@ export function makeV2Fixture(): { file: string; dir: string } {
   db.close();
   return { file, dir };
 }
+
+export const V1_ONLY = 'ses_v1only';
+export const V1_CHILD = 'ses_v1child';
+export const V1_NOW = V2_NOW - 10_000;
+
+/**
+ * Two 1.x sessions OpenCode 2's migration never reached — a turn that thought,
+ * ran `bash`, answered, and sent a subagent off — in their own folder, and the
+ * migration's own record of having finished. The project they name is gone.
+ */
+export function addUnmigratedV1(file: string): { dir: string } {
+  const dir = path.join(path.dirname(file), 'old-app');
+  fs.mkdirSync(dir, { recursive: true });
+  const db = new DatabaseSync(file);
+  db.prepare(`INSERT INTO kv (key, value, time_created, time_updated) VALUES ('migration.v1-v2', '{"phase":"completed"}', 1, 1)`).run();
+  const session = db.prepare(`INSERT INTO session VALUES (?, 'prj_gone', ?, ?, ?, ?, ?, NULL, NULL, ?)`);
+  session.run(V1_ONLY, null, dir, 'Old 1.x work', V1_NOW, V1_NOW + 50, 1.5);
+  session.run(V1_CHILD, V1_ONLY, dir, 'Old subagent', V1_NOW + 20, V1_NOW + 30, 0.5);
+  const message = db.prepare(`INSERT INTO message VALUES (?, ?, ?, ?, ?)`);
+  const part = db.prepare(`INSERT INTO part VALUES (?, ?, ?, ?, ?, ?)`);
+  const msg = (ms: number) => openCodeId('msg', ms);
+  const prt = (ms: number, n: number) => openCodeId('prt', ms, n);
+  const model = { providerID: 'stub', modelID: 'm' };
+  const answer = (parentID: string, cost: number, created: number, agent: string) => JSON.stringify({
+    role: 'assistant', parentID, mode: agent, agent, ...model, cost, finish: 'tool-calls',
+    tokens: { total: 160, input: 100, output: 50, reasoning: 0, cache: { read: 10, write: 0 } },
+    time: { created, completed: created + 10 }, path: { cwd: dir, root: dir }
+  });
+
+  message.run(msg(V1_NOW), V1_ONLY, V1_NOW, V1_NOW, JSON.stringify({ role: 'user', agent: 'build', model, time: { created: V1_NOW } }));
+  part.run(prt(V1_NOW, 1), msg(V1_NOW), V1_ONLY, V1_NOW, V1_NOW, JSON.stringify({ type: 'text', text: 'Rename the header' }));
+  message.run(msg(V1_NOW + 10), V1_ONLY, V1_NOW + 10, V1_NOW + 40, answer(msg(V1_NOW), 1.5, V1_NOW + 10, 'build'));
+  const parts = [
+    { type: 'step-start', snapshot: 'aaa' },
+    { type: 'reasoning', text: 'Find the header first.', time: { start: V1_NOW + 11, end: V1_NOW + 12 } },
+    { type: 'tool', tool: 'bash', callID: 'call_1', state: {
+      status: 'completed', input: { command: 'ls' }, output: 'Header.tsx\n', title: 'ls', metadata: { exit: 0 },
+      time: { start: V1_NOW + 13, end: V1_NOW + 14 } } },
+    { type: 'tool', tool: 'task', callID: 'call_2', state: {
+      status: 'completed', input: { subagent_type: 'general', description: 'Old subagent', prompt: 'look' }, output: 'done',
+      title: 'Old subagent', metadata: { sessionId: V1_CHILD }, time: { start: V1_NOW + 15, end: V1_NOW + 35 } } },
+    { type: 'text', text: 'Renamed.' },
+    { type: 'step-finish', reason: 'tool-calls', snapshot: 'bbb' }
+  ];
+  parts.forEach((p, i) => part.run(prt(V1_NOW + 10, i + 1), msg(V1_NOW + 10), V1_ONLY, V1_NOW + 10, V1_NOW + 10, JSON.stringify(p)));
+
+  message.run(msg(V1_NOW + 20), V1_CHILD, V1_NOW + 20, V1_NOW + 20, JSON.stringify({ role: 'user', agent: 'general', model, time: { created: V1_NOW + 20 } }));
+  part.run(prt(V1_NOW + 20, 1), msg(V1_NOW + 20), V1_CHILD, V1_NOW + 20, V1_NOW + 20, JSON.stringify({ type: 'text', text: 'look' }));
+  message.run(msg(V1_NOW + 25), V1_CHILD, V1_NOW + 25, V1_NOW + 30, answer(msg(V1_NOW + 20), 0.5, V1_NOW + 25, 'general'));
+  part.run(prt(V1_NOW + 25, 1), msg(V1_NOW + 25), V1_CHILD, V1_NOW + 25, V1_NOW + 25, JSON.stringify({ type: 'text', text: 'done' }));
+  db.close();
+  return { dir };
+}

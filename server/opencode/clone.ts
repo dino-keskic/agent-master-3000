@@ -1,5 +1,6 @@
 import { randomBytes } from 'crypto';
 import { openDb } from './db.js';
+import { adoptV1Session } from './migrateV1.js';
 import { findProject } from './projects.js';
 import { V2_SESSION_TABLE, isV2Schema } from './schemaV2.js';
 
@@ -162,6 +163,8 @@ export function cloneOpenCodeSession(
   /** File the copy under another folder (and that folder's project) — a handoff. */
   placement?: { directory: string }
 ): { sessionId: string; costAtFork: number } | null {
+  // On 2.x a session its migration never reached has to be brought over before it can be copied.
+  adoptV1Session(sourceSessionId);
   const db = openDb(false);
   if (!db) return null;
   try {
