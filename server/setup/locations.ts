@@ -5,6 +5,8 @@ import {
   BoardConfig,
   Locations,
   binCandidates,
+  extraConfigDir,
+  globalConfigDir,
   opencodeChildEnv,
   opencodeConfigDirs,
   opencodeConfigFiles,
@@ -28,6 +30,8 @@ import {
 } from '../../shared/setup/report.js';
 import { boardConfigPath, dataDir, pathContext } from '../app/appPaths.js';
 import { readBoardConfig, writeBoardConfig } from './configFile.js';
+import { buildConfigOverlay } from './configOverlay.js';
+import { needsConfigOverlay } from '../../shared/setup/configOverlay.js';
 
 /**
  * Where things are, for this process: the board's data folder and the pieces
@@ -185,10 +189,22 @@ export function opencodeGlobalConfigDirs(): string[] {
   return opencodeConfigDirs(locs, config, pathContext());
 }
 
-/** The environment every OpenCode the board starts gets, before the tool policy goes on top. */
-export function childBaseEnv(): NodeJS.ProcessEnv {
+/**
+ * The environment every OpenCode the board starts gets, before the tool policy
+ * goes on top. `version` is that OpenCode's, when known: a 2.x given an extra
+ * config folder is given it merged with the global one instead
+ * (`shared/setup/configOverlay.ts`), or it would load the extra one alone.
+ */
+export function childBaseEnv(version?: string): NodeJS.ProcessEnv {
   const { config, locations: locs } = current();
-  return { ...process.env, ...opencodeChildEnv(config, locs) };
+  const env: NodeJS.ProcessEnv = { ...process.env, ...opencodeChildEnv(config, locs) };
+  const ctx = pathContext();
+  const extra = needsConfigOverlay(version) ? extraConfigDir(locs, config, ctx) : undefined;
+  if (extra) {
+    const overlay = buildConfigOverlay(globalConfigDir(opencodeEnvFor(config, ctx.env), ctx.home), extra);
+    if (overlay) env.OPENCODE_CONFIG_DIR = overlay;
+  }
+  return env;
 }
 
 /** What the agent is started with. A change to it means the running agent is out of date. */

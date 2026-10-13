@@ -5,6 +5,7 @@ import { toolPolicySignature } from '../../shared/agent/tools.js';
 import { McpConfigEntry, V2_BUILTIN_TOOLS, readV2ToolConfig } from '../../shared/toolCatalog/opencodeV2.js';
 import { opencodeEnv } from '../opencode/env.js';
 import { livePolicyFile } from '../opencode/policyFile.js';
+import { opencodeVersion } from '../opencode/version.js';
 import { childBaseEnv, opencodeBin } from '../setup/locations.js';
 import { cwdCache } from './cache.js';
 
@@ -72,7 +73,7 @@ async function withOpencodeServer<T>(
   const authorization = `Basic ${Buffer.from(`opencode:${password}`).toString('base64')}`;
   // Same delivery the agent runs with — overlay or file — so the panel
   // resolves the same list.
-  const base = childBaseEnv();
+  const base = childBaseEnv(opencodeVersion(opencodeBin(), process.env));
   const policyFile = livePolicyFile(opencodeBin(), base, policy);
   const child = spawn(opencodeBin(), ['serve', '--port', '0', '--hostname', '127.0.0.1'], {
     cwd,

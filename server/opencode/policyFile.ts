@@ -1,53 +1,19 @@
-import { execFileSync } from 'child_process';
 import fs from 'fs';
 import path from 'path';
-import { isOpencodeAcp, parseOpencodeVersion, policyDelivery, policyDocument, policyFilePath } from '../../shared/toolCatalog/policyDelivery.js';
+import { isOpencodeAcp, policyDelivery, policyDocument, policyFilePath } from '../../shared/toolCatalog/policyDelivery.js';
 import { DEFAULT_FILE_PATH } from '../board/stateFile.js';
 import { opencodeBin } from '../setup/locations.js';
+import { opencodeVersion } from './version.js';
 
 /**
  * The board's own OpenCode config file, which carries its tool switches to an
  * OpenCode 2 that watches it (`shared/toolCatalog/policyDelivery.ts` says why
- * and when), and the version check that decides whether to use it.
+ * and when).
  *
- * What belongs here: the I/O for that — asking OpenCode its version, writing
- * the file. Both the agent process and the Tools panel's server ask here, so
- * the two resolve the same list.
+ * What belongs here: the I/O for that — deciding by `version.ts`'s answer,
+ * writing the file. Both the agent process and the Tools panel's server ask
+ * here, so the two resolve the same list.
  */
-
-const VERSION_TIMEOUT_MS = 5_000;
-
-/** Versions by executable and its mtime, so an upgrade in place is noticed. */
-const versions = new Map<string, string | undefined>();
-
-/**
- * `opencode --version`, once per executable. Synchronous on purpose: the
- * answer decides how the agent is started, and it is asked just before that —
- * tens of milliseconds on 2.x, a few hundred on 1.x, once.
- */
-export function opencodeVersion(bin: string, env: NodeJS.ProcessEnv): string | undefined {
-  let key = bin;
-  try {
-    key = `${bin}\0${fs.statSync(bin).mtimeMs}`;
-  } catch {
-    // A bare name to look up on PATH: the name is the key.
-  }
-  if (versions.has(key)) return versions.get(key);
-  let version: string | undefined;
-  try {
-    const out = execFileSync(bin, ['--version'], {
-      env,
-      encoding: 'utf8',
-      timeout: VERSION_TIMEOUT_MS,
-      stdio: ['ignore', 'pipe', 'ignore']
-    });
-    version = parseOpencodeVersion(out);
-  } catch {
-    // Not answering is the same as 1.x: the frozen overlay works everywhere.
-  }
-  versions.set(key, version);
-  return version;
-}
 
 export function boardPolicyFile(): string {
   return policyFilePath(DEFAULT_FILE_PATH);

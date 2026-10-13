@@ -3,8 +3,10 @@ import readline from 'readline';
 import { AgentExit, agentExitMessage, appendStderr } from '../../shared/agent/agentExit.js';
 import { agentMajorVersion } from '../../shared/agent/agents.js';
 import { toolPolicySignature } from '../../shared/agent/tools.js';
+import { isOpencodeAcp } from '../../shared/toolCatalog/policyDelivery.js';
 import { opencodeEnv } from '../opencode/env.js';
 import { agentPolicyFile, writeBoardPolicyFile } from '../opencode/policyFile.js';
+import { opencodeVersion } from '../opencode/version.js';
 import { childBaseEnv, opencodeBin } from '../setup/locations.js';
 import { isIncomingJsonRpcRequest, jsonRpcMessageSchema, JsonRpcId } from './schema.js';
 
@@ -253,7 +255,7 @@ export class AcpTransport {
     try {
       const [bin, args] = acpCommand();
       const policy = toolPolicySource();
-      const base = childBaseEnv();
+      const base = childBaseEnv(isOpencodeAcp(bin, args, opencodeBin()) ? opencodeVersion(bin, process.env) : undefined);
       this.appliedToolPolicy = toolPolicySignature(policy);
       this.appliedConfigStamp = configStampSource();
       this.policyFile = agentPolicyFile(bin, args, base, policy);
