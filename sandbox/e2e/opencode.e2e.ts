@@ -568,7 +568,7 @@ describe('board ↔ opencode acp ↔ stub LLM', () => {
         projects: [...settings.projects, { id: 'proj-other', name: 'other', path: other, createdAt: Date.now() }]
       });
 
-      // OpenCode reads config once per process; the board has to notice and restart it.
+      // 1.x reads config once per process, and the board has to notice and restart it.
       fs.writeFileSync(path.join(workspace, 'opencode.json'), JSON.stringify({
         provider: {
           'project-stub': {
@@ -586,10 +586,88 @@ describe('board ↔ opencode acp ↔ stub LLM', () => {
       }, 30_000);
       assert.deepStrictEqual(local.onlyIn, [workspace]);
       assert.strictEqual(local.scope, 'only in web-app');
-      assert.match(board.output(), /OpenCode config changed since the agent started/);
+      // 1.x reads config once per process, so only a restart offers it; 2.x
+      // watches the project's file and has it before the board looks.
+      const major = Number(/(\d+)\./.exec(execFileSync('opencode', ['--version'], { env: boardEnv, encoding: 'utf8' }))?.[1]);
+      if (major < 2) assert.match(board.output(), /OpenCode config changed since the agent started/);
 
       const config = await api<{ models: { id: string; onlyIn?: string[] }[] }>(board, 'GET', '/api/config-options');
       assert.ok(config.models.some((m) => m.id === MODEL && !m.onlyIn), 'the global model is still offered everywhere');
     } catch (e) { withServerLog(e); }
+  });
+});
+
+/**
+ * A shell that sets `OPENCODE_CONFIG_DIR` for some other tool: 1.x loads that
+ * folder on top of `~/.config/opencode`, 2.x in place of it — and with it the
+ * user's own agents and the built-ins they turned off would be gone. The board
+ * keeps 1.x's meaning on both (`shared/setup/configOverlay.ts`).
+ */
+describe('an extra OPENCODE_CONFIG_DIR on top of the global config', () => {
+  let root: string;
+  let stub: StubLlm;
+  let board: Board;
+
+  before(async () => {
+    root = fs.mkdtempSync(path.join(os.tmpdir(), 'acp-e2e-extra-'));
+    const workspace = path.join(root, 'workspace');
+    makeWorkspace(workspace);
+    stub = await startStubLlm();
+    const home = path.join(root, 'home');
+    const global = path.join(home, '.config', 'opencode');
+    writeOpenCodeConfig(global, stub.port);
+    const config = JSON.parse(fs.readFileSync(path.join(global, 'opencode.json'), 'utf8'));
+    config.agent = { build: { disable: true }, plan: { disable: true } };
+    fs.writeFileSync(path.join(global, 'opencode.json'), JSON.stringify(config));
+    const agent = (dir: string, name: string) => {
+      fs.mkdirSync(path.join(dir, 'agents'), { recursive: true });
+      fs.writeFileSync(path.join(dir, 'agents', `${name}.md`), `---\ndescription: ${name}\nmode: primary\n---\nYou are ${name}.\n`);
+    };
+    agent(global, 'ceo');
+    const extra = path.join(root, 'other-tool', 'opencode');
+    agent(extra, 'extra-one');
+    fs.writeFileSync(path.join(extra, 'opencode.json'), JSON.stringify({ share: 'disabled' }));
+    const dbFile = path.join(root, 'opencode', 'opencode.db');
+    fs.mkdirSync(path.dirname(dbFile), { recursive: true });
+    const stateFile = path.join(root, 'board_state.json');
+    writeBoardState(stateFile, workspace);
+    board = await startBoard({
+      ...process.env,
+      HOME: home,
+      XDG_CONFIG_HOME: path.join(home, '.config'),
+      XDG_DATA_HOME: path.join(home, '.local', 'share'),
+      XDG_CACHE_HOME: path.join(home, '.cache'),
+      XDG_STATE_HOME: path.join(home, '.local', 'state'),
+      OPENCODE_CONFIG_DIR: extra,
+      OPENCODE_DB: dbFile,
+      OPENCODE_DISABLE_AUTOUPDATE: '1',
+      OPENCODE_DISABLE_MODELS_FETCH: '1',
+      OPENCODE_DISABLE_LSP_DOWNLOAD: '1',
+      OPENCODE_DISABLE_SHARE: '1',
+      ACP_COMMAND: 'opencode acp',
+      BOARD_STATE_FILE: stateFile,
+      BOARD_ATTACHMENTS_DIR: path.join(root, 'attachments')
+    });
+  });
+
+  after(async () => {
+    await board?.stop();
+    await stub?.close();
+    if (process.env.ACP_E2E_KEEP !== '1' && root) fs.rmSync(root, { recursive: true, force: true });
+  });
+
+  it('offers the global folder\'s agents and the extra one\'s, and not the built-ins the global one disables', async () => {
+    try {
+      const config = await api<{ models: { id: string }[]; agents: { name: string }[] }>(
+        board, 'GET', `/api/config-options?model=${encodeURIComponent(MODEL)}`);
+      const names = config.agents.map((a) => a.name.toLowerCase());
+      assert.ok(config.models.some((m) => m.id === MODEL), `the global folder's model is missing: ${config.models.map((m) => m.id).join(', ')}`);
+      assert.ok(names.includes('ceo'), `the global folder's agent is missing: ${names.join(', ')}`);
+      assert.ok(names.includes('extra-one'), `the extra folder's agent is missing: ${names.join(', ')}`);
+      assert.ok(!names.includes('build') && !names.includes('plan'), `disabled built-ins are offered: ${names.join(', ')}`);
+    } catch (e) {
+      const tail = board?.output().split('\n').slice(-80).join('\n');
+      throw new Error(`${e instanceof Error ? e.message : String(e)}\n--- board server output (tail) ---\n${tail}`);
+    }
   });
 });
