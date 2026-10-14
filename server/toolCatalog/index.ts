@@ -10,7 +10,8 @@ import {
 } from '../../shared/agent/tools.js';
 import { BOARD_MCP_NAME, BOARD_MCP_TOOLS } from '../mcp/tools.js';
 import { OpencodeSnapshot, clearOpencodeCache, readOpencode } from './opencode.js';
-import { clearMcpToolsCache, listLocalMcpTools } from './mcpProbe.js';
+import { McpConfigEntry } from '../../shared/toolCatalog/opencodeV2.js';
+import { clearMcpToolsCache, listLocalMcpToolsAll } from './mcpProbe.js';
 
 /**
  * The tool list a session actually runs with, assembled from every source that
@@ -22,9 +23,25 @@ import { clearMcpToolsCache, listLocalMcpTools } from './mcpProbe.js';
  * nothing could enumerate it.
  */
 
+/**
+ * Forget everything, so the next read starts over: the refresh button, and a
+ * different OpenCode chosen in Settings. The MCP servers' answers go for every
+ * folder at once — most are shared between them (`shared/toolCatalog/mcpProbe.ts`).
+ */
 export function clearToolCatalogCache(cwd?: string): void {
   clearOpencodeCache(cwd);
-  clearMcpToolsCache(cwd);
+  clearMcpToolsCache();
+}
+
+/**
+ * Forget what OpenCode said but keep what each MCP server said: after an agent
+ * restart or a config reload OpenCode's answer may be different, while a
+ * server's tool list is not — and asking every server again is most of what
+ * a cold panel waits for. A server whose command or environment changed is a
+ * new key anyway.
+ */
+export function clearOpencodeSnapshots(): void {
+  clearOpencodeCache();
 }
 
 function mcpStatusOf(raw: string | undefined, enabled: boolean): McpServerStatus {
@@ -91,12 +108,21 @@ async function mcpTools(
   const tools: SessionTool[] = [];
   const servers: McpServerInfo[] = [];
   const names = new Set([...Object.keys(snapshot.mcpConfig), ...Object.keys(snapshot.mcpStatus)]);
+  const describe = (name: string) => {
+    const entry = snapshot.mcpConfig[name] || {};
+    const status = mcpStatusOf(snapshot.mcpStatus[name]?.status, entry.enabled !== false);
+    return { entry, status, isLocal: entry.type !== 'remote' && !!entry.command };
+  };
+
+  const toAsk: Record<string, McpConfigEntry> = {};
+  for (const name of names) {
+    const { entry, status, isLocal } = describe(name);
+    if (isLocal && status !== 'disabled') toAsk[name] = entry;
+  }
+  const lists = await listLocalMcpToolsAll(toAsk, cwd);
 
   for (const name of names) {
-    const entry = snapshot.mcpConfig[name] || {};
-    const enabled = entry.enabled !== false;
-    const status = mcpStatusOf(snapshot.mcpStatus[name]?.status, enabled);
-    const isLocal = entry.type !== 'remote' && !!entry.command;
+    const { entry, status, isLocal } = describe(name);
     const info: McpServerInfo = {
       name,
       type: isLocal ? 'local' : 'remote',
@@ -106,7 +132,7 @@ async function mcpTools(
 
     let toolNames: string[] | null = null;
     if (isLocal && status !== 'disabled') {
-      toolNames = await listLocalMcpTools(entry, cwd);
+      toolNames = lists.get(name) ?? null;
       if (toolNames === null) info.note = 'The board could not reach this server to list its tools.';
     } else if (!isLocal) {
       info.note =

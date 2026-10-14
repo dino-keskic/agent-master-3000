@@ -5,7 +5,7 @@ import { toolUsage } from '../../shared/agent/tools.js';
 import { acpManager } from '../acp/client.js';
 import { IdParams, route } from '../http/app.js';
 import { taskStore } from '../board/taskStore.js';
-import { clearToolCatalogCache, sessionToolInventory } from '../toolCatalog/index.js';
+import { clearOpencodeSnapshots, sessionToolInventory } from '../toolCatalog/index.js';
 import { RouteContext } from './context.js';
 
 /** The tool inventory, the policy that filters it, and the agent that serves it. */
@@ -54,7 +54,8 @@ export function registerToolRoutes(app: Express, { orchestrator }: RouteContext)
 
     const settings = taskStore.updateSettings({ toolPolicy: policy });
     acpManager.applyToolPolicy();
-    clearToolCatalogCache();
+    // Nothing to forget: OpenCode's answer is cached by the policy it was read
+    // with, and what an MCP server exposes does not depend on it.
     res.json({ policy: settings.toolPolicy || {}, pendingRestart: acpManager.toolPolicyPending() });
   });
 
@@ -73,7 +74,7 @@ export function registerToolRoutes(app: Express, { orchestrator }: RouteContext)
     }
 
     await acpManager.restartAgent();
-    clearToolCatalogCache();
+    clearOpencodeSnapshots();
     res.json({ restarted: true });
   }));
 }

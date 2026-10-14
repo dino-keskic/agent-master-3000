@@ -1,15 +1,43 @@
 import { spawn } from 'child_process';
 import readline from 'readline';
+import { mcpProbeKey } from '../../shared/toolCatalog/mcpProbe.js';
 import { McpConfigEntry } from '../../shared/toolCatalog/opencodeV2.js';
 import { cwdCache } from './cache.js';
 
 const MCP_LIST_TIMEOUT_MS = 10_000;
+/**
+ * What a server exposes changes when it is upgraded, not when the board's
+ * switches or the agent do, so its answer is kept longer than OpenCode's —
+ * the panel's refresh button is there for the upgrade.
+ */
+const MCP_TOOLS_TTL_MS = 30 * 60_000;
 
-/** Null when the server could not be reached, which is not the same as none. */
-const mcpToolsCache = cwdCache<string[] | null>();
+/**
+ * Null when the server could not be reached, which is not the same as none.
+ * Keyed by `mcpProbeKey`, so most entries are shared by every folder.
+ */
+const mcpToolsCache = cwdCache<string[] | null>(MCP_TOOLS_TTL_MS);
+const inFlight = new Map<string, Promise<string[] | null>>();
 
-export function clearMcpToolsCache(cwd?: string): void {
-  mcpToolsCache.clear(cwd);
+/** Forget every server's answer: most are not any one folder's to forget. */
+export function clearMcpToolsCache(): void {
+  mcpToolsCache.clear();
+  inFlight.clear();
+}
+
+/**
+ * Ask every one of `entries` at once, by name. Each is a process start — an
+ * `npx` fetch, a `uvx` resolve — so one after another the panel waited for
+ * the sum of them; together it waits for the slowest.
+ */
+export async function listLocalMcpToolsAll(
+  entries: Record<string, McpConfigEntry>,
+  cwd: string
+): Promise<Map<string, string[] | null>> {
+  const asked = await Promise.all(
+    Object.entries(entries).map(async ([name, entry]) => [name, await listLocalMcpTools(entry, cwd)] as const)
+  );
+  return new Map(asked);
 }
 
 /**
@@ -20,16 +48,33 @@ export function clearMcpToolsCache(cwd?: string): void {
  * servers are skipped: they are the ones behind OAuth, and a board panel is no
  * place to start an auth dance.
  */
-export async function listLocalMcpTools(entry: McpConfigEntry, cwd: string): Promise<string[] | null> {
+export function listLocalMcpTools(entry: McpConfigEntry, cwd: string): Promise<string[] | null> {
   const command = entry.command || [];
   const [bin, ...args] = command;
-  if (!bin) return null;
+  if (!bin) return Promise.resolve(null);
 
-  const cacheKey = `${cwd}::${command.join(' ')}`;
+  const cacheKey = mcpProbeKey(entry, cwd);
   const cached = mcpToolsCache.get(cacheKey);
-  if (cached !== undefined) return cached;
+  if (cached !== undefined) return Promise.resolve(cached);
+  // A second panel asking while the first is still waiting gets the same answer.
+  const pending = inFlight.get(cacheKey);
+  if (pending) return pending;
 
-  const result = await new Promise<string[] | null>((resolve) => {
+  const asking = askServer(bin, args, entry, cwd)
+    .then((result) => {
+      mcpToolsCache.set(cacheKey, result);
+      return result;
+    })
+    .finally(() => {
+      if (inFlight.get(cacheKey) === asking) inFlight.delete(cacheKey);
+    });
+  inFlight.set(cacheKey, asking);
+  return asking;
+}
+
+/** Start the server, `initialize`, `tools/list`, and stop it again. */
+function askServer(bin: string, args: string[], entry: McpConfigEntry, cwd: string): Promise<string[] | null> {
+  return new Promise<string[] | null>((resolve) => {
     let child: ReturnType<typeof spawn>;
     try {
       child = spawn(bin, args, {
@@ -98,7 +143,4 @@ export async function listLocalMcpTools(entry: McpConfigEntry, cwd: string): Pro
       }
     });
   });
-
-  mcpToolsCache.set(cacheKey, result);
-  return result;
 }

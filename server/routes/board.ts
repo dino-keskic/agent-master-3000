@@ -8,7 +8,7 @@ import { hydrateTasks, withLiveStatus } from '../opencode/hydrate.js';
 import { boardSpend } from '../opencode/spend.js';
 import { taskStore } from '../board/taskStore.js';
 import { modelProbeFolders } from '../setup/configLayers.js';
-import { clearToolCatalogCache } from '../toolCatalog/index.js';
+import { clearOpencodeSnapshots } from '../toolCatalog/index.js';
 import { TurnOrchestrator } from '../turns/orchestrator.js';
 import { RouteContext } from './context.js';
 import { requestCalendar } from './common.js';
@@ -27,7 +27,7 @@ async function readConfig(
 ): Promise<AcpConfigOptionsResult & { configStale?: true }> {
   const freshness: ConfigFreshness = await acpManager.refreshConfig(() => orchestrator.busyTasks().length > 0);
   // The tool catalog is read from a separate `opencode serve`, which has the same stale config.
-  if (freshness === 'restarted') clearToolCatalogCache();
+  if (freshness === 'restarted') clearOpencodeSnapshots();
   const fetched = await acpManager.fetchConfigOptions(modelId, modelProbeFolders());
   const config = { ...fetched, models: withModelScopes(fetched.models, taskStore.getSettings().projects) };
   return freshness === 'stale' ? { ...config, configStale: true } : config;
