@@ -202,13 +202,14 @@ export class AcpManager {
         this.transport.respondWithError(id, -32602, 'Malformed elicitation/create params');
         return;
       }
-      // Elicitations are not addressed to a session, so they are attributed to
-      // the turn that is running — and cancelled when that is ambiguous.
+      // OpenCode 2 says which session is asking. Older agents do not, so theirs
+      // go to the turn that is running — and are cancelled when that is ambiguous.
+      const { sessionId } = parsed.data;
       this.approvals.onElicitation(
         id,
         parsed.data,
-        this.sessions.soleInFlightTask(),
-        this.sessions.soleInFlightSession()
+        sessionId ? this.sessions.taskForSession(sessionId) : this.sessions.soleInFlightTask(),
+        sessionId ?? this.sessions.soleInFlightSession()
       );
       return;
     }

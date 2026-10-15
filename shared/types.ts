@@ -50,8 +50,15 @@ export interface QuestionField {
   description?: string;
   required: boolean;
   /** Present when the schema constrains the value to a fixed set. */
-  options?: string[];
+  options?: QuestionOption[];
   default?: string | number | boolean | string[];
+}
+
+/** One choice a question offers: what is sent back, and what is shown. */
+export interface QuestionOption {
+  value: string;
+  label: string;
+  description?: string;
 }
 
 /** An ACP `elicitation/create` the board is holding open. */

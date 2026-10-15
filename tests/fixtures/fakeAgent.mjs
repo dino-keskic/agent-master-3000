@@ -24,6 +24,7 @@ import readline from 'readline';
 const SCRIPT = process.env.ACP_FAKE_SCRIPT || 'permission';
 let nextId = 1000;
 let nextSession = 0;
+let formElicitation = false;
 const STREAMS = SCRIPT === 'stream' || SCRIPT === 'demo';
 const ASK_SESSIONS = new Set((process.env.ACP_FAKE_ASK_SESSIONS || '').split(',').filter(Boolean));
 
@@ -97,6 +98,8 @@ readline.createInterface({ input: process.stdin }).on('line', (line) => {
   }
 
   if (msg.method === 'initialize') {
+    // OpenCode 2 only asks a question over ACP when the client can show forms.
+    formElicitation = msg.params?.clientCapabilities?.elicitation?.form != null;
     result(msg.id, { protocolVersion: 1, agentCapabilities: {} });
     return;
   }
@@ -154,15 +157,31 @@ readline.createInterface({ input: process.stdin }).on('line', (line) => {
         }),
         'permission'
       );
+    } else if (SCRIPT === 'elicitation' && !formElicitation) {
+      // What OpenCode 2 does for a client that did not offer forms.
+      write({ jsonrpc: '2.0', method: 'session/update', params: { sessionId, update: {
+        sessionUpdate: 'agent_message_chunk',
+        content: { type: 'text', text: "The question couldn't be shown to the user in this client." }
+      } } });
     } else if (SCRIPT === 'elicitation') {
       outstanding.set(
+        // Shaped like OpenCode 2's `question` tool: labelled `oneOf` choices
+        // and the asking session named.
         request('elicitation/create', {
           message: 'Which environment should I deploy to?',
           mode: 'form',
+          sessionId,
           requestedSchema: {
             type: 'object',
             properties: {
-              environment: { type: 'string', title: 'Environment', enum: ['staging', 'production'] },
+              environment: {
+                type: 'string',
+                title: 'Environment',
+                oneOf: [
+                  { const: 'staging', title: 'Staging', description: 'Safe to break' },
+                  { const: 'production', title: 'Production' }
+                ]
+              },
               notes: { type: 'string', title: 'Notes', description: 'Anything I should know' },
               confirm: { type: 'boolean', title: 'I understand this is irreversible' }
             },

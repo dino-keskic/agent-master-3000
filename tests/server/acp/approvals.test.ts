@@ -96,9 +96,45 @@ test('questionFieldsFrom', async (t) => {
       default: 'main'
     });
     assert.strictEqual(fields[1]?.required, false);
-    assert.deepStrictEqual(fields[2]?.options, ['dev', 'prod']);
+    assert.deepStrictEqual(fields[2]?.options, [
+      { value: 'dev', label: 'dev' },
+      { value: 'prod', label: 'prod' }
+    ]);
     // An array field offers the choices its items declare.
-    assert.deepStrictEqual(fields[3]?.options, ['a', 'b']);
+    assert.deepStrictEqual(fields[3]?.options?.map((o) => o.value), ['a', 'b']);
+  });
+
+  await t.test("reads OpenCode 2's labelled choices, for one answer and for several", () => {
+    const fields = questionFieldsFrom(elicitation({
+      message: 'Two questions',
+      mode: 'form',
+      sessionId: 'ses_1',
+      requestedSchema: {
+        type: 'object',
+        properties: {
+          login: {
+            type: 'string',
+            title: 'CodeArtifact Login',
+            description: 'Maven gets a 401. Log in and say when.',
+            oneOf: [
+              { const: 'Logged in', title: 'Logged in (Recommended)', description: 'Run the tests.' },
+              { const: 'Skip', title: 'Skip login / alternative' }
+            ]
+          },
+          login_custom: { type: 'string', title: 'CodeArtifact Login (other)', description: 'Type your own answer' },
+          plans: { type: 'array', minItems: 1, items: { anyOf: [{ const: 'strict', title: 'Keep strict rule' }] } }
+        },
+        required: ['login', 'plans']
+      }
+    }));
+    assert.deepStrictEqual(fields[0]?.options, [
+      { value: 'Logged in', label: 'Logged in (Recommended)', description: 'Run the tests.' },
+      { value: 'Skip', label: 'Skip login / alternative', description: undefined }
+    ]);
+    assert.strictEqual(fields[1]?.options, undefined);
+    assert.strictEqual(fields[1]?.required, false);
+    assert.strictEqual(fields[2]?.type, 'array');
+    assert.deepStrictEqual(fields[2]?.options, [{ value: 'strict', label: 'Keep strict rule', description: undefined }]);
   });
 
   await t.test('defaults an untyped field to a text box, and no schema to no fields', () => {

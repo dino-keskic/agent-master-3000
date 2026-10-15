@@ -325,18 +325,34 @@ export function permissionToolCallFrom(params: {
   };
 }
 
+/**
+ * One labelled choice. OpenCode 2 lists a question's options this way —
+ * `oneOf` for pick-one, `items.anyOf` for pick-several — rather than as a bare
+ * `enum`, so each can carry the label and explanation the agent wrote for it.
+ */
+const choiceSchema = z.object({
+  const: z.string(),
+  title: z.string().nullish(),
+  description: z.string().nullish()
+});
+
 /** JSON-Schema primitives an elicitation form may request. */
 const primitiveFieldSchema = z.object({
   type: z.enum(['string', 'number', 'integer', 'boolean', 'array']).optional(),
   title: z.string().nullish(),
   description: z.string().nullish(),
   enum: z.array(z.string()).optional(),
+  oneOf: z.array(choiceSchema).optional(),
   default: z.union([z.string(), z.number(), z.boolean(), z.array(z.string())]).nullish(),
-  items: z.object({ enum: z.array(z.string()).optional() }).optional()
+  items: z
+    .object({ enum: z.array(z.string()).optional(), anyOf: z.array(choiceSchema).optional() })
+    .optional()
 });
 
 export const elicitationParamsSchema = z.object({
   message: z.string(),
+  /** OpenCode 2 names the session asking; older agents leave it out. */
+  sessionId: z.string().optional(),
   mode: z.enum(['form', 'url']).optional().default('form'),
   url: z.string().optional(),
   requestedSchema: z

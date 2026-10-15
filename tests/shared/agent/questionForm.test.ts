@@ -3,7 +3,8 @@ import assert from 'node:assert';
 import {
   initialQuestionValues,
   missingQuestionFields,
-  questionAnswerContent
+  questionAnswerContent,
+  questionInputKind
 } from '../../../shared/agent/questionForm.js';
 import { QuestionField } from '../../../shared/types.js';
 
@@ -86,4 +87,16 @@ test('what goes back to the agent', async (t) => {
       branch: ''
     });
   });
+});
+
+test('which input a field is shown in', () => {
+  const choices = (n: number) => Array.from({ length: n }, (_, i) => ({ value: `v${i}`, label: `L${i}` }));
+  assert.strictEqual(questionInputKind(field({ name: 'b', type: 'boolean' })), 'checkbox');
+  assert.strictEqual(questionInputKind(field({ name: 's', options: choices(3) })), 'radio');
+  assert.strictEqual(questionInputKind(field({ name: 's', options: choices(7) })), 'select');
+  assert.strictEqual(questionInputKind(field({ name: 'a', type: 'array', options: choices(2) })), 'checkboxes');
+  assert.strictEqual(questionInputKind(field({ name: 'a', type: 'array', options: choices(9) })), 'multiselect');
+  assert.strictEqual(questionInputKind(field({ name: 'n', type: 'integer' })), 'number');
+  assert.strictEqual(questionInputKind(field({ name: 't' })), 'text');
+  assert.strictEqual(questionInputKind(field({ name: 't', options: [] })), 'text');
 });

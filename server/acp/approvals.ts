@@ -5,6 +5,7 @@ import {
   PermissionAnswer,
   PermissionMode,
   QuestionField,
+  QuestionOption,
   ToolCallInfo
 } from '../../shared/types.js';
 import {
@@ -75,6 +76,22 @@ export function toolCallFromPermission(params: RequestPermissionParams): ToolCal
   };
 }
 
+type FieldSchema = NonNullable<ElicitationParams['requestedSchema']>['properties'][string];
+
+/** The fixed choices a field offers, labelled where the schema labels them. */
+function fieldOptions(field: FieldSchema): QuestionOption[] | undefined {
+  const labelled = field.oneOf ?? field.items?.anyOf;
+  if (labelled) {
+    return labelled.map((choice) => ({
+      value: choice.const,
+      label: choice.title || choice.const,
+      description: choice.description ?? undefined
+    }));
+  }
+  const bare = field.enum ?? field.items?.enum;
+  return bare?.map((value) => ({ value, label: value }));
+}
+
 /** The typed form an `elicitation/create` schema describes. */
 export function questionFieldsFrom(params: ElicitationParams): QuestionField[] {
   const properties = params.requestedSchema?.properties ?? {};
@@ -85,7 +102,7 @@ export function questionFieldsFrom(params: ElicitationParams): QuestionField[] {
     title: field.title ?? undefined,
     description: field.description ?? undefined,
     required: required.has(name),
-    options: field.enum ?? field.items?.enum,
+    options: fieldOptions(field),
     default: field.default ?? undefined
   }));
 }
@@ -156,7 +173,7 @@ export class ApprovalDesk {
     this.park({ taskId, sessionId: params.sessionId, jsonRpcId: id, request: pending });
   }
 
-  /** Elicitations arrive without a session, so the caller attributes them. */
+  /** The caller attributes the elicitation: by its session when it names one. */
   onElicitation(
     id: JsonRpcId,
     params: ElicitationParams,

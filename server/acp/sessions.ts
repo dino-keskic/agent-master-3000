@@ -105,9 +105,10 @@ export class SessionLifecycle {
   }
 
   /**
-   * The task whose turn is running, when exactly one is. Elicitations arrive
-   * without a session id, so this is the only way to attribute them; with
-   * several turns in flight there is no honest answer and the caller cancels.
+   * The task whose turn is running, when exactly one is. Elicitations from
+   * agents older than OpenCode 2 arrive without a session id, so this is the
+   * only way to attribute them; with several turns in flight there is no
+   * honest answer and the caller cancels.
    */
   soleInFlightTask(): string | undefined {
     const tasks = new Set<string>();

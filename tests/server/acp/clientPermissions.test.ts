@@ -163,7 +163,10 @@ test('ACP permission and question round trip', async (t) => {
       assert.strictEqual(question.mode, 'form');
 
       const byName = Object.fromEntries(question.fields.map((f) => [f.name, f]));
-      assert.deepStrictEqual(byName.environment?.options, ['staging', 'production']);
+      assert.deepStrictEqual(byName.environment?.options, [
+        { value: 'staging', label: 'Staging', description: 'Safe to break' },
+        { value: 'production', label: 'Production', description: undefined }
+      ]);
       assert.strictEqual(byName.environment?.required, true);
       assert.strictEqual(byName.notes?.required, false);
       assert.strictEqual(byName.confirm?.type, 'boolean');

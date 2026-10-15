@@ -315,7 +315,10 @@ export class AcpTransport {
       void this.request('initialize', {
         protocolVersion: 1,
         clientInfo: { name: 'agent-master-3000', version: '1.0.0' },
-        capabilities: {}
+        // OpenCode 2 only forwards its `question` tool as `elicitation/create`
+        // to a client that says it can show forms. Without this it cancels
+        // the question and tells the agent to carry on without an answer.
+        clientCapabilities: { elicitation: { form: {} } }
       }).then((reply) => {
         if (this.child === child) this.major = agentMajorVersion(reply);
         started = true;

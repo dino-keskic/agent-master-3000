@@ -64,3 +64,28 @@ export function questionAnswerContent(
   }
   return content;
 }
+
+export type QuestionInputKind = 'checkbox' | 'radio' | 'checkboxes' | 'select' | 'multiselect' | 'number' | 'text';
+
+/**
+ * Past this many choices a list of radio buttons is a wall; a dropdown is
+ * shorter, at the cost of hiding each option's description until it is opened.
+ */
+export const MAX_INLINE_CHOICES = 6;
+
+/**
+ * Which input a field is shown in. A short list of choices is laid out in
+ * full so each option's description is readable without opening anything —
+ * the agent usually wrote those to explain the trade-off.
+ */
+export function questionInputKind(field: QuestionField): QuestionInputKind {
+  if (field.type === 'boolean') return 'checkbox';
+  const choices = field.options?.length ?? 0;
+  if (choices > 0) {
+    const inline = choices <= MAX_INLINE_CHOICES;
+    if (field.type === 'array') return inline ? 'checkboxes' : 'multiselect';
+    return inline ? 'radio' : 'select';
+  }
+  if (field.type === 'number' || field.type === 'integer') return 'number';
+  return 'text';
+}
