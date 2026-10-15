@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert';
 import {
   findSubagent,
+  keepSubagentInView,
   markRunningSubagents,
   runningSubagentCount,
   subagentCaller,
@@ -105,6 +106,15 @@ test('running subagents', async (t) => {
     const marked = markRunningSubagents(tree, new Set(['ses-review', 'ses-nested']));
     assert.strictEqual(runningSubagentCount(marked), 2);
   });
+});
+
+test('keepSubagentInView holds the open row and anything running under it', () => {
+  const marked = markRunningSubagents(tree, new Set(['ses-nested']));
+  assert.strictEqual(keepSubagentInView(marked[0]!, undefined), true);
+  assert.strictEqual(keepSubagentInView(marked[1]!, undefined), false);
+  assert.strictEqual(keepSubagentInView(tree[0]!, 'ses-nested'), true);
+  assert.strictEqual(keepSubagentInView(tree[1]!, 'ses-docs'), true);
+  assert.strictEqual(keepSubagentInView(tree[1]!, 'ses-nested'), false);
 });
 
 test('subagent usage line', async (t) => {

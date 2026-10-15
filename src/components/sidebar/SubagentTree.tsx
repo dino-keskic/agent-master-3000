@@ -1,9 +1,11 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Tooltip } from '@mantine/core';
 import { Users } from 'lucide-react';
 import { SubagentSession } from '../../../shared/sessions/types';
 import { Type } from '../ui';
-import { subagentLabel, subagentUsage } from '../../../shared/sessions/subagents';
+import { keepSubagentInView, subagentLabel, subagentUsage } from '../../../shared/sessions/subagents';
+import { collapseToRecent } from '../../../shared/task/showMore';
+import { ShowMoreToggle } from './ShowMoreToggle';
 
 interface SubagentTreeProps {
   nodes: SubagentSession[];
@@ -16,11 +18,18 @@ export const SubagentTree: React.FC<SubagentTreeProps> = ({
   activeSessionId,
   onOpen
 }) => {
+  // Each level folds on its own, so a nested tree keeps its newest children too.
+  const [expanded, setExpanded] = useState(false);
   if (nodes.length === 0) return null;
+  const collapsed = collapseToRecent(nodes, {
+    addedAt: (node) => (node.createdAt ? Date.parse(node.createdAt) : 0),
+    keep: (node) => keepSubagentInView(node, activeSessionId)
+  });
+  const shown = expanded ? nodes : collapsed.visible;
 
   return (
     <div className="pl-3 flex flex-col gap-0.5">
-      {nodes.map((node) => {
+      {shown.map((node) => {
         const active = node.sessionId === activeSessionId;
         const label = subagentLabel(node);
         const running = !!node.running;
@@ -88,6 +97,11 @@ export const SubagentTree: React.FC<SubagentTreeProps> = ({
           </div>
         );
       })}
+      <ShowMoreToggle
+        hiddenCount={collapsed.hiddenCount}
+        expanded={expanded}
+        onToggle={() => setExpanded((open) => !open)}
+      />
     </div>
   );
 };

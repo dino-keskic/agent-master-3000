@@ -1,10 +1,12 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Group, Stack, Tooltip } from '@mantine/core';
 import { GitFork, Plus } from 'lucide-react';
 import { SubagentSession } from '../../../shared/sessions/types';
 import { BoardTask } from '../../../shared/types';
 import { TaskSessionView, isSessionBusy } from '../../../shared/task/sessions';
+import { collapseToRecent } from '../../../shared/task/showMore';
 import { SectionLabel } from './SectionLabel';
+import { ShowMoreToggle } from './ShowMoreToggle';
 import { SessionCard } from './SessionCard';
 import { Button } from '../ui/Button';
 
@@ -44,6 +46,14 @@ export const SessionList: React.FC<{
 }) => {
   const busyCount = sessions.filter((session) => isSessionBusy(session.runState)).length;
   const canFork = sessions.length > 0;
+  const [expanded, setExpanded] = useState(false);
+  // The session on screen, the primary and anything still working never fold.
+  const collapsed = collapseToRecent(sessions, {
+    addedAt: (session) => session.createdAt,
+    keep: (session) =>
+      session.isPrimary || session.sessionId === viewedSessionId || isSessionBusy(session.runState)
+  });
+  const shownSessions = expanded ? sessions : collapsed.visible;
 
   return (
     <Stack gap={8}>
@@ -80,7 +90,7 @@ export const SessionList: React.FC<{
         </p>
       ) : (
         <Stack gap={6}>
-          {sessions.map((session) => (
+          {shownSessions.map((session) => (
             <SessionCard
               key={session.sessionId}
               session={session}
@@ -93,6 +103,11 @@ export const SessionList: React.FC<{
               onRequestMove={onRequestMove}
             />
           ))}
+          <ShowMoreToggle
+            hiddenCount={collapsed.hiddenCount}
+            expanded={expanded}
+            onToggle={() => setExpanded((open) => !open)}
+          />
         </Stack>
       )}
     </Stack>

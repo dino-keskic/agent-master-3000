@@ -126,3 +126,13 @@ export function runningSubagentCount(nodes: SubagentSession[]): number {
     0
   );
 }
+
+/**
+ * Whether a subagent row stays on screen when its list folds behind "Show
+ * more": it is the one open, or it — or anything under it — is still running.
+ * Folding either away would hide the very row you came to the tree for.
+ */
+export function keepSubagentInView(node: SubagentSession, activeSessionId: string | undefined): boolean {
+  if (activeSessionId && findSubagent([node], activeSessionId)) return true;
+  return runningSubagentCount([node]) > 0;
+}

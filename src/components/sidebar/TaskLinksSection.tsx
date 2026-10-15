@@ -15,10 +15,12 @@ import {
 import { BoardTask, TaskLink, TaskLinkKind } from '../../../shared/types';
 import { linkSettlement, linkStatusBadge, settlementLabel } from '../../../shared/trackers/linkStatus';
 import { classifyLink, linkKindLabel, normalizeLinkUrl, showRef, sortTaskLinks } from '../../../shared/task/links';
+import { collapseToRecent } from '../../../shared/task/showMore';
 import { Type } from '../ui';
 import { LinkStatusBadge } from '../card/LinkStatusBadge';
 import { api } from '../../api';
 import { reportError } from '../../app/notify';
+import { ShowMoreToggle } from './ShowMoreToggle';
 
 interface TaskLinksSectionProps {
   task: BoardTask;
@@ -99,9 +101,12 @@ export const TaskLinksSection: React.FC<TaskLinksSectionProps> = ({ task, onTask
   const [adding, setAdding] = useState(false);
   const [url, setUrl] = useState('');
   const [busy, setBusy] = useState(false);
+  const [expanded, setExpanded] = useState(false);
 
   const links = sortTaskLinks(task.links);
   const finished = settlementLabel(linkSettlement(links));
+  const collapsed = collapseToRecent(links, { addedAt: (link) => link.createdAt });
+  const shownLinks = expanded ? links : collapsed.visible;
   const normalized = normalizeLinkUrl(url);
   const preview = normalized ? classifyLink(normalized) : null;
 
@@ -185,9 +190,14 @@ export const TaskLinksSection: React.FC<TaskLinksSectionProps> = ({ task, onTask
         </Type>
       )}
 
-      {links.map((link) => (
+      {shownLinks.map((link) => (
         <LinkRow key={link.id} link={link} onRemove={() => void remove(link)} />
       ))}
+      <ShowMoreToggle
+        hiddenCount={collapsed.hiddenCount}
+        expanded={expanded}
+        onToggle={() => setExpanded((open) => !open)}
+      />
     </Stack>
   );
 };
