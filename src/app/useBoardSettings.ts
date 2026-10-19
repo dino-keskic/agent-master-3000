@@ -95,8 +95,9 @@ export function useBoardSettings(ctx: BoardSettingsContext): BoardSettingsAction
 
     async deleteProject(projectId) {
       try {
-        await api.deleteProject(projectId);
+        const { selectedProjectId, defaultCwd } = await api.deleteProject(projectId);
         setProjects((prev) => prev.filter((p) => p.id !== projectId));
+        setSettings((prev) => ({ ...prev, selectedProjectId, defaultCwd: defaultCwd ?? prev.defaultCwd }));
       } catch (e) {
         reportError('Could not delete project', e);
       }

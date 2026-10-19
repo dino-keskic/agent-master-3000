@@ -42,7 +42,7 @@ export const projectsApi = {
   saveProjectColumnPrompts: (prompts: Record<string, Record<string, string>>) =>
     post<ProjectFolder[]>('/api/projects/column-prompts', { prompts }),
 
-  deleteProject: (projectId: string) => del<{ success: boolean }>(`/api/projects/${projectId}`),
+  deleteProject: (projectId: string) => del<{ success: boolean; selectedProjectId?: string; defaultCwd?: string }>(`/api/projects/${projectId}`),
 
   pickFolder: (startPath: string) => post<PickFolderResult>('/api/fs/pick-folder', { startPath }),
 

@@ -16,6 +16,8 @@ import { WorktreeTarget } from './useWorktreeTarget';
 
 /** The picker's own entry for adding a folder the board does not know yet. */
 const ADD_PROJECT = '__ADD_NEW__';
+/** …and for taking the chosen one off the board (its folder is left alone). */
+const REMOVE_PROJECT = '__REMOVE__';
 
 interface TaskTargetBarProps {
   projects: ProjectFolder[];
@@ -28,6 +30,7 @@ interface TaskTargetBarProps {
   pullRequest?: { repo: string; number: number };
   onSelectProject: (project: ProjectFolder) => void;
   onPickProjectFolder: () => void;
+  onDeleteProject?: (projectId: string) => void;
 }
 
 export const TaskTargetBar: React.FC<TaskTargetBarProps> = ({
@@ -38,8 +41,11 @@ export const TaskTargetBar: React.FC<TaskTargetBarProps> = ({
   slugPreview,
   pullRequest,
   onSelectProject,
-  onPickProjectFolder
-}) => (
+  onPickProjectFolder,
+  onDeleteProject
+}) => {
+  const selected = projects.find(p => p.id === selectedProjectId);
+  return (
   <Group gap="sm" wrap="wrap" align="center">
     <InlineSelect
       label="Project"
@@ -48,10 +54,17 @@ export const TaskTargetBar: React.FC<TaskTargetBarProps> = ({
       placeholder="Choose a project"
       options={[
         ...projects.map(p => ({ value: p.id, label: p.name, keywords: p.path })),
-        { value: ADD_PROJECT, label: '+ Choose folder…' }
+        { value: ADD_PROJECT, label: '+ Choose folder…' },
+        ...(selected && onDeleteProject ? [{ value: REMOVE_PROJECT, label: `− Remove ${selected.name} from board` }] : [])
       ]}
       onChange={(val) => {
         if (val === ADD_PROJECT) return onPickProjectFolder();
+        if (val === REMOVE_PROJECT) {
+          if (selected && window.confirm(`Remove ${selected.name} from the board? Its folder and tasks are not touched.`)) {
+            onDeleteProject?.(selected.id);
+          }
+          return;
+        }
         const picked = projects.find(p => p.id === val);
         if (picked) onSelectProject(picked);
       }}
@@ -63,4 +76,5 @@ export const TaskTargetBar: React.FC<TaskTargetBarProps> = ({
       <WorktreePicker worktree={worktree} projectPath={projectPath} slugPreview={slugPreview} pullRequest={pullRequest} />
     )}
   </Group>
-);
+  );
+};

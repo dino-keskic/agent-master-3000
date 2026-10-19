@@ -87,6 +87,8 @@ export function registerProjectRoutes(app: Express, { publisher }: RouteContext)
     if (!deleted) return res.status(404).json({ error: 'Project not found' });
     rememberProjects(taskStore.getSettings().projects);
     publisher.projects(taskStore.getSettings().projects);
-    res.json({ success: true });
+    // Removing the selected project moves the selection; the client takes it from here.
+    const { selectedProjectId, defaultCwd } = taskStore.getSettings();
+    res.json({ success: true, selectedProjectId, defaultCwd });
   });
 }

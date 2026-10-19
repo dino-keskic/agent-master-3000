@@ -78,6 +78,7 @@ export const Header: React.FC<HeaderProps> = ({
   awaitingSessionCount,
   backgroundTaskCount,
   desktopAlertWarning,
+  onDeleteProject,
   onCreateTask,
   promptInputRef
 }) => {
@@ -136,6 +137,7 @@ export const Header: React.FC<HeaderProps> = ({
               defaultCwd: project.path
             })}
             onPickProjectFolder={() => void onPickProjectFolder()}
+            onDeleteProject={onDeleteProject}
           />
 
           <Composer
