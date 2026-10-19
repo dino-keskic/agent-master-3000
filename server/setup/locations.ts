@@ -12,6 +12,7 @@ import {
   opencodeConfigFiles,
   opencodeDataDir,
   opencodeEnvFor,
+  opencodeStateDir,
   pickChannelDb,
   resolveLocations
 } from '../../shared/setup/locations.js';
@@ -68,6 +69,7 @@ const ENV_INPUTS = [
   'XDG_CONFIG_HOME',
   'XDG_DATA_HOME',
   'XDG_CACHE_HOME',
+  'XDG_STATE_HOME',
   'HOME',
   'PATH'
 ];
@@ -170,6 +172,15 @@ export function opencodeBin(): string {
 /** OpenCode's sessions database. */
 export function opencodeDbPath(): string {
   return locations().opencodeDb.value;
+}
+
+/**
+ * Where OpenCode 2's background service says where it is: its address, its
+ * pid and the password to talk to it. Written by the service, never the board.
+ */
+export function opencodeServiceFile(): string {
+  const ctx = pathContext();
+  return path.join(opencodeStateDir(opencodeEnvFor(boardConfig(), ctx.env), ctx.home), 'service.json');
 }
 
 /** OpenCode's cached model catalog. */

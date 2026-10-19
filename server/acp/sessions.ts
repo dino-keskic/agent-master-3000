@@ -10,7 +10,7 @@ import { AcpEvent, sessionBound } from './events.js';
 import { SessionConfigurator } from './sessionConfig.js';
 import { AcpSessionRegistry } from './sessionRegistry.js';
 import { TranscriptStream } from './transcript.js';
-import { AcpTransport } from './transport.js';
+import type { TransportPort } from './transportPort.js';
 
 const IMPORT_TIMEOUT_MS = 120000;
 const IMPORT_SETTLE_MS = 1500;
@@ -58,7 +58,7 @@ export class SessionLifecycle {
   private readonly loads = new Map<string, Promise<unknown>>();
 
   constructor(
-    private readonly transport: AcpTransport,
+    private readonly transport: TransportPort,
     private readonly registry: AcpSessionRegistry,
     private readonly approvals: ApprovalDesk,
     private readonly transcript: TranscriptStream,

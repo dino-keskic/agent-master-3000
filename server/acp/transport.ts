@@ -9,6 +9,7 @@ import { agentPolicyFile, writeBoardPolicyFile } from '../opencode/policyFile.js
 import { opencodeVersion } from '../opencode/version.js';
 import { childBaseEnv, opencodeBin } from '../setup/locations.js';
 import { isIncomingJsonRpcRequest, jsonRpcMessageSchema, JsonRpcId } from './schema.js';
+import type { TransportHandlers, TransportPort } from './transportPort.js';
 
 export const DEFAULT_REQUEST_TIMEOUT_MS = 30000;
 /** Turns take as long as they take; a timeout here would abandon a live agent. */
@@ -46,6 +47,11 @@ export function setToolPolicySource(source: () => Record<string, boolean>): void
   toolPolicySource = source;
 }
 
+/** The policy as settings hold it now; the service transport turns it into session rules. */
+export function currentToolPolicy(): Record<string, boolean> {
+  return toolPolicySource();
+}
+
 /**
  * A fingerprint of every OpenCode config file the agent could load, read at
  * spawn. OpenCode reads its config once per process — an edited
@@ -70,14 +76,7 @@ function acpCommand(): [string, string[]] {
   return [bin, args];
 }
 
-export interface AcpTransportHandlers {
-  /** The agent is asking us something and is blocked until we answer. */
-  onRequest(id: JsonRpcId, method: string, params: unknown): void;
-  /** The agent is telling us something; no reply expected. */
-  onNotification(method: string, params: unknown): void;
-  /** The process died. Everything keyed to it is now stale. */
-  onExit(code: number | null): void;
-}
+export type AcpTransportHandlers = TransportHandlers;
 
 interface PendingCall {
   resolve: (value: unknown) => void;
@@ -93,7 +92,7 @@ interface PendingCall {
  * the handlers. That is what makes the manager above it testable against a stub
  * agent — the whole protocol surface is these few methods.
  */
-export class AcpTransport {
+export class AcpTransport implements TransportPort {
   private child: ChildProcess | null = null;
   private requestId = 1;
   private readonly pending = new Map<JsonRpcId, PendingCall>();
@@ -128,6 +127,11 @@ export class AcpTransport {
    */
   agentMajor(): number | undefined {
     return this.major;
+  }
+
+  /** 2.x answers a folder's first session before reading its config; 1.x never does. */
+  answersEarly(): boolean {
+    return (this.major ?? 2) >= 2;
   }
 
   /** True when settings hold a tool policy the running agent has not picked up. */

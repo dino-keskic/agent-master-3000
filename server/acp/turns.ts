@@ -20,7 +20,8 @@ import {
 import { SessionConfigurator } from './sessionConfig.js';
 import { AcpSessionRegistry } from './sessionRegistry.js';
 import { SessionLifecycle } from './sessions.js';
-import { AcpTransport, NO_TIMEOUT } from './transport.js';
+import { NO_TIMEOUT } from './transport.js';
+import { AWAIT_TURN_METHOD, type TransportPort } from './transportPort.js';
 
 /**
  * OpenCode's own slash command for summarizing the conversation so far. There is
@@ -60,7 +61,7 @@ function messageOf(e: unknown): string {
  */
 export class TurnRunner {
   constructor(
-    private readonly transport: AcpTransport,
+    private readonly transport: TransportPort,
     private readonly registry: AcpSessionRegistry,
     private readonly config: SessionConfigurator,
     private readonly sessions: SessionLifecycle,
@@ -242,8 +243,36 @@ export class TurnRunner {
     // in front of it takes.
     const prompt = promptBlocks(text, loadImageData(images));
 
-    void this.transport
-      .request('session/prompt', { sessionId, prompt }, NO_TIMEOUT)
+    this.follow(taskId, sessionId, generation, this.transport.request('session/prompt', { sessionId, prompt }, NO_TIMEOUT));
+  }
+
+  /**
+   * Follow a turn OpenCode 2's service kept running while the board was down,
+   * as if this board had sent it: in flight, stoppable, reported when it ends.
+   * The service transport sends the turn so far as updates before it waits.
+   */
+  async adopt(task: BoardTask, sessionId: string): Promise<void> {
+    if (this.registry.isInFlight(sessionId)) return;
+    // The board already has this task's log; loading only binds the session.
+    if (!this.registry.isLoaded(sessionId)) {
+      await this.sessions.importSession(task.id, sessionId, task.cwd || process.cwd(), {
+        replayLogs: false,
+        primary: sessionId === task.sessionId
+      });
+    }
+    if (this.registry.isInFlight(sessionId)) return;
+    this.registry.bind(sessionId, task.id);
+    if (sessionId === task.sessionId) this.registry.setPrimary(task.id, sessionId);
+    this.registry.clearCancelled(sessionId);
+    this.registry.markInFlight(sessionId);
+    const generation = this.registry.nextGeneration(sessionId);
+    console.log(`[ACP] Task ${task.id}: following the turn OpenCode kept running in ${sessionId}`);
+    this.follow(task.id, sessionId, generation, this.transport.request(AWAIT_TURN_METHOD, { sessionId }, NO_TIMEOUT));
+  }
+
+  /** Report how a turn ends, unless something superseded it first. */
+  private follow(taskId: string, sessionId: string, generation: number, ended: Promise<unknown>): void {
+    void ended
       .then((res) => {
         if (this.settle(taskId, sessionId, generation)) return;
         const stopReason = promptResultSchema.safeParse(res).data?.stopReason || 'end_turn';

@@ -1,3 +1,4 @@
+import { v2RowEndsTurn } from '../../shared/agent/v2Events.js';
 import { LIVE_TURN_SILENCE_MS, isAbandonedTurn } from '../../shared/turns/abandoned.js';
 import { readDb, readDbIsV2 } from './db.js';
 
@@ -13,6 +14,22 @@ const TURN_STARTING_MS = 120_000;
  * driving before then died with the previous board; see `isAbandonedTurn`.
  */
 export const BOARD_STARTED_AT = Math.floor(performance.timeOrigin);
+
+/**
+ * True once the board drives OpenCode 2's background service: its turns run
+ * in the service's process, not in a child of this one, so a turn from before
+ * this board started may well still be going.
+ */
+let turnsOutliveBoard = false;
+
+export function setTurnsOutliveBoard(outlive: boolean): void {
+  turnsOutliveBoard = outlive;
+}
+
+/** The start time a turn must postdate to be live: none, when turns outlive the board. */
+export function boardStartedAt(): number {
+  return turnsOutliveBoard ? 0 : BOARD_STARTED_AT;
+}
 
 type SessionRow = {
   id: string;
@@ -139,7 +156,8 @@ function liveSessions(rootIds: string[], now: number, boardStartedAt: number): {
     const sessionIds = candidates.map((row) => row.id);
     const inSessions = sessionIds.map(() => '?').join(', ');
     const since = now - LIVE_TURN_WINDOW_MS;
-    const parts = partQueries(readDbIsV2(), inSessions);
+    const v2 = readDbIsV2();
+    const parts = partQueries(v2, inSessions);
 
     const partWrites = db.prepare(parts.writes).all(...sessionIds) as { sid: string; t: number | null }[];
     for (const row of partWrites) clock.saw(row.sid, row.t);
@@ -182,6 +200,32 @@ function liveSessions(rootIds: string[], now: number, boardStartedAt: number): {
       }
     }
 
+    // On 2.x the `message` view leaves out the bookkeeping rows, and two of
+    // them say a turn is over when its last answer does not: the `idle` row
+    // every ending writes, and an answer closed as `aborted` with nothing
+    // after it (see `v2RowEndsTurn`). Read the real last row for those.
+    if (v2) {
+      const lastRows = db.prepare(
+        `SELECT m.session_id AS sid, m.type AS type, m.data AS data
+         FROM main.session_message m
+         INNER JOIN (
+           SELECT session_id, MAX(seq) AS ms FROM main.session_message
+           WHERE session_id IN (${inSessions}) GROUP BY session_id
+         ) last ON last.session_id = m.session_id AND last.ms = m.seq`
+      ).all(...sessionIds) as { sid: string; type: string | null; data: string | null }[];
+      for (const row of lastRows) {
+        let data: unknown;
+        try {
+          data = row.data ? JSON.parse(row.data) : undefined;
+        } catch {
+          data = undefined;
+        }
+        if (!v2RowEndsTurn(row.type, data)) continue;
+        active.delete(row.sid);
+        turnEnded.add(row.sid);
+      }
+    }
+
     // In-flight tools that started inside the window. Covers a subagent that
     // wrote a running tool part before any assistant message exists, and a
     // bash that has been going for minutes.
@@ -202,13 +246,13 @@ function liveSessions(rootIds: string[], now: number, boardStartedAt: number): {
  * Sessions that currently have a live OpenCode turn — each subagent in its own
  * right, not folded into the tree it hangs off.
  */
-export function activeSessionIds(rootIds: string[], now = Date.now(), boardStartedAt = BOARD_STARTED_AT): Set<string> {
-  return liveSessions(rootIds, now, boardStartedAt).live;
+export function activeSessionIds(rootIds: string[], now = Date.now(), startedAt = boardStartedAt()): Set<string> {
+  return liveSessions(rootIds, now, startedAt).live;
 }
 
 /** Root sessions that currently have a live OpenCode turn (parent or subagent). */
-export function activeRootSessionIds(rootIds: string[], now = Date.now(), boardStartedAt = BOARD_STARTED_AT): Set<string> {
-  const { live, rootOf } = liveSessions(rootIds, now, boardStartedAt);
+export function activeRootSessionIds(rootIds: string[], now = Date.now(), startedAt = boardStartedAt()): Set<string> {
+  const { live, rootOf } = liveSessions(rootIds, now, startedAt);
   const roots = new Set<string>();
   for (const sessionId of live) {
     const root = rootOf.get(sessionId);

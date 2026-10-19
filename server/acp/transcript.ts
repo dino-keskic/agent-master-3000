@@ -3,7 +3,7 @@ import { normalizeToolStatus, toolLabel } from '../../shared/agent/toolCall.js';
 import { codeModeCalls } from '../../shared/agent/codeMode.js';
 import { newId } from '../../shared/ids.js';
 import { MAX_LOG_TEXT } from '../../shared/task/logWrites.js';
-import { extractToolOutput, ParsedUpdate, SessionUpdate } from './schema.js';
+import { ChunkPlacement, extractToolOutput, ParsedUpdate, SessionUpdate } from './schema.js';
 import { AcpEvent } from './events.js';
 import { AcpSessionRegistry } from './sessionRegistry.js';
 
@@ -88,17 +88,17 @@ export class TranscriptStream {
   toEvent(taskId: string, parsed: ParsedUpdate, sessionId?: string): AcpEvent | null {
     switch (parsed.kind) {
       case 'user_chunk': {
-        const buf = this.append(taskId, sessionId, `${parsed.messageId ?? ''}_user`, 'user_say', parsed.text);
+        const buf = this.append(taskId, sessionId, `${parsed.messageId ?? ''}_user`, 'user_say', parsed.text, parsed);
         return { type: 'log', log: this.chunkLog(buf, 'User Prompt', sessionId) };
       }
 
       case 'agent_chunk': {
-        const buf = this.append(taskId, sessionId, parsed.messageId ?? '', 'agent_say', parsed.text);
+        const buf = this.append(taskId, sessionId, parsed.messageId ?? '', 'agent_say', parsed.text, parsed);
         return { type: 'log', log: this.chunkLog(buf, 'OpenCode Agent', sessionId, this.attributionOf(sessionId)) };
       }
 
       case 'thought_chunk': {
-        const buf = this.append(taskId, sessionId, `${parsed.messageId ?? ''}_thought`, 'thought', parsed.text);
+        const buf = this.append(taskId, sessionId, `${parsed.messageId ?? ''}_thought`, 'thought', parsed.text, parsed);
         return {
           type: 'log',
           log: this.chunkLog(buf, 'Agent Thought Process', sessionId, { durationMs: Date.now() - buf.startedAt })
@@ -122,15 +122,28 @@ export class TranscriptStream {
    * changed. Past what the store keeps of a line the rest is dropped here: the
    * stored text is clipped to the same prefix anyway, and an agent that
    * streams a megabyte into one message should not cost a megabyte per chunk.
+   *
+   * A chunk that names its row (`logId`, from the OpenCode 2 service) is kept
+   * under that id, so a board that re-attaches to a turn writes the same rows
+   * it wrote before; one marked `replace` is the whole text, not more of it.
    */
-  private append(taskId: string, sessionId: string | undefined, key: string, type: ChunkType, text: string): OpenMessage {
+  private append(
+    taskId: string,
+    sessionId: string | undefined,
+    key: string,
+    type: ChunkType,
+    text: string,
+    placement: ChunkPlacement = {}
+  ): OpenMessage {
     const { messages } = this.buffersFor(taskId, sessionId);
-    let buf = messages.get(key);
+    const bufferKey = placement.logId ?? key;
+    let buf = messages.get(bufferKey);
     if (!buf || buf.type !== type) {
-      buf = { id: newId(), text: '', type, startedAt: Date.now() };
-      messages.set(key, buf);
+      buf = { id: placement.logId ?? newId(), text: '', type, startedAt: Date.now() };
+      messages.set(bufferKey, buf);
     }
-    if (buf.text.length <= MAX_LOG_TEXT) buf.text += text;
+    if (placement.replace) buf.text = text.slice(0, MAX_LOG_TEXT + 1);
+    else if (buf.text.length <= MAX_LOG_TEXT) buf.text += text;
     return buf;
   }
 

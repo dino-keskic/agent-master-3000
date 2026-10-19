@@ -39,6 +39,12 @@ export interface BoardConfig {
   opencodeEnv?: Record<string, string>;
   /** The data folder to copy the board from on the next start, into `dataDir`. */
   moveDataFrom?: string;
+  /**
+   * How turns reach OpenCode 2: `service` (the default) drives its background
+   * service over HTTP, so a turn outlives the board; `acp` keeps the
+   * `opencode acp` child, as on 1.x. See `shared/agent/driver.ts`.
+   */
+  opencodeDriver?: 'service' | 'acp';
 }
 
 export interface PathContext {
@@ -81,11 +87,12 @@ function absoluteOr(value: string | undefined, fallback: string): string {
 }
 
 /** XDG base directories. The spec says a relative one is invalid and must be ignored. */
-export function xdgDirs(env: NodeJS.ProcessEnv, home: string): { config: string; data: string; cache: string } {
+export function xdgDirs(env: NodeJS.ProcessEnv, home: string): { config: string; data: string; cache: string; state: string } {
   return {
     config: absoluteOr(env.XDG_CONFIG_HOME, path.join(home, '.config')),
     data: absoluteOr(env.XDG_DATA_HOME, path.join(home, '.local', 'share')),
-    cache: absoluteOr(env.XDG_CACHE_HOME, path.join(home, '.cache'))
+    cache: absoluteOr(env.XDG_CACHE_HOME, path.join(home, '.cache')),
+    state: absoluteOr(env.XDG_STATE_HOME, path.join(home, '.local', 'state'))
   };
 }
 
@@ -102,6 +109,14 @@ export function globalConfigDir(env: NodeJS.ProcessEnv, home: string): string {
 /** OpenCode's data folder: the database, credentials, logs. */
 export function opencodeDataDir(env: NodeJS.ProcessEnv, home: string): string {
   return path.join(xdgDirs(env, home).data, 'opencode');
+}
+
+/**
+ * OpenCode's state folder. OpenCode 2's background service writes
+ * `service.json` here — where it listens, and the password to talk to it.
+ */
+export function opencodeStateDir(env: NodeJS.ProcessEnv, home: string): string {
+  return path.join(xdgDirs(env, home).state, 'opencode');
 }
 
 /**
@@ -310,6 +325,7 @@ export function parseBoardConfig(raw: unknown): BoardConfig {
     }
     if (Object.keys(clean).length > 0) out.opencodeEnv = clean;
   }
+  if (source.opencodeDriver === 'service' || source.opencodeDriver === 'acp') out.opencodeDriver = source.opencodeDriver;
   return out;
 }
 

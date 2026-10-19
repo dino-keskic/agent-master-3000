@@ -2,7 +2,7 @@ import { BoardTask, TaskLogItem, TaskSessionLink } from '../../shared/types.js';
 import { isSessionBusy, listTaskSessions, liveTaskSessions, sessionRunState } from '../../shared/task/sessions.js';
 import { acpManager } from '../acp/client.js';
 import { cachedOpenCodeSession, refreshCachedSessionsOffThread } from './hydrate.js';
-import { BOARD_STARTED_AT } from './liveTurns.js';
+import { boardStartedAt } from './liveTurns.js';
 import { readOffThread } from './readerThread.js';
 import { BoardPublisher } from '../live/publisher.js';
 import { taskStore } from '../board/taskStore.js';
@@ -52,6 +52,9 @@ export class OpenCodeSync {
     const asked = new Set(taskStore.getTasks().flatMap((task) => liveTaskSessions(task).map((link) => link.sessionId)));
     if (asked.size === 0) return;
 
+    // Asked first: it picks the driver, and with it what "active" may count
+    // (`boardStartedAt`) for the read below.
+    const outlivesBoard = acpManager.turnsOutliveBoard();
     const active = await activeRoots([...asked]);
     const idled: { taskId: string; sessionId: string }[] = [];
     for (const task of taskStore.getTasks()) {
@@ -63,7 +66,10 @@ export class OpenCodeSync {
         if (!this.isOursToJudge(task.id, sessionId, state)) continue;
 
         const ocActive = active.has(sessionId);
-        if (ocActive && state !== 'running') this.adoptRunning(task.id, sessionId);
+        // On OpenCode 2's service the turn is still going and still reachable:
+        // follow it as our own, whatever the state file last said.
+        if (ocActive && outlivesBoard) this.adoptTurn(task.id, sessionId);
+        else if (ocActive && state !== 'running') this.adoptRunning(task.id, sessionId);
         else if (!ocActive && state === 'running') idled.push({ taskId: task.id, sessionId });
       }
     }
@@ -79,6 +85,16 @@ export class OpenCodeSync {
         console.warn(`[Server] Could not bind running session ${sessionId}:`, e?.message || e);
       });
     }
+  }
+
+  /** Mark a session running and have the manager follow its turn to the end. */
+  private adoptTurn(taskId: string, sessionId: string): void {
+    const task = taskStore.setSessionRunState(taskId, sessionId, 'running');
+    if (!task) return;
+    this.publisher.status(task);
+    void acpManager.adoptTurn(task, sessionId).catch((e) => {
+      console.warn(`[Server] Could not follow the running turn in ${sessionId}:`, e?.message || e);
+    });
   }
 
   /** Set idle now; publish once the finished sessions' final cost has been read. */
@@ -225,7 +241,7 @@ export class OpenCodeSync {
 
 /** Which of these root sessions OpenCode is working in, read on the reader thread. */
 export function activeRoots(sessionIds: string[]): Promise<Set<string>> {
-  return readOffThread('activeRootSessionIds', sessionIds, Date.now(), BOARD_STARTED_AT);
+  return readOffThread('activeRootSessionIds', sessionIds, Date.now(), boardStartedAt());
 }
 
 /** What "the spend view of this session changed" means, as one comparable string. */

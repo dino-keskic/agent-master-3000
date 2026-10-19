@@ -81,7 +81,13 @@ const sessionUpdateSchema = z.object({
   rawOutput: z.unknown().optional(),
   locations: z.array(toolLocationSchema).optional(),
   /** `config_option_update`'s lists; parsed with `configOptionsSchema` below. */
-  configOptions: z.unknown().optional()
+  configOptions: z.unknown().optional(),
+  /**
+   * What the board's own OpenCode 2 service transport adds to a chunk: the log
+   * row it belongs to, and whether it is the whole text rather than more of it.
+   * See `shared/agent/v2Events.ts`.
+   */
+  _meta: z.object({ logId: z.string().optional(), replace: z.boolean().optional() }).passthrough().optional()
 });
 
 export const sessionNotificationSchema = z.object({
@@ -92,10 +98,16 @@ export const sessionNotificationSchema = z.object({
 
 export type SessionUpdate = z.infer<typeof sessionUpdateSchema>;
 
+/** Where a chunk goes when its sender names the row: see `_meta` above. */
+export interface ChunkPlacement {
+  logId?: string;
+  replace?: boolean;
+}
+
 export type ParsedUpdate =
-  | { kind: 'user_chunk'; messageId?: string; text: string }
-  | { kind: 'agent_chunk'; messageId?: string; text: string }
-  | { kind: 'thought_chunk'; messageId?: string; text: string }
+  | ({ kind: 'user_chunk'; messageId?: string; text: string } & ChunkPlacement)
+  | ({ kind: 'agent_chunk'; messageId?: string; text: string } & ChunkPlacement)
+  | ({ kind: 'thought_chunk'; messageId?: string; text: string } & ChunkPlacement)
   | { kind: 'tool_call'; update: SessionUpdate }
   | { kind: 'session_info'; title?: string }
   | { kind: 'config_options'; options: ConfigOption[] }
@@ -128,10 +140,13 @@ export function parseSessionUpdate(params: unknown): { sessionId?: string; parse
 
   const discriminator = update.sessionUpdate ?? update.type ?? '';
   const messageId = update.messageId;
+  const placement: ChunkPlacement = update._meta?.logId
+    ? { logId: update._meta.logId, ...(update._meta.replace ? { replace: true } : {}) }
+    : {};
 
-  if (USER_CHUNK.has(discriminator)) return { sessionId, parsed: { kind: 'user_chunk', messageId, text: chunkText(update) } };
-  if (AGENT_CHUNK.has(discriminator)) return { sessionId, parsed: { kind: 'agent_chunk', messageId, text: chunkText(update) } };
-  if (THOUGHT_CHUNK.has(discriminator)) return { sessionId, parsed: { kind: 'thought_chunk', messageId, text: chunkText(update) } };
+  if (USER_CHUNK.has(discriminator)) return { sessionId, parsed: { kind: 'user_chunk', messageId, text: chunkText(update), ...placement } };
+  if (AGENT_CHUNK.has(discriminator)) return { sessionId, parsed: { kind: 'agent_chunk', messageId, text: chunkText(update), ...placement } };
+  if (THOUGHT_CHUNK.has(discriminator)) return { sessionId, parsed: { kind: 'thought_chunk', messageId, text: chunkText(update), ...placement } };
   if (TOOL_CALL.has(discriminator)) return { sessionId, parsed: { kind: 'tool_call', update } };
   if (discriminator === 'session_info_update' || discriminator === 'session_info') {
     const title = typeof update.title === 'string' ? update.title : undefined;
