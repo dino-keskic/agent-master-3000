@@ -221,6 +221,7 @@ export const TaskPanel: React.FC<TaskPanelProps> = ({
           view={view}
           logs={logs}
           pendingPrompts={pending.shown}
+          queuingPrompts={pending.queuing}
           awaitingTranscript={!startingBlank && transcriptPending(task, view, fetchedLogs)}
           viewedCwd={viewedCwd}
           folderGone={task.cwdExists === false}

@@ -5,6 +5,7 @@ import {
   PendingPrompt,
   pendingFor,
   pendingPrompt,
+  pendingQueueFor,
   settlePendingPrompts
 } from '../../../shared/turns/pendingPrompts';
 
@@ -17,8 +18,10 @@ import {
 export interface PendingPrompts {
   /** The ones to draw under the transcript on screen. */
   shown: PendingPrompt[];
-  /** Draw `text` as sent. Returns an id to take it back with. */
-  add: (text: string, images?: PromptImage[]) => string;
+  /** The ones on their way into the queue on screen. */
+  queuing: PendingPrompt[];
+  /** Draw `text` as sent — in the queue when `queuing`. Returns an id to take it back with. */
+  add: (text: string, images?: PromptImage[], queuing?: boolean) => string;
   remove: (id: string) => void;
   /** Forget everything sent to one session: it was stopped before it said anything. */
   clearSession: (sessionId: string | undefined) => void;
@@ -36,9 +39,10 @@ export function usePendingPrompts(observed: PendingObservation): PendingPrompts 
 
   return {
     shown: pendingFor(settled, observed.sessionId),
-    add(text, images) {
+    queuing: pendingQueueFor(settled, observed.sessionId),
+    add(text, images, queuing) {
       nextId.current += 1;
-      const prompt = pendingPrompt(String(nextId.current), text, images, observed, Date.now());
+      const prompt = pendingPrompt(String(nextId.current), text, images, observed, Date.now(), queuing);
       setPending((list) => [...list, prompt]);
       return prompt.id;
     },

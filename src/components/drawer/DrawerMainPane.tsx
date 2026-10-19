@@ -29,6 +29,8 @@ interface DrawerMainPaneProps {
   logs: TaskLogItem[];
   /** Prompts sent from here that the transcript does not show yet. */
   pendingPrompts: PendingPrompt[];
+  /** Prompts sent from here on their way into the queue. */
+  queuingPrompts: PendingPrompt[];
   awaitingTranscript: boolean;
   viewedCwd: string;
   folderGone: boolean;
@@ -52,6 +54,7 @@ export const DrawerMainPane: React.FC<DrawerMainPaneProps> = ({
   view,
   logs,
   pendingPrompts,
+  queuingPrompts,
   awaitingTranscript,
   viewedCwd,
   folderGone,
@@ -115,6 +118,7 @@ export const DrawerMainPane: React.FC<DrawerMainPaneProps> = ({
     <DrawerFooter
       task={task}
       sessionId={sessionId}
+      queuingPrompts={queuingPrompts}
       view={view}
       viewedCwd={viewedCwd}
       columns={columns}

@@ -4,6 +4,7 @@ import {
   pendingAsLog,
   pendingFor,
   pendingPrompt,
+  pendingQueueFor,
   settlePendingPrompts,
   streamActivity
 } from '../../../shared/turns/pendingPrompts.js';
@@ -68,4 +69,17 @@ test('the transcript says warming up, then thinking, then nothing', () => {
   assert.strictEqual(streamActivity(0, 'running', say('go')), 'thinking');
   assert.strictEqual(streamActivity(0, 'running', say('on it', 'agent_say')), undefined);
   assert.strictEqual(streamActivity(0, 'idle', say('go')), undefined);
+});
+
+test('a prompt sent while busy is drawn in the queue, not the transcript, until the server queues it', () => {
+  const sent = [pendingPrompt('p1', 'after this', undefined, { sessionId: 'ses_a', logs: [] }, 100, true)];
+  assert.deepStrictEqual(pendingFor(sent, 'ses_a'), []);
+  assert.deepStrictEqual(pendingQueueFor(sent, 'ses_a').map((p) => p.id), ['p1']);
+  assert.deepStrictEqual(pendingQueueFor(sent, 'ses_b'), []);
+
+  const running = { ...base, logs: [], runState: 'running' as const };
+  const stillSending = settlePendingPrompts(sent, running);
+  assert.strictEqual(stillSending.length, 1, 'the running turn it waits on does not settle it');
+  const queued = [{ id: 'q1', prompt: 'after this', queuedAt: 1, sessionId: 'ses_a' }];
+  assert.deepStrictEqual(settlePendingPrompts(stillSending, { ...running, queued }), []);
 });

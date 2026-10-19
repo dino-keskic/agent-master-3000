@@ -2,6 +2,7 @@ import React from 'react';
 import { Paper, Stack } from '@mantine/core';
 import { OpenCodeAgent, OpenCodeModel } from '../../../shared/sessions/types';
 import { BoardColumn, BoardTask } from '../../../shared/types';
+import { PendingPrompt } from '../../../shared/turns/pendingPrompts';
 import { ViewedSession, shortSessionLabel } from '../../../shared/task/viewedSession';
 import { changelogSlashCommands } from '../../../shared/review/addressComments';
 import { runButtonLabel } from '../../../shared/format';
@@ -25,6 +26,8 @@ import { DrawerActions } from './drawerActions';
 interface DrawerFooterProps {
   task: BoardTask;
   sessionId?: string;
+  /** Prompts sent from here that the server has not put in the queue yet. */
+  queuingPrompts: PendingPrompt[];
   view: ViewedSession;
   viewedCwd: string;
   columns: BoardColumn[];
@@ -43,6 +46,7 @@ interface DrawerFooterProps {
 export const DrawerFooter: React.FC<DrawerFooterProps> = ({
   task,
   sessionId,
+  queuingPrompts,
   view,
   viewedCwd,
   columns,
@@ -88,6 +92,7 @@ export const DrawerFooter: React.FC<DrawerFooterProps> = ({
 
       <QueuedTurns
         turns={queuedForSession(task, sessionId)}
+        sending={queuingPrompts}
         onRemove={actions.removeQueued}
         onSendNow={actions.sendQueuedNow}
       />

@@ -84,9 +84,9 @@ export function drawerActions(ctx: DrawerActionContext): DrawerActions {
       // send either to.
       if ((!text && !images?.length) || (sessionId && !isLinked(sessionId))) return;
       ctx.onClearComposer();
-      // Shown at once, not when the agent gets round to echoing it. A busy
-      // session queues it instead, and the queue above the composer says so.
-      const pendingId = ctx.busy ? undefined : ctx.pending.add(text, images);
+      // Shown at once, not when the agent gets round to echoing it — or, when
+      // the session is busy, when the server's answer puts it in the queue.
+      const pendingId = ctx.pending.add(text, images, ctx.busy);
 
       let sent: boolean;
       if (sessionId && sessionId !== task.sessionId) {

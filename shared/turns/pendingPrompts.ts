@@ -11,6 +11,10 @@ import { PromptImage, QueuedTurn, TaskLogItem, TaskRunState } from '../types.js'
  * A pending prompt is settled — dropped — by whatever tells the user where it
  * went: its echo in the transcript, its row in the queue, or the end of a run
  * that never echoed it (the start failed, or was stopped).
+ *
+ * One sent while the session is busy is going to the queue, not the
+ * transcript, so it is drawn there — as a row the server has not confirmed
+ * yet — rather than under a transcript that will not show it for a while.
  */
 
 export interface PendingPrompt {
@@ -24,6 +28,8 @@ export interface PendingPrompt {
   echoesBefore: number;
   /** Seen the session running since it was sent, so its next idle is the end. */
   started?: boolean;
+  /** Sent while the session was busy: it belongs in the queue above the composer. */
+  queuing?: boolean;
 }
 
 /** What the drawer can see of the session a prompt went to. */
@@ -53,10 +59,11 @@ export function pendingPrompt(
   text: string,
   images: PromptImage[] | undefined,
   observed: Pick<PendingObservation, 'sessionId' | 'logs'>,
-  now: number
+  now: number,
+  queuing = false
 ): PendingPrompt {
   const trimmed = text.trim();
-  return {
+  const prompt: PendingPrompt = {
     id,
     sessionId: observed.sessionId,
     text: trimmed,
@@ -64,6 +71,8 @@ export function pendingPrompt(
     sentAt: now,
     echoesBefore: echoCount(observed.logs, trimmed)
   };
+  if (queuing) prompt.queuing = true;
+  return prompt;
 }
 
 /**
@@ -101,7 +110,12 @@ export function settlePendingPrompts(pending: PendingPrompt[], observed: Pending
 
 /** The prompts to draw under this session's transcript. */
 export function pendingFor(pending: PendingPrompt[], sessionId: string | undefined): PendingPrompt[] {
-  return pending.filter((prompt) => belongsTo(prompt, sessionId));
+  return pending.filter((prompt) => !prompt.queuing && belongsTo(prompt, sessionId));
+}
+
+/** The prompts on their way into this session's queue, drawn there until the server's row replaces them. */
+export function pendingQueueFor(pending: PendingPrompt[], sessionId: string | undefined): PendingPrompt[] {
+  return pending.filter((prompt) => prompt.queuing && belongsTo(prompt, sessionId));
 }
 
 /** A pending prompt drawn as the transcript will draw its echo. */
