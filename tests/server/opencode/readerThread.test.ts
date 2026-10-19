@@ -3,7 +3,7 @@ import assert from 'node:assert';
 import fs from 'fs';
 import { isMainThread } from 'node:worker_threads';
 import { runRead } from '../../../server/opencode/reads.js';
-import { readOffThread } from '../../../server/opencode/readerThread.js';
+import { interactively, readOffThread } from '../../../server/opencode/readerThread.js';
 import { NOW, makeFixture } from '../../fixtures/opencodeDb.js';
 
 test('OpenCode reads on the reader thread', async (t) => {
@@ -40,6 +40,22 @@ test('OpenCode reads on the reader thread', async (t) => {
       process.env.OPENCODE_DB = file;
       fs.rmSync(elsewhere.root, { recursive: true, force: true });
     }
+  });
+
+  await t.test('an interactive read answers the same as a background one', async () => {
+    const inBackground = await readOffThread('sessionHistory', 'ses-diff-yesterday', 0);
+    const interactive = await interactively(() => readOffThread('sessionHistory', 'ses-diff-yesterday', 0));
+    assert.deepStrictEqual(interactive, inBackground);
+  });
+
+  await t.test('a board spend read already out is joined, not queued again', async () => {
+    const first = readOffThread('boardSpend', [], NOW, 'en-US', 'UTC');
+    const second = readOffThread('boardSpend', [], NOW + 5, 'en-US', 'UTC');
+    const other = readOffThread('boardSpend', [], NOW, 'en-US', 'UTC', { history: true });
+    assert.strictEqual(second, first, 'the clock alone does not make a new read');
+    assert.notStrictEqual(other, first, 'different options are a different read');
+    await Promise.all([first, other]);
+    assert.notStrictEqual(readOffThread('boardSpend', [], NOW, 'en-US', 'UTC'), first, 'a finished read is not reused');
   });
 
   fs.rmSync(root, { recursive: true, force: true });

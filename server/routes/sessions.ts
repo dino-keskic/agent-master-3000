@@ -6,7 +6,7 @@ import { BoardTask } from '../../shared/types.js';
 import { acpManager } from '../acp/client.js';
 import { IdParams, SessionParams, route } from '../http/app.js';
 import { cloneOpenCodeSession } from '../opencode/clone.js';
-import { loadSessionHistory } from '../opencode/history.js';
+import { interactively, readOffThread } from '../opencode/readerThread.js';
 import { listChildSessions } from '../opencode/subagents.js';
 import { activeSessionIds } from '../opencode/liveTurns.js';
 import { markRunningSubagents } from '../../shared/sessions/subagents.js';
@@ -148,7 +148,7 @@ export function registerSessionRoutes(app: Express, ctx: RouteContext): void {
     const { id, sessionId } = req.params;
     if (!taskStore.getTask(id)) return res.status(404).json({ error: 'Task not found' });
 
-    const history = loadSessionHistory(sessionId);
+    const history = await interactively(() => readOffThread('sessionHistory', sessionId, 0));
     res.json({
       sessionId,
       logs: history.logs,
