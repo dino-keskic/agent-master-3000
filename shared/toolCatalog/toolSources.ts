@@ -129,6 +129,18 @@ export function parseProbeOutput(text: string): ProbedTool[] | null {
 }
 
 /**
+ * True when the probe's list already holds a tool from every one of `servers`
+ * — the MCP servers `/api/mcp` says are connected. An MCP server's tools are
+ * namespaced by its name, so once each name is there the list will not grow
+ * by waiting, and the reader can stop. A connected server with no tools never
+ * shows up, which is why the reader still bounds the wait.
+ */
+export function probeHasServers(tools: ProbedTool[], servers: string[]): boolean {
+  const namespaces = new Set(tools.map((t) => t.namespace));
+  return servers.every((server) => namespaces.has(server));
+}
+
+/**
  * A plugin OpenCode could not even name: a 1.x-style file with no default
  * `{ id, setup }` fails before it has an id. It is called after its file — the
  * folder's name when the file is an `index` — so it can still be listed.

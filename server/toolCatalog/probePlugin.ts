@@ -7,7 +7,8 @@ import {
   PROBE_PLUGIN_PACKAGE,
   PROBE_PLUGIN_SOURCE,
   ProbedTool,
-  parseProbeOutput
+  parseProbeOutput,
+  probeHasServers
 } from '../../shared/toolCatalog/toolSources.js';
 import { dataDir } from '../app/appPaths.js';
 
@@ -25,14 +26,18 @@ import { dataDir } from '../app/appPaths.js';
 
 const PROBE_WAIT_MS = 6_000;
 const PROBE_POLL_MS = 100;
-/** One more of the probe's quarter-second writes, so MCP servers that just connected are in it. */
+/**
+ * At most one more of the probe's quarter-second writes, so MCP servers that
+ * just connected are in it — cut short once they all are.
+ */
 const PROBE_SETTLE_MS = 350;
 
 export interface ToolProbe {
   /** The policy file copy, for `OPENCODE_CONFIG` and for telling the board's document apart. */
   configFile: string;
   env: Record<string, string>;
-  read(): Promise<ProbedTool[] | null>;
+  /** `servers`: the MCP servers known to be connected, whose tools the list should have. */
+  read(servers?: string[]): Promise<ProbedTool[] | null>;
   dispose(): void;
 }
 
@@ -62,7 +67,7 @@ export function prepareToolProbe(): ToolProbe | undefined {
     return {
       configFile,
       env: { [PROBE_OUT_ENV]: outFile },
-      read: () => readProbe(outFile),
+      read: (servers) => readProbe(outFile, servers ?? []),
       dispose: () => {
         for (const file of [configFile, outFile]) fs.rmSync(file, { force: true });
       }
@@ -73,7 +78,7 @@ export function prepareToolProbe(): ToolProbe | undefined {
   }
 }
 
-async function readProbe(outFile: string): Promise<ProbedTool[] | null> {
+async function readProbe(outFile: string, servers: string[]): Promise<ProbedTool[] | null> {
   const deadline = Date.now() + PROBE_WAIT_MS;
   const once = () => {
     try {
@@ -82,10 +87,16 @@ async function readProbe(outFile: string): Promise<ProbedTool[] | null> {
       return null;
     }
   };
-  while (once() === null) {
+  let list = once();
+  while (list === null) {
     if (Date.now() >= deadline) return null;
     await new Promise((resolve) => setTimeout(resolve, PROBE_POLL_MS));
+    list = once();
   }
-  await new Promise((resolve) => setTimeout(resolve, PROBE_SETTLE_MS));
-  return once();
+  const settled = Date.now() + PROBE_SETTLE_MS;
+  while (!probeHasServers(list, servers) && Date.now() < settled) {
+    await new Promise((resolve) => setTimeout(resolve, PROBE_POLL_MS));
+    list = once() ?? list;
+  }
+  return list;
 }
