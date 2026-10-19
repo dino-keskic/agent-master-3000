@@ -10,6 +10,7 @@ import {
   pluginRule,
   pluginSections
 } from '../../../shared/agent/tools.js';
+import { applyPluginRule } from '../../../shared/agent/toolPlugins.js';
 
 const tool = (name: string, extra: Partial<SessionTool> = {}): SessionTool => ({
   name,
@@ -84,7 +85,7 @@ test('plugin sections keep a plugin without tools, and filter by tool or id', ()
   ];
   const byPlugin = [{ plugin: 'acme.demo', tools: [tool('acme_greeting')] }, { tools: [tool('plain')] }];
   assert.deepStrictEqual(
-    pluginSections(plugins, byPlugin, '').map((s) => [s.plugin?.id, s.tools.length]),
+    pluginSections(plugins, byPlugin, '').sections.map((s) => [s.plugin?.id, s.tools.length]),
     [
       ['acme.demo', 1],
       ['hooks.only', 0],
@@ -92,7 +93,34 @@ test('plugin sections keep a plugin without tools, and filter by tool or id', ()
     ]
   );
   assert.deepStrictEqual(
-    pluginSections(plugins, byPlugin, 'hooks').map((s) => s.plugin?.id),
+    pluginSections(plugins, byPlugin, 'hooks').sections.map((s) => s.plugin?.id),
     ['acme.demo', 'hooks.only', undefined]
   );
+});
+
+test("OpenCode's own plugins without tools fold into one list, unless failed or switched off", () => {
+  const plugins = [
+    { id: 'opencode.browser', builtin: true, status: 'active' as const },
+    { id: 'opencode.lsp', builtin: true, status: 'active' as const },
+    { id: 'opencode.share', builtin: true, status: 'off' as const },
+    { id: 'opencode.tool.read', builtin: true, status: 'active' as const }
+  ];
+  const byPlugin = [{ plugin: 'opencode.browser', tools: [tool('browser_back')] }];
+  const { sections, quiet } = pluginSections(plugins, byPlugin, '');
+  assert.deepStrictEqual(sections.map((s) => s.plugin?.id), ['opencode.browser', 'opencode.share']);
+  assert.deepStrictEqual(quiet.map((p) => p.id), ['opencode.lsp', 'opencode.tool.read']);
+  assert.deepStrictEqual(pluginSections(plugins, byPlugin, 'lsp').quiet.map((p) => p.id), ['opencode.lsp']);
+});
+
+test("switching off an opencode.tool plugin takes its built-in tool with it", () => {
+  const inventory = {
+    cwd: '/w', tools: [{ ...tool('bash'), source: 'builtin' as const }], servers: [], warnings: [], policy: {},
+    pendingRestart: false, generatedAt: 0,
+    plugins: [{ id: 'opencode.tool.bash', builtin: true, status: 'active' as const }]
+  };
+  const off = applyPluginRule(inventory, 'opencode.tool.bash', false);
+  assert.strictEqual(off.tools[0]?.enabled, false);
+  assert.strictEqual(off.plugins?.[0]?.status, 'off');
+  const on = applyPluginRule({ ...inventory, ...off }, 'opencode.tool.bash', null);
+  assert.strictEqual(on.tools[0]?.enabled, true);
 });

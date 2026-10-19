@@ -2,7 +2,6 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import { randomBytes } from 'crypto';
-import { boardConfigOverlay } from '../../shared/agent/tools.js';
 import {
   PROBE_OUT_ENV,
   PROBE_PLUGIN_PACKAGE,
@@ -16,18 +15,18 @@ import { dataDir } from '../app/appPaths.js';
  * The board's tool probe on disk, for the short-lived OpenCode 2 server the
  * Tools panel reads from (`shared/toolCatalog/toolSources.ts` says why).
  *
- * It reaches that server alone: the server gets a copy of the board's policy
- * file with the probe added to `plugins`, under `OPENCODE_CONFIG`, while the
- * agent keeps the real file, which never names it. Each read gets its own
+ * It reaches that server alone: the server gets a config naming only the
+ * probe, under `OPENCODE_CONFIG` where the agent has the board's policy file —
+ * none of the board's switches, so every plugin loads and every tool is listed. Each read gets its own
  * copy and output file, so two folders read at once do not mix.
  *
  * What belongs here: writing the plugin, the copy and reading what it wrote.
  */
 
 const PROBE_WAIT_MS = 6_000;
-const PROBE_POLL_MS = 200;
-/** One more of the probe's half-second writes, so MCP servers that just connected are in it. */
-const PROBE_SETTLE_MS = 700;
+const PROBE_POLL_MS = 100;
+/** One more of the probe's quarter-second writes, so MCP servers that just connected are in it. */
+const PROBE_SETTLE_MS = 350;
 
 export interface ToolProbe {
   /** The policy file copy, for `OPENCODE_CONFIG` and for telling the board's document apart. */
@@ -47,7 +46,7 @@ function writeIfChanged(file: string, body: string): void {
 }
 
 /** The probe, written under the board's data folder; undefined when it cannot be. */
-export function prepareToolProbe(policy: Record<string, boolean> | undefined): ToolProbe | undefined {
+export function prepareToolProbe(): ToolProbe | undefined {
   try {
     const root = path.join(dataDir(), 'tool-probe');
     const pluginDir = path.join(root, 'plugin');
@@ -58,8 +57,7 @@ export function prepareToolProbe(policy: Record<string, boolean> | undefined): T
     const id = randomBytes(6).toString('hex');
     const configFile = path.join(root, `config-${id}.opencode.json`);
     const outFile = path.join(os.tmpdir(), `agent-master-tool-probe-${id}.json`);
-    const overlay = boardConfigOverlay(policy);
-    fs.writeFileSync(configFile, `${JSON.stringify({ ...overlay, plugins: [pluginDir, ...(overlay.plugins || [])] }, null, 2)}\n`);
+    fs.writeFileSync(configFile, `${JSON.stringify({ plugins: [pluginDir] }, null, 2)}\n`);
 
     return {
       configFile,

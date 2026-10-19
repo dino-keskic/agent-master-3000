@@ -54,8 +54,9 @@ export function registerToolRoutes(app: Express, { orchestrator }: RouteContext)
 
     const settings = taskStore.updateSettings({ toolPolicy: policy });
     acpManager.applyToolPolicy();
-    // Nothing to forget: OpenCode's answer is cached by the policy it was read
-    // with, and what an MCP server exposes does not depend on it.
+    // Nothing to forget: on OpenCode 2 the cached answer does not depend on the
+    // policy (the board folds switches in on every read), on 1.x it is keyed
+    // by it, and what an MCP server exposes does not depend on it either.
     res.json({ policy: settings.toolPolicy || {}, pendingRestart: acpManager.toolPolicyPending() });
   });
 

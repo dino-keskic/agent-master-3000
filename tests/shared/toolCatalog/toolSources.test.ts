@@ -6,8 +6,10 @@ import {
   PROBE_PLUGIN_SOURCE,
   parsePluginList,
   parseProbeOutput,
+  pluginForFile,
+  switchedOffPlugins,
   toolOrigin,
-  visiblePlugins
+  withSwitches
 } from '../../../shared/toolCatalog/toolSources.js';
 
 // What OpenCode 2.0.24 lists in the sandbox, trimmed.
@@ -86,18 +88,64 @@ test('with no plugin list at all, a bare tool is assumed to be a built-in', () =
   assert.deepStrictEqual(toolOrigin({ id: 'grep' }, [], SERVERS), { kind: 'builtin' });
 });
 
-test('only the plugins worth a section are shown, and a switched-off one stays', () => {
-  const shown = visiblePlugins(PLUGINS, ['opencode.browser'], ['other.gone']);
-  assert.deepStrictEqual(
-    shown.map((p) => [p.id, p.status]),
-    [
-      ['acme.demo', 'active'],
-      ['opencode.browser', 'active'],
-      ['other.gone', 'off']
+test('a switched-off plugin is marked off, and one OpenCode no longer has is still listed', () => {
+  const off = switchedOffPlugins({ 'plugin:opencode.browser': false, 'plugin:other.gone': false, 'plugin:acme.demo': true, grep: false });
+  assert.deepStrictEqual([...off].sort(), ['opencode.browser', 'other.gone']);
+  const shown = withSwitches(PLUGINS, off);
+  assert.strictEqual(shown.length, PLUGINS.length + 1);
+  assert.strictEqual(shown.find((p) => p.id === 'opencode.browser')?.status, 'off');
+  assert.strictEqual(shown.find((p) => p.id === 'other.gone')?.status, 'off');
+  assert.strictEqual(shown.find((p) => p.id === 'acme.demo')?.status, 'active');
+});
+
+test('a plugin that failed before it had an id is listed by its file name', () => {
+  const body = {
+    data: [
+      { source: { type: 'local', path: '/h/.config/opencode/plugin/legacy.ts' }, state: { status: 'failed', error: 'no id' } },
+      { source: { type: 'local', path: '/w/node_modules/legacy-pkg/index.js' }, state: { status: 'failed' } },
+      { source: { type: 'local' }, state: { status: 'failed' } }
     ]
-  );
-  assert.deepStrictEqual(
-    visiblePlugins(PLUGINS, [], ['opencode.browser']).find((p) => p.id === 'opencode.browser')?.status,
-    'off'
-  );
+  };
+  assert.deepStrictEqual(parsePluginList(body), [
+    { id: 'legacy', builtin: false, path: '/h/.config/opencode/plugin/legacy.ts', status: 'failed', error: 'no id', anonymous: true },
+    { id: 'legacy-pkg', builtin: false, path: '/w/node_modules/legacy-pkg/index.js', status: 'failed', anonymous: true }
+  ]);
+});
+
+test('the probe output carries the file that registered a tool', () => {
+  assert.deepStrictEqual(parseProbeOutput('[{"id":"zeta_ping","file":"/w/.opencode/plugins/zeta.ts"}]'), [
+    { id: 'zeta_ping', file: '/w/.opencode/plugins/zeta.ts' }
+  ]);
+});
+
+test('a file belongs to the plugin loaded from it, or whose package or folder holds it', () => {
+  const plugins: PluginInfo[] = [
+    { id: 'acme.demo', builtin: false, path: '/w/.opencode/plugins/acme.ts', status: 'active' },
+    { id: 'zeta.tools', builtin: false, path: '/w/.opencode/plugins/zeta.ts', status: 'active' },
+    { id: 'pkg.one', builtin: false, path: '/c/node_modules/@acme/one/dist/index.js', status: 'active' },
+    { id: 'dir.plugin', builtin: false, path: '/p/my-plugin', status: 'active' }
+  ];
+  assert.strictEqual(pluginForFile('/w/.opencode/plugins/zeta.ts', plugins), 'zeta.tools');
+  assert.strictEqual(pluginForFile('/c/node_modules/@acme/one/dist/tools/x.js', plugins), 'pkg.one');
+  assert.strictEqual(pluginForFile('/p/my-plugin/src/tool.ts', plugins), 'dir.plugin');
+  // A loose file owns only itself, not its neighbours.
+  assert.strictEqual(pluginForFile('/w/.opencode/plugins/lib/helper.ts', plugins), undefined);
+});
+
+test('a tool traced to a plugin file belongs to it, whatever its namespace says', () => {
+  const plugins: PluginInfo[] = [
+    ...PLUGINS,
+    { id: 'zeta.tools', builtin: false, path: '/w/.opencode/plugins/zeta.ts', status: 'active' }
+  ];
+  assert.deepStrictEqual(toolOrigin({ id: 'zeta_ping', file: '/w/.opencode/plugins/zeta.ts' }, plugins, SERVERS), {
+    kind: 'plugin',
+    plugin: 'zeta.tools'
+  });
+  // Two local plugins and no trace: no guess.
+  assert.deepStrictEqual(toolOrigin({ id: 'plain' }, plugins, SERVERS), { kind: 'plugin' });
+});
+
+test('the probe records the registering file', () => {
+  assert.match(PROBE_PLUGIN_SOURCE, /Map\.prototype\.set = function/);
+  assert.match(PROBE_PLUGIN_SOURCE, /file: owners\.get\(t\.id\)/);
 });

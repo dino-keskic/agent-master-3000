@@ -7,6 +7,7 @@ import { ProbedTool, parsePluginList } from '../../shared/toolCatalog/toolSource
 import { opencodeEnv } from '../opencode/env.js';
 import { livePolicyFile } from '../opencode/policyFile.js';
 import { opencodeVersion } from '../opencode/version.js';
+import { policyDelivery } from '../../shared/toolCatalog/policyDelivery.js';
 import { childBaseEnv, opencodeBin } from '../setup/locations.js';
 import { cwdCache } from './cache.js';
 import { ToolProbe, prepareToolProbe } from './probePlugin.js';
@@ -33,7 +34,7 @@ const SERVE_START_TIMEOUT_MS = 25_000;
 const HTTP_TIMEOUT_MS = 20_000;
 /** 2.x loads a directory's agents and MCP servers on its first request about it. */
 const V2_LOAD_TIMEOUT_MS = 10_000;
-const V2_LOAD_POLL_MS = 250;
+const V2_LOAD_POLL_MS = 100;
 
 export interface OpencodeSnapshot {
   toolIds: string[];
@@ -83,9 +84,12 @@ async function withOpencodeServer<T>(
   // resolves the same list.
   const base = childBaseEnv(opencodeVersion(opencodeBin(), process.env));
   const boardFile = livePolicyFile(opencodeBin(), base, policy);
-  // A file means OpenCode 2, which can load the probe — from a copy of the
-  // board's file that names it, so the agent never does.
-  const probe = boardFile ? prepareToolProbe(policy) : undefined;
+  // A file means OpenCode 2, which can load the probe — from a config of its
+  // own that names it, so the agent never does. That config leaves out the
+  // board's switches: the panel's server loads every plugin and offers every
+  // tool, so the answer is the same whatever is switched, and the board
+  // marks what is off itself.
+  const probe = boardFile ? prepareToolProbe() : undefined;
   const policyFile = probe?.configFile ?? boardFile;
   const child = spawn(opencodeBin(), ['serve', '--port', '0', '--hostname', '127.0.0.1'], {
     cwd,
@@ -156,8 +160,12 @@ function asBooleanMap(value: unknown): Record<string, boolean> {
 }
 
 export async function readOpencode(cwd: string, policy: Record<string, boolean> | undefined): Promise<OpencodeSnapshot> {
-  // The policy is part of what OpenCode resolves, so it is part of the key.
-  const cacheKey = `${cwd}::${toolPolicySignature(policy)}`;
+  // On 1.x the policy is part of what OpenCode resolves, so it is part of the
+  // key. 2.x's answer does not depend on it (see `withOpencodeServer`), so a
+  // switch there never costs another server.
+  const version = opencodeVersion(opencodeBin(), process.env);
+  const live = policyDelivery(version, childBaseEnv(version)) === 'file';
+  const cacheKey = live ? cwd : `${cwd}::${toolPolicySignature(policy)}`;
   const cached = snapshotCache.get(cacheKey);
   if (cached) return cached;
 
@@ -223,11 +231,30 @@ async function readV1(server: OpencodeServer, cwd: string, warnings: string[]): 
   };
 }
 
+/** MCP states that will still change on their own. */
+const MCP_SETTLING = new Set(['pending', 'connecting']);
+
 /**
- * 2.x answers about a directory with empty lists until it has loaded it —
- * every directory has agents, so the agent list filling in is the sign it has.
- * Its tools are what the probe wrote; without the probe, the fixed list of
- * built-ins is the best the panel can do.
+ * `/api/mcp` once no server is still connecting — the probe's list only has a
+ * server's tools once it has connected — or as it stands at the deadline.
+ */
+async function mcpSettled(server: OpencodeServer, location: string, deadline: number): Promise<unknown> {
+  for (;;) {
+    const body = await server.get(`/api/mcp?${location}`);
+    const data = asRecord(body).data;
+    const settling =
+      Array.isArray(data) && data.some((entry) => MCP_SETTLING.has(String(asRecord(asRecord(entry).status).status)));
+    if (!settling || Date.now() >= deadline) return body;
+    await new Promise((resolve) => setTimeout(resolve, V2_LOAD_POLL_MS));
+  }
+}
+
+/**
+ * 2.x answers about a directory with empty lists until it has loaded it. Its
+ * agents fill in first, before plugins and MCP servers have; the plugin list
+ * always holds OpenCode's own built-ins once loaded, so that list filling in
+ * is the sign. Its tools are what the probe wrote; without the probe, the
+ * fixed list of built-ins is the best the panel can do.
  */
 async function readV2(
   server: OpencodeServer,
@@ -238,19 +265,19 @@ async function readV2(
 ): Promise<OpencodeSnapshot> {
   const location = `location%5Bdirectory%5D=${encodeURIComponent(cwd)}`;
   const deadline = Date.now() + V2_LOAD_TIMEOUT_MS;
-  let agents: unknown = null;
+  let plugins: unknown = null;
   for (;;) {
-    agents = await server.get(`/api/agent?${location}`).catch(() => null);
-    const data = asRecord(agents).data;
+    plugins = await server.get(`/api/plugin?${location}`).catch(() => null);
+    const data = asRecord(plugins).data;
     if (Array.isArray(data) && data.length > 0) break;
     if (Date.now() >= deadline) {
-      warnings.push('OpenCode did not finish loading this folder in time; agents and MCP servers may be missing.');
+      warnings.push('OpenCode did not finish loading this folder in time; plugins and MCP servers may be missing.');
       break;
     }
     await new Promise((resolve) => setTimeout(resolve, V2_LOAD_POLL_MS));
   }
-  const [mcp, config, plugins] = await Promise.all([
-    server.get(`/api/mcp?${location}`).catch((e) => {
+  const [mcp, config, agents] = await Promise.all([
+    mcpSettled(server, location, deadline).catch((e) => {
       warnings.push(`Could not read MCP status (${e.message}).`);
       return null;
     }),
@@ -258,7 +285,7 @@ async function readV2(
       warnings.push(`Could not read the resolved config (${e.message}).`);
       return null;
     }),
-    server.get(`/api/plugin?${location}`).catch(() => null)
+    server.get(`/api/agent?${location}`).catch(() => null)
   ]);
   const read = readV2ToolConfig(config, agents, mcp, policyFile);
   const probed = probe ? await probe.read() : null;

@@ -1,23 +1,24 @@
 import {
   McpServerInfo,
-  PluginInfo,
   McpServerStatus,
   SessionTool,
   SessionToolInventory,
   isInternalTool,
   mcpToolName,
-  pluginOfRule,
+  pluginRule,
   resolveToolState,
   sortTools
 } from '../../shared/agent/tools.js';
+import type { PluginInfo } from '../../shared/agent/toolPlugins.js';
 import { BOARD_MCP_NAME, BOARD_MCP_TOOLS } from '../mcp/tools.js';
 import { OpencodeSnapshot, clearOpencodeCache, readOpencode } from './opencode.js';
 import { McpConfigEntry } from '../../shared/toolCatalog/opencodeV2.js';
 import {
   ProbedTool,
   V1_BUILTIN_TOOLS,
+  switchedOffPlugins,
   toolOrigin,
-  visiblePlugins
+  withSwitches
 } from '../../shared/toolCatalog/toolSources.js';
 import { clearMcpToolsCache, listLocalMcpToolsAll } from './mcpProbe.js';
 
@@ -89,15 +90,6 @@ export interface InventoryInput {
 
 type ResolveState = (name: string) => ReturnType<typeof resolveToolState>;
 
-/**
- * The tools each plugin was last seen adding, so a plugin the board switched
- * off — which OpenCode then never loads — still shows what it would give back.
- * Kept for the life of the board process; a plugin never seen has nothing.
- */
-const lastSeenPluginTools = new Map<string, ProbedTool[]>();
-/** Each plugin as last listed, so a switched-off one keeps its path and kind. */
-const lastSeenPlugins = new Map<string, PluginInfo>();
-
 interface Sorted {
   builtin: SessionTool[];
   plugin: SessionTool[];
@@ -114,13 +106,19 @@ interface Sorted {
 function opencodeTools(
   snapshot: OpencodeSnapshot,
   usage: Record<string, number>,
-  resolve: ResolveState
+  resolve: ResolveState,
+  off: Set<string>
 ): Sorted {
   const sorted: Sorted = { builtin: [], plugin: [], mcp: new Map() };
-  const row = (tool: ProbedTool): Omit<SessionTool, 'source'> => ({
+  // A tool whose plugin is switched off is off whatever its own switch says:
+  // the agent's OpenCode never loads the plugin. The panel's server loads it
+  // anyway, which is how its tools are still known.
+  const row = (tool: ProbedTool, plugin?: string): Omit<SessionTool, 'source'> => ({
     name: tool.id,
     ...(tool.description ? { description: tool.description } : {}),
-    ...resolve(tool.id),
+    ...(plugin && off.has(plugin)
+      ? { enabled: false, disabledBy: 'plugin' as const, disabledByRule: pluginRule(plugin) }
+      : resolve(tool.id)),
     used: usage[tool.id] || 0
   });
 
@@ -136,20 +134,23 @@ function opencodeTools(
 
   const plugins = snapshot.plugins || [];
   const servers = [...new Set([...Object.keys(snapshot.mcpConfig), ...Object.keys(snapshot.mcpStatus)])];
-  const seen = new Map<string, ProbedTool[]>();
   for (const tool of snapshot.probed) {
     if (isInternalTool(tool.id)) continue;
     const origin = toolOrigin(tool, plugins, servers);
     if (origin.kind === 'mcp') {
       sorted.mcp.set(origin.server, [...(sorted.mcp.get(origin.server) || []), tool]);
     } else if (origin.kind === 'plugin') {
-      sorted.plugin.push({ ...row(tool), source: 'plugin', ...(origin.plugin ? { plugin: origin.plugin } : {}) });
-      if (origin.plugin) seen.set(origin.plugin, [...(seen.get(origin.plugin) || []), tool]);
+      sorted.plugin.push({
+        ...row(tool, origin.plugin),
+        source: 'plugin',
+        ...(origin.plugin ? { plugin: origin.plugin } : {})
+      });
     } else {
-      sorted.builtin.push({ ...row(tool), source: 'builtin' });
+      // Most of OpenCode's own tools are each a plugin of their own.
+      const own = `opencode.tool.${tool.id}`;
+      sorted.builtin.push({ ...row(tool, plugins.some((p) => p.id === own) ? own : undefined), source: 'builtin' });
     }
   }
-  for (const [plugin, tools] of seen) lastSeenPluginTools.set(plugin, tools);
   // Code Mode's runner is how the model calls MCP tools; it is offered, not registered.
   if (!sorted.builtin.some((tool) => tool.name === 'execute')) {
     sorted.builtin.push({ ...row({ id: 'execute' }), source: 'builtin' });
@@ -157,56 +158,12 @@ function opencodeTools(
   return sorted;
 }
 
-/** The tools of the plugins the board switched off, as they were last seen. */
-function switchedOffPluginTools(off: string[], usage: Record<string, number>): SessionTool[] {
-  return off.flatMap((plugin) =>
-    (lastSeenPluginTools.get(plugin) || []).map((tool) => ({
-      name: tool.id,
-      source: 'plugin' as const,
-      plugin,
-      ...(tool.description ? { description: tool.description } : {}),
-      enabled: false,
-      disabledBy: 'plugin' as const,
-      disabledByRule: `plugin:${plugin}`,
-      used: usage[tool.id] || 0
-    }))
-  );
-}
-
 /**
- * The plugins' tools and the plugins themselves (OpenCode 2 only — `plugins`
- * undefined on 1.x, which cannot switch one off). A plugin the board switched
- * off is not loaded, so OpenCode says nothing of it: it is shown as it was
- * last seen, its tools off.
+ * Every plugin OpenCode has, the board's switches folded in (OpenCode 2 only —
+ * `plugins` is undefined on 1.x, which cannot switch one off).
  */
-function pluginTools(
-  snapshot: OpencodeSnapshot,
-  policy: Record<string, boolean>,
-  loaded: SessionTool[],
-  usage: Record<string, number>
-): { tools: SessionTool[]; plugins?: PluginInfo[] } {
-  if (!snapshot.plugins) return { tools: loaded };
-  const listed = snapshot.plugins;
-  for (const plugin of listed) lastSeenPlugins.set(plugin.id, plugin);
-
-  const switchedOff = Object.entries(policy).flatMap(([rule, on]) => {
-    const plugin = pluginOfRule(rule);
-    return plugin !== undefined && !on ? [plugin] : [];
-  });
-  const offTools = switchedOffPluginTools(switchedOff, usage).filter(
-    (tool) => !loaded.some((other) => other.name === tool.name)
-  );
-  const tools = [...loaded, ...offTools];
-  const remembered = switchedOff.flatMap((id) => {
-    const seen = lastSeenPlugins.get(id);
-    return seen && !listed.some((p) => p.id === id) ? [seen] : [];
-  });
-  const plugins = visiblePlugins(
-    [...listed, ...remembered],
-    tools.flatMap((tool) => (tool.plugin ? [tool.plugin] : [])),
-    switchedOff
-  );
-  return { tools, plugins };
+function pluginList(snapshot: OpencodeSnapshot, off: Set<string>): PluginInfo[] | undefined {
+  return snapshot.plugins ? withSwitches(snapshot.plugins, off) : undefined;
 }
 
 /**
@@ -238,7 +195,9 @@ async function mcpTools(
     const { entry, status, isLocal } = describe(name);
     if (isLocal && status !== 'disabled') toAsk[name] = entry;
   }
-  const lists = await listLocalMcpToolsAll(toAsk, cwd);
+  // OpenCode 2's probe already lists what every connected server has, so
+  // starting each server a second time would only make the panel slow.
+  const lists = snapshot.probed ? new Map<string, string[]>() : await listLocalMcpToolsAll(toAsk, cwd);
 
   for (const name of names) {
     const { entry, status, isLocal } = describe(name);
@@ -257,7 +216,11 @@ async function mcpTools(
     if (isLocal && status !== 'disabled') {
       const asked = lists.get(name) ?? null;
       if (asked) toolNames = [...new Set([...(toolNames || []), ...asked])];
-      if (toolNames === null) info.note = 'The board could not reach this server to list its tools.';
+      if (toolNames === null) {
+        info.note = snapshot.probed
+          ? 'OpenCode has no tools from this server — it did not connect.'
+          : 'The board could not reach this server to list its tools.';
+      }
     } else if (!isLocal && !toolNames?.length) {
       info.note =
         status === 'needs_auth'
@@ -360,11 +323,12 @@ export async function sessionToolInventory(input: InventoryInput): Promise<Sessi
   const resolve: ResolveState = (name) =>
     resolveToolState(name, { tools: snapshot.tools, agentTools, policy, overrides });
 
-  const own = opencodeTools(snapshot, usage, resolve);
+  const off = switchedOffPlugins(policy);
+  const own = opencodeTools(snapshot, usage, resolve, off);
   const mcp = await mcpTools(snapshot, cwd, usage, resolve, own.mcp);
   const servers = [...mcp.servers];
-  const fromPlugins = pluginTools(snapshot, policy, own.plugin, usage);
-  const tools = [...own.builtin, ...fromPlugins.tools, ...mcp.tools];
+  const plugins = pluginList(snapshot, off);
+  const tools = [...own.builtin, ...own.plugin, ...mcp.tools];
 
   if (input.includeBoardTools) {
     servers.push({
@@ -382,8 +346,8 @@ export async function sessionToolInventory(input: InventoryInput): Promise<Sessi
     ...base,
     tools: sortTools(tools),
     servers,
-    ...(fromPlugins.plugins ? { plugins: fromPlugins.plugins } : {}),
-    pluginSwitches: !!fromPlugins.plugins,
+    ...(plugins ? { plugins } : {}),
+    pluginSwitches: !!plugins,
     warnings: [...snapshot.warnings],
     ...(overrides ? { overrides } : {}),
     generatedAt: Date.now()

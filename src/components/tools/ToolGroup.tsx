@@ -179,11 +179,13 @@ export const PluginGroup: React.FC<
 > = ({ plugin, tools, filtered, switchable, onTogglePlugin, ...rows }) => {
   const on = plugin?.status !== 'off';
   const subtitle = plugin ? (plugin.builtin ? 'ships with OpenCode' : plugin.path) : undefined;
+  // One that failed before it had an id cannot be named in a `-id` entry.
+  const canSwitch = !!plugin && switchable && !plugin.anonymous;
   return (
     <Card>
       <SectionHeader
         icon={<Puzzle className="w-3.5 h-3.5" />}
-        title={plugin?.id ?? 'Plugin & custom tools'}
+        title={plugin?.id ?? 'Untraced plugin tools'}
         subtitle={subtitle}
         right={
           <Group gap={6} wrap="nowrap">
@@ -195,7 +197,7 @@ export const PluginGroup: React.FC<
             <Badge size="xs" variant="light" color="gray" className="font-mono">
               {tools.length}
             </Badge>
-            {plugin && switchable && (
+            {canSwitch && (
               <Tooltip
                 label={on ? `Switch the ${plugin.id} plugin off for every session` : `Load ${plugin.id} again`}
                 withArrow
@@ -217,10 +219,15 @@ export const PluginGroup: React.FC<
           {plugin.error}
         </Text>
       )}
+      {plugin?.anonymous && (
+        <Text size="xs" c="dimmed" px="xs" py={4}>
+          OpenCode 2 could not load it, so it has no id to switch off by. Fix or remove the file.
+        </Text>
+      )}
       {!plugin && (
         <Text size="xs" c="dimmed" px="xs" py={4}>
           {switchable
-            ? 'Added by a plugin the board could not single out. Switch them one by one.'
+            ? 'Added by a plugin the board could not trace. Switch them one by one.'
             : 'From plugins or .opencode/tool files. OpenCode 1.x cannot switch a plugin off, so switch its tools one by one.'}
         </Text>
       )}
@@ -235,6 +242,62 @@ export const PluginGroup: React.FC<
         </Text>
       )}
       <ToolRows tools={tools} filtered={filtered} {...rows} />
+    </Card>
+  );
+};
+
+/** Past this many, the list of OpenCode's quiet plugins folds. */
+const QUIET_FOLDED = 6;
+
+/**
+ * OpenCode's own plugins that add no tools of their own — LSP, sharing,
+ * formatters and the like — in one folded list, each with its switch. Off is
+ * off for every session, the same as any plugin.
+ */
+export const QuietPluginsGroup: React.FC<{
+  plugins: PluginInfo[];
+  filtered: boolean;
+  busy: boolean;
+  onTogglePlugin: (id: string, enabled: boolean) => void;
+}> = ({ plugins, filtered, busy, onTogglePlugin }) => {
+  const [open, setOpen] = useState(false);
+  const folded = !open && !filtered && plugins.length > QUIET_FOLDED;
+  return (
+    <Card>
+      <SectionHeader
+        icon={<Puzzle className="w-3.5 h-3.5" />}
+        title="OpenCode's own plugins"
+        subtitle="no tools of their own"
+        right={
+          <Badge size="xs" variant="light" color="gray" className="font-mono">
+            {plugins.length}
+          </Badge>
+        }
+      />
+      {(folded ? [] : plugins).map((plugin) => (
+        <Group key={plugin.id} gap={8} wrap="nowrap" px="xs" py={5} className="border-b border-slate-900/80 last:border-b-0">
+          <Switch
+            size="xs"
+            checked={plugin.status !== 'off'}
+            disabled={busy}
+            onChange={(e) => onTogglePlugin(plugin.id, e.currentTarget.checked)}
+            aria-label={`Toggle the ${plugin.id} plugin`}
+            className="shrink-0"
+          />
+          <Text
+            size="xs"
+            className={`font-mono truncate ${plugin.status === 'off' ? 'text-ink-4 line-through' : 'text-ink'}`}
+            title={plugin.id}
+          >
+            {plugin.id}
+          </Text>
+        </Group>
+      ))}
+      {folded && (
+        <Button size="compact-xs" variant="subtle" color="gray" fullWidth radius={0} onClick={() => setOpen(true)}>
+          Show all {plugins.length}
+        </Button>
+      )}
     </Card>
   );
 };

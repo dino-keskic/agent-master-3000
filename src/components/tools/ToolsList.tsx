@@ -10,11 +10,12 @@ import {
   pluginRule,
   pluginSections
 } from '../../../shared/agent/tools';
-import { BuiltinGroup, EmptyServerGroup, PluginGroup, ServerGroup } from './ToolGroup';
+import { BuiltinGroup, EmptyServerGroup, PluginGroup, QuietPluginsGroup, ServerGroup } from './ToolGroup';
 
 /**
  * The tools themselves, in the groups they come from: OpenCode's own first,
- * then one group per plugin and one per MCP server — including the servers
+ * then one group per plugin, the rest of OpenCode's plugins folded into one
+ * list, and one group per MCP server — including the servers
  * that contributed nothing, because "this server is down" is what the panel
  * is for.
  */
@@ -75,7 +76,7 @@ export const ToolsList: React.FC<ToolsListProps> = ({ inventory, filter, busy, o
 
       {grouped.builtin.length > 0 && <BuiltinGroup tools={grouped.builtin} filtered={filtered} {...rowProps} />}
 
-      {plugins.map((section) => (
+      {plugins.sections.map((section) => (
         <PluginGroup
           key={section.plugin?.id ?? ''}
           plugin={section.plugin}
@@ -87,6 +88,15 @@ export const ToolsList: React.FC<ToolsListProps> = ({ inventory, filter, busy, o
           {...rowProps}
         />
       ))}
+
+      {plugins.quiet.length > 0 && (
+        <QuietPluginsGroup
+          plugins={plugins.quiet}
+          filtered={filtered}
+          busy={busy}
+          onTogglePlugin={(id, enabled) => onSave(pluginRule(id), enabled ? null : false)}
+        />
+      )}
 
       {grouped.byServer.map((group) => (
         <ServerGroup
