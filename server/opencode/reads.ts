@@ -1,6 +1,7 @@
 import { loadSessionHistory } from './history.js';
 import { activeRootSessionIds } from './liveTurns.js';
 import { getOpenCodeSessionsById } from './sessionList.js';
+import { boardSpend, taskSpend } from './spend.js';
 
 /**
  * The OpenCode database reads that may run on the reader thread.
@@ -17,7 +18,11 @@ export const READS = {
   activeRootSessionIds: (ids: string[], now: number, boardStartedAt: number) =>
     activeRootSessionIds(ids, now, boardStartedAt),
   sessionHistory: (sessionId: string, since: number) => loadSessionHistory(sessionId, since),
-  sessionsById: (ids: string[]) => getOpenCodeSessionsById(ids)
+  sessionsById: (ids: string[]) => getOpenCodeSessionsById(ids),
+  // The spend reads walk every message in the window. Their caches live on the
+  // thread with them, which is where the next read looks.
+  boardSpend: (...args: Parameters<typeof boardSpend>) => boardSpend(...args),
+  taskSpend: (...args: Parameters<typeof taskSpend>) => taskSpend(...args)
 };
 
 export type ReadName = keyof typeof READS;

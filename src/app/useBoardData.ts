@@ -88,7 +88,9 @@ export function useBoardData(): BoardData {
       // so a dropdown sitting next to a different model does not borrow them.
       rememberModelOptions(data.settings.defaultModel, data);
       setBoardModel(data.settings.defaultModel);
+      // A board sent before OpenCode's database answered comes without it.
       if (data.spend) seedSpend(data.spend);
+      else void refreshSpend();
       setLoadError(null);
       hasLoadedRef.current = true;
       setHasLoaded(true);
@@ -99,7 +101,7 @@ export function useBoardData(): BoardData {
       // board is on screen and a failed refresh has nowhere else to be seen.
       if (hasLoadedRef.current) reportError('Could not load the board', e);
     }
-  }, [replaceAll, seedSpend]);
+  }, [replaceAll, seedSpend, refreshSpend]);
 
   useEffect(() => {
     void refresh();

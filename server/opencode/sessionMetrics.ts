@@ -1,4 +1,5 @@
 import { DatabaseSync } from 'node:sqlite';
+import { readDbIsV2 } from './db.js';
 import { contextTokensFromUsage } from '../../shared/sessions/cost.js';
 import { turnAttributionFromMessage } from '../../shared/turns/attribution.js';
 
@@ -39,8 +40,15 @@ export function lastTurnSnapshot(db: DatabaseSync, ids: string[]): Map<string, L
   const unique = [...new Set(ids.filter(Boolean))];
   if (unique.length === 0) return map;
   try {
+    // On OpenCode 2 the newest answers are picked from the table's index first:
+    // sorting the `message` view would rebuild every message in the session.
     const stmt = db.prepare(
-      `SELECT data FROM message WHERE session_id = ? ORDER BY time_created DESC, id DESC LIMIT ?`
+      readDbIsV2()
+        ? `SELECT data FROM message WHERE id IN (
+             SELECT id FROM main.session_message WHERE session_id = ? AND type = 'assistant'
+             ORDER BY time_created DESC, id DESC LIMIT ?
+           ) ORDER BY time_created DESC, id DESC`
+        : `SELECT data FROM message WHERE session_id = ? ORDER BY time_created DESC, id DESC LIMIT ?`
     );
     for (const id of unique) {
       const rows = stmt.all(id, LAST_CONTEXT_MESSAGES) as { data: string }[];
@@ -69,10 +77,14 @@ export function inheritedSessionCosts(db: DatabaseSync, ids: string[]): Map<stri
   if (unique.length === 0) return map;
   try {
     const placeholders = unique.map(() => '?').join(', ');
+    // On OpenCode 2 the `message` view would rebuild every message's JSON
+    // before the date test could drop it; the table answers the date from its
+    // index and only opens the few rows a clone copied in.
+    const messages = readDbIsV2() ? `main.session_message` : `message`;
     const rows = db.prepare(`
       SELECT m.session_id AS id,
              COALESCE(SUM(CAST(json_extract(m.data, '$.cost') AS REAL)), 0) AS inherited
-      FROM message m
+      FROM ${messages} m
       JOIN session s ON s.id = m.session_id
       WHERE m.session_id IN (${placeholders})
         AND m.time_created < s.time_created

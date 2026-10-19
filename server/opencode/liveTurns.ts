@@ -1,5 +1,5 @@
 import { LIVE_TURN_SILENCE_MS, isAbandonedTurn } from '../../shared/turns/abandoned.js';
-import { readDb } from './db.js';
+import { readDb, readDbIsV2 } from './db.js';
 
 /**
  * How long a turn may sit without `time.completed` (thinking, a long test)
@@ -60,6 +60,40 @@ function liveCandidates(
 }
 
 /**
+ * The two reads below that look at parts, per schema.
+ *
+ * On OpenCode 2 a part is an entry in its message's `content`, and the `part`
+ * view unpacks every one of a session's messages with `json_each` to produce
+ * them — the whole session's JSON off disk, on a four-second timer, to answer
+ * what `session_message` holds in an integer column. So on 2.x these read the
+ * table: a part's `time_updated` is its message's anyway, and only messages
+ * written to inside the window are unpacked to look for a running tool.
+ * Sessions still in the 1.x tables a migration left are long finished.
+ */
+function partQueries(v2: boolean, inSessions: string) {
+  return v2
+    ? {
+        writes: `SELECT session_id AS sid, MAX(time_updated) AS t
+                 FROM main.session_message WHERE session_id IN (${inSessions}) GROUP BY session_id`,
+        running: `SELECT DISTINCT m.session_id AS sid
+                  FROM main.session_message m, json_each(m.data, '$.content') c
+                  WHERE m.session_id IN (${inSessions})
+                    AND m.type = 'assistant'
+                    AND m.time_updated >= ?
+                    AND lower(coalesce(c.value ->> '$.state.status', '')) IN ('running', 'pending', 'in_progress')`
+      }
+    : {
+        writes: `SELECT session_id AS sid, MAX(time_updated) AS t
+                 FROM part WHERE session_id IN (${inSessions}) GROUP BY session_id`,
+        running: `SELECT DISTINCT p.session_id AS sid
+                  FROM part p
+                  WHERE p.session_id IN (${inSessions})
+                    AND p.time_updated >= ?
+                    AND lower(coalesce(json_extract(p.data, '$.state.status'), '')) IN ('running', 'pending', 'in_progress')`
+      };
+}
+
+/**
  * When each session was last written to, from either table, and the verdict
  * that follows: a turn nobody is driving any more stops moving this.
  * See `isAbandonedTurn`.
@@ -105,11 +139,9 @@ function liveSessions(rootIds: string[], now: number, boardStartedAt: number): {
     const sessionIds = candidates.map((row) => row.id);
     const inSessions = sessionIds.map(() => '?').join(', ');
     const since = now - LIVE_TURN_WINDOW_MS;
+    const parts = partQueries(readDbIsV2(), inSessions);
 
-    const partWrites = db.prepare(
-      `SELECT session_id AS sid, MAX(time_updated) AS t
-       FROM part WHERE session_id IN (${inSessions}) GROUP BY session_id`
-    ).all(...sessionIds) as { sid: string; t: number | null }[];
+    const partWrites = db.prepare(parts.writes).all(...sessionIds) as { sid: string; t: number | null }[];
     for (const row of partWrites) clock.saw(row.sid, row.t);
 
     // The turn OpenCode is actually in: last assistant message has no
@@ -153,13 +185,7 @@ function liveSessions(rootIds: string[], now: number, boardStartedAt: number): {
     // In-flight tools that started inside the window. Covers a subagent that
     // wrote a running tool part before any assistant message exists, and a
     // bash that has been going for minutes.
-    const liveParts = db.prepare(
-      `SELECT DISTINCT p.session_id AS sid
-       FROM part p
-       WHERE p.session_id IN (${inSessions})
-         AND p.time_updated >= ?
-         AND lower(coalesce(json_extract(p.data, '$.state.status'), '')) IN ('running', 'pending', 'in_progress')`
-    ).all(...sessionIds, since) as { sid: string }[];
+    const liveParts = db.prepare(parts.running).all(...sessionIds, since) as { sid: string }[];
 
     for (const part of liveParts) {
       if (turnEnded.has(part.sid)) continue;

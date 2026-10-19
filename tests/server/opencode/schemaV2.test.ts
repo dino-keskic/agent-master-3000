@@ -167,3 +167,24 @@ test('OpenCode 2 database', async (t) => {
     );
   });
 });
+
+test('on OpenCode 2 a tool still running in an earlier answer keeps the session live', () => {
+  const { file } = makeV2Fixture();
+  // A prompt queued behind the running tool: the newest message is no longer
+  // the unfinished answer, so only the tool itself says the turn is going.
+  const db = new DatabaseSync(file);
+  db.prepare(
+    `INSERT INTO session_message (id, session_id, type, seq, time_created, time_updated, data) VALUES (?, ?, 'user', 8, ?, ?, ?)`
+  ).run('msg_queued', RUNNING, V2_NOW - 1, V2_NOW - 1, JSON.stringify({ time: { created: V2_NOW - 1 }, text: 'and then lint' }));
+  db.close();
+  closeReadDb();
+  process.env.OPENCODE_DB = file;
+  try {
+    const later = V2_NOW + 200_000;
+    assert.ok(activeRootSessionIds([RUNNING], later, V2_NOW - 1_000_000).has(RUNNING));
+    // Past the window, the same running entry is debris.
+    assert.ok(!activeRootSessionIds([RUNNING], V2_NOW + 2 * 24 * 60 * 60 * 1000, V2_NOW - 1_000_000).has(RUNNING));
+  } finally {
+    closeReadDb();
+  }
+});

@@ -86,6 +86,11 @@ export function readDb(): DatabaseSync | null {
   return sharedDb;
 }
 
+/** Whether `readDb()`'s handle is on OpenCode 2's tables, so a hot read can skip the views. */
+export function readDbIsV2(): boolean {
+  return sharedDb !== null && sharedDbIsV2;
+}
+
 /** Drop the shared handle — on shutdown, or after a read fails hard enough to suspect the connection. */
 export function closeReadDb(): void {
   const db = sharedDb;
