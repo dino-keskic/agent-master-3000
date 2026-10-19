@@ -26,6 +26,15 @@ import { ToolProbe, prepareToolProbe } from './probePlugin.js';
  * registry to ask, so its server also loads the board's probe plugin
  * (`probePlugin.ts`), which writes out the tools OpenCode really has.
  *
+ * Why not ask the agent the board already runs: 2.x's `opencode acp` starts
+ * its own `opencode serve --stdio --port 0`, which has every answer this file
+ * needs. But it gives that server a random password of its own, overriding
+ * any in the environment; the server drops the password from its env, takes
+ * no `--server` flag, and reports its port only to `acp` over a pipe. A plugin
+ * loaded into the agent could report tools, plugins, MCP status and agents,
+ * but not `/api/config`, and only for folders the agent has loaded, with the
+ * board's switches already applied (2.0.24, checked in the sandbox).
+ *
  * Everything here is best-effort: a failed read becomes a warning on the panel,
  * never an error on the path of running a turn.
  */
@@ -288,7 +297,8 @@ async function readV2(
     server.get(`/api/agent?${location}`).catch(() => null)
   ]);
   const read = readV2ToolConfig(config, agents, mcp, policyFile);
-  const probed = probe ? await probe.read() : null;
+  const connected = Object.entries(read.mcpStatus).flatMap(([name, entry]) => (entry.status === 'connected' ? [name] : []));
+  const probed = probe ? await probe.read(connected) : null;
   if (!probed) warnings.push('Could not ask OpenCode for its full tool list; showing its usual built-ins only.');
   return {
     toolIds: [...V2_BUILTIN_TOOLS],

@@ -7,6 +7,7 @@ import {
   parsePluginList,
   parseProbeOutput,
   pluginForFile,
+  probeHasServers,
   switchedOffPlugins,
   toolOrigin,
   withSwitches
@@ -148,4 +149,13 @@ test('a tool traced to a plugin file belongs to it, whatever its namespace says'
 test('the probe records the registering file', () => {
   assert.match(PROBE_PLUGIN_SOURCE, /Map\.prototype\.set = function/);
   assert.match(PROBE_PLUGIN_SOURCE, /file: owners\.get\(t\.id\)/);
+});
+
+test('the probe list is complete once every connected MCP server has a tool in it', () => {
+  const builtins = [{ id: 'read' }, { id: 'opencode_models', namespace: 'opencode' }];
+  assert.strictEqual(probeHasServers(builtins, []), true);
+  assert.strictEqual(probeHasServers(builtins, ['sandbox-echo']), false);
+  const withEcho = [...builtins, { id: 'sandbox-echo_echo', namespace: 'sandbox-echo' }];
+  assert.strictEqual(probeHasServers(withEcho, ['sandbox-echo']), true);
+  assert.strictEqual(probeHasServers(withEcho, ['sandbox-echo', 'other']), false);
 });
