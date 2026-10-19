@@ -1,13 +1,15 @@
 import { spawn } from 'child_process';
 import { randomBytes } from 'crypto';
 import readline from 'readline';
-import { toolPolicySignature } from '../../shared/agent/tools.js';
+import { PluginInfo, toolPolicySignature } from '../../shared/agent/tools.js';
 import { McpConfigEntry, V2_BUILTIN_TOOLS, readV2ToolConfig } from '../../shared/toolCatalog/opencodeV2.js';
+import { ProbedTool, parsePluginList } from '../../shared/toolCatalog/toolSources.js';
 import { opencodeEnv } from '../opencode/env.js';
 import { livePolicyFile } from '../opencode/policyFile.js';
 import { opencodeVersion } from '../opencode/version.js';
 import { childBaseEnv, opencodeBin } from '../setup/locations.js';
 import { cwdCache } from './cache.js';
+import { ToolProbe, prepareToolProbe } from './probePlugin.js';
 
 /**
  * What OpenCode itself says it has.
@@ -19,7 +21,9 @@ import { cwdCache } from './cache.js';
  *
  * OpenCode 2 answers the same questions under `/api/` in a different shape;
  * `/api/info` says which one is listening (1.x serves its web app there), and
- * `shared/toolCatalog/opencodeV2.ts` reads the 2.x answers.
+ * `shared/toolCatalog/opencodeV2.ts` reads the 2.x answers. 2.x has no tool
+ * registry to ask, so its server also loads the board's probe plugin
+ * (`probePlugin.ts`), which writes out the tools OpenCode really has.
  *
  * Everything here is best-effort: a failed read becomes a warning on the panel,
  * never an error on the path of running a turn.
@@ -39,6 +43,10 @@ export interface OpencodeSnapshot {
   agents: Record<string, { tools?: Record<string, boolean> }>;
   /** 2.x: what the documents OpenCode merges after the board's file say, which outvote it. */
   overrides?: Record<string, boolean>;
+  /** 2.x: every tool OpenCode has, with its namespace, from the probe plugin. */
+  probed?: ProbedTool[];
+  /** 2.x: its plugins, from `/api/plugin`. */
+  plugins?: PluginInfo[];
   warnings: string[];
 }
 
@@ -67,18 +75,22 @@ interface OpencodeServer {
 async function withOpencodeServer<T>(
   cwd: string,
   policy: Record<string, boolean> | undefined,
-  use: (server: OpencodeServer, policyFile: string | undefined) => Promise<T>
+  use: (server: OpencodeServer, policyFile: string | undefined, probe: ToolProbe | undefined) => Promise<T>
 ): Promise<T> {
   const password = randomBytes(24).toString('base64url');
   const authorization = `Basic ${Buffer.from(`opencode:${password}`).toString('base64')}`;
   // Same delivery the agent runs with — overlay or file — so the panel
   // resolves the same list.
   const base = childBaseEnv(opencodeVersion(opencodeBin(), process.env));
-  const policyFile = livePolicyFile(opencodeBin(), base, policy);
+  const boardFile = livePolicyFile(opencodeBin(), base, policy);
+  // A file means OpenCode 2, which can load the probe — from a copy of the
+  // board's file that names it, so the agent never does.
+  const probe = boardFile ? prepareToolProbe(policy) : undefined;
+  const policyFile = probe?.configFile ?? boardFile;
   const child = spawn(opencodeBin(), ['serve', '--port', '0', '--hostname', '127.0.0.1'], {
     cwd,
     stdio: ['ignore', 'pipe', 'pipe'],
-    env: { ...opencodeEnv(base, policy, policyFile), OPENCODE_SERVER_PASSWORD: password }
+    env: { ...opencodeEnv(base, policy, policyFile), ...probe?.env, OPENCODE_SERVER_PASSWORD: password }
   });
 
   const stop = () => {
@@ -87,6 +99,7 @@ async function withOpencodeServer<T>(
     } catch {
       /* already gone */
     }
+    probe?.dispose();
   };
 
   try {
@@ -112,7 +125,7 @@ async function withOpencodeServer<T>(
       child.on('exit', (code) => done(new Error(`opencode serve exited (code ${code})`)));
     });
 
-    return await use({ get: (path) => getJson(`${baseUrl}${path}`, authorization) }, policyFile);
+    return await use({ get: (path) => getJson(`${baseUrl}${path}`, authorization) }, policyFile, probe);
   } finally {
     stop();
   }
@@ -149,8 +162,8 @@ export async function readOpencode(cwd: string, policy: Record<string, boolean> 
   if (cached) return cached;
 
   const warnings: string[] = [];
-  const snapshot = await withOpencodeServer(cwd, policy, async (server, policyFile) =>
-    (await v2Version(server)) ? readV2(server, cwd, warnings, policyFile) : readV1(server, cwd, warnings)
+  const snapshot = await withOpencodeServer(cwd, policy, async (server, policyFile, probe) =>
+    (await v2Version(server)) ? readV2(server, cwd, warnings, policyFile, probe) : readV1(server, cwd, warnings)
   );
 
   snapshotCache.set(cacheKey, snapshot);
@@ -211,15 +224,17 @@ async function readV1(server: OpencodeServer, cwd: string, warnings: string[]): 
 }
 
 /**
- * 2.x has no tool registry to ask, and answers about a directory with empty
- * lists until it has loaded it — every directory has agents, so the agent
- * list filling in is the sign it has.
+ * 2.x answers about a directory with empty lists until it has loaded it —
+ * every directory has agents, so the agent list filling in is the sign it has.
+ * Its tools are what the probe wrote; without the probe, the fixed list of
+ * built-ins is the best the panel can do.
  */
 async function readV2(
   server: OpencodeServer,
   cwd: string,
   warnings: string[],
-  policyFile: string | undefined
+  policyFile: string | undefined,
+  probe: ToolProbe | undefined
 ): Promise<OpencodeSnapshot> {
   const location = `location%5Bdirectory%5D=${encodeURIComponent(cwd)}`;
   const deadline = Date.now() + V2_LOAD_TIMEOUT_MS;
@@ -234,7 +249,7 @@ async function readV2(
     }
     await new Promise((resolve) => setTimeout(resolve, V2_LOAD_POLL_MS));
   }
-  const [mcp, config] = await Promise.all([
+  const [mcp, config, plugins] = await Promise.all([
     server.get(`/api/mcp?${location}`).catch((e) => {
       warnings.push(`Could not read MCP status (${e.message}).`);
       return null;
@@ -242,8 +257,17 @@ async function readV2(
     server.get(`/api/config?${location}`).catch((e) => {
       warnings.push(`Could not read the resolved config (${e.message}).`);
       return null;
-    })
+    }),
+    server.get(`/api/plugin?${location}`).catch(() => null)
   ]);
   const read = readV2ToolConfig(config, agents, mcp, policyFile);
-  return { toolIds: [...V2_BUILTIN_TOOLS], ...read, warnings };
+  const probed = probe ? await probe.read() : null;
+  if (!probed) warnings.push('Could not ask OpenCode for its full tool list; showing its usual built-ins only.');
+  return {
+    toolIds: [...V2_BUILTIN_TOOLS],
+    ...read,
+    ...(probed ? { probed } : {}),
+    plugins: parsePluginList(plugins),
+    warnings
+  };
 }

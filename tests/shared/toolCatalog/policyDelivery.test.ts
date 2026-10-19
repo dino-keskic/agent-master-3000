@@ -36,6 +36,12 @@ test('the file says what the overlay would, and an empty policy says nothing', (
   assert.deepStrictEqual(JSON.parse(policyDocument(undefined)), {});
 });
 
+test('a switched-off plugin reaches the file as a -id entry', () => {
+  assert.deepStrictEqual(JSON.parse(policyDocument({ 'plugin:opencode.browser': false })), {
+    plugins: ['-opencode.browser']
+  });
+});
+
 test('only OpenCode itself is asked its version, never a stub agent', () => {
   assert.ok(isOpencodeAcp('/opt/opencode/bin/opencode', ['acp'], '/opt/opencode/bin/opencode'));
   assert.ok(isOpencodeAcp('opencode', ['acp'], '/opt/opencode/bin/opencode'));

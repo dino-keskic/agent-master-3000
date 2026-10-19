@@ -20,14 +20,20 @@ function stateLabel(tool: SessionTool): string {
   if (tool.disabledBy === 'agent') return `Turned off for this agent by \`${tool.disabledByRule}\` in your OpenCode config.`;
   if (tool.disabledBy === 'config') return `Turned off by \`${tool.disabledByRule}\` in your OpenCode config.`;
   if (tool.disabledBy === 'server') return 'Its MCP server is not connected, so the agent never sees it.';
+  if (tool.disabledBy === 'plugin') return `Its plugin, ${tool.plugin}, is switched off here. Switch the plugin back on to get it.`;
   if (tool.policy === true) return 'Switched back on here, over your OpenCode config.';
   return 'Available to the agent.';
 }
 
-/** A tool the board cannot hand back: its server is not there to be asked. */
+/** A tool the board cannot hand back on its own: its server or plugin is not there. */
 function isLockedOff(tool: SessionTool): boolean {
-  return tool.disabledBy === 'server';
+  return tool.disabledBy === 'server' || tool.disabledBy === 'plugin';
 }
+
+const OFF_BADGE: Partial<Record<NonNullable<SessionTool['disabledBy']>, string>> = {
+  server: 'no server',
+  plugin: 'plugin off'
+};
 
 export const ToolRow: React.FC<{
   tool: SessionTool;
@@ -48,17 +54,17 @@ export const ToolRow: React.FC<{
     </Tooltip>
     <Text
       size="xs"
-      className={`font-mono truncate ${tool.enabled ? 'text-ink' : 'text-ink-4 line-through'}`}
+      className={`font-mono truncate shrink-0 max-w-[60%] ${tool.enabled ? 'text-ink' : 'text-ink-4 line-through'}`}
       title={tool.name}
     >
       {tool.name}
     </Text>
     {tool.description && (
-      <Text size="xs" c="dimmed" className="truncate min-w-0" title={tool.description}>
+      <Text size="xs" c="dimmed" className="truncate min-w-0 flex-1" title={tool.description}>
         {tool.description}
       </Text>
     )}
-    <div className="flex-1" />
+    {!tool.description && <div className="flex-1" />}
     {tool.used > 0 && (
       <Tooltip label={`Called ${tool.used}× in this session`} withArrow>
         <Badge size="xs" variant="light" color="accent" className="font-mono shrink-0">
@@ -90,7 +96,7 @@ export const ToolRow: React.FC<{
     {!tool.enabled && tool.disabledBy !== 'board' && !tool.policyOverridden && (
       <Tooltip label={stateLabel(tool)} withArrow multiline w={260}>
         <Badge size="xs" variant="light" color="gray" className="shrink-0">
-          {tool.disabledBy === 'server' ? 'no server' : 'config'}
+          {(tool.disabledBy && OFF_BADGE[tool.disabledBy]) || 'config'}
         </Badge>
       </Tooltip>
     )}

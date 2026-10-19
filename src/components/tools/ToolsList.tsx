@@ -6,21 +6,24 @@ import {
   SessionToolInventory,
   filterServers,
   filterTools,
-  groupToolsBySource
+  groupToolsBySource,
+  pluginRule,
+  pluginSections
 } from '../../../shared/agent/tools';
-import { BuiltinGroup, EmptyServerGroup, ServerGroup } from './ToolGroup';
+import { BuiltinGroup, EmptyServerGroup, PluginGroup, ServerGroup } from './ToolGroup';
 
 /**
  * The tools themselves, in the groups they come from: OpenCode's own first,
- * then one group per MCP server — including the servers that contributed
- * nothing, because "this server is down" is what the panel is for.
+ * then one group per plugin and one per MCP server — including the servers
+ * that contributed nothing, because "this server is down" is what the panel
+ * is for.
  */
 
 interface ToolsListProps {
   inventory: SessionToolInventory;
   filter: string;
   busy: boolean;
-  /** A rule, not a tool: `name` for one, `server_*` for a whole server. */
+  /** A rule, not a tool: `name` for one, `server_*` for a whole server, `plugin:<id>` for a plugin. */
   onSave: (rule: string, enabled: boolean | null) => void;
 }
 
@@ -32,6 +35,11 @@ export const ToolsList: React.FC<ToolsListProps> = ({ inventory, filter, busy, o
     for (const server of inventory.servers) byName.set(server.name, server);
     return byName;
   }, [inventory.servers]);
+  const plugins = useMemo(
+    () => pluginSections(inventory.plugins, grouped.byPlugin, filter),
+    [inventory.plugins, grouped.byPlugin, filter]
+  );
+  const filtered = filter.trim() !== '';
   const emptyServers = filterServers(
     inventory.servers,
     grouped.byServer.map((group) => group.server),
@@ -48,9 +56,10 @@ export const ToolsList: React.FC<ToolsListProps> = ({ inventory, filter, busy, o
     <Stack gap={0} p="xs" className="pb-24">
       <Text size="xs" c="dimmed" px="xs" pb="xs">
         What this session&apos;s agent can call, as OpenCode resolves it for{' '}
-        <span className="font-mono text-ink-2">{inventory.cwd}</span>. MCP tools carry the
-        name the model sees them by. A switch here applies to every session the board runs, and
-        takes the tool out of the agent&apos;s list rather than refusing it after the fact.
+        <span className="font-mono text-ink-2">{inventory.cwd}</span>, grouped by where each tool
+        comes from. MCP tools carry the name the model sees them by. A switch here applies to every
+        session the board runs, and takes the tool — or the whole plugin — out of the agent&apos;s
+        list rather than refusing it after the fact.
       </Text>
 
       {inventory.error && (
@@ -64,7 +73,20 @@ export const ToolsList: React.FC<ToolsListProps> = ({ inventory, filter, busy, o
         </Text>
       ))}
 
-      {grouped.builtin.length > 0 && <BuiltinGroup tools={grouped.builtin} {...rowProps} />}
+      {grouped.builtin.length > 0 && <BuiltinGroup tools={grouped.builtin} filtered={filtered} {...rowProps} />}
+
+      {plugins.map((section) => (
+        <PluginGroup
+          key={section.plugin?.id ?? ''}
+          plugin={section.plugin}
+          tools={section.tools}
+          filtered={filtered}
+          switchable={!!inventory.pluginSwitches}
+          // On is dropping the board's entry: it can only stop a plugin loading, never add one.
+          onTogglePlugin={(enabled) => section.plugin && onSave(pluginRule(section.plugin.id), enabled ? null : false)}
+          {...rowProps}
+        />
+      ))}
 
       {grouped.byServer.map((group) => (
         <ServerGroup
@@ -72,6 +94,7 @@ export const ToolsList: React.FC<ToolsListProps> = ({ inventory, filter, busy, o
           server={group.server}
           source={group.source}
           tools={group.tools}
+          filtered={filtered}
           info={serverInfo.get(group.server)}
           onToggleAll={(enabled) => onSave(`${group.server}_*`, enabled)}
           {...rowProps}

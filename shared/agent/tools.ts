@@ -1,5 +1,9 @@
 import { TaskLogItem } from '../types.js';
 import { codeModeTarget } from './codeMode.js';
+import { PluginInfo, applyPluginRule, pluginOfRule } from './toolPlugins.js';
+
+export type { PluginInfo } from './toolPlugins.js';
+export { pluginOfRule, pluginRule, pluginSections } from './toolPlugins.js';
 
 /**
  * What the agent can actually call in a session.
@@ -20,7 +24,7 @@ import { codeModeTarget } from './codeMode.js';
  *   {"mcp": {"slack": {"enabled": false}}}    drops the server entirely
  */
 
-export type ToolSource = 'builtin' | 'mcp' | 'board';
+export type ToolSource = 'builtin' | 'mcp' | 'board' | 'plugin';
 
 /** Why a tool is not in the session's list. */
 export type ToolDisabledBy =
@@ -31,7 +35,9 @@ export type ToolDisabledBy =
   /** Its MCP server is disabled or not connected. */
   | 'server'
   /** A switch the user flipped on the board's own Tools panel. */
-  | 'board';
+  | 'board'
+  /** The OpenCode plugin that adds it is switched off. */
+  | 'plugin';
 
 export type McpServerStatus = 'connected' | 'disabled' | 'failed' | 'needs_auth' | 'unknown';
 
@@ -43,6 +49,11 @@ export interface SessionTool {
   server?: string;
   /** The tool's own name, without the server prefix. */
   toolName?: string;
+  /**
+   * The OpenCode plugin that adds it, for `plugin` tools — unset when the
+   * board could not tell which one (`shared/toolCatalog/toolSources.ts`).
+   */
+  plugin?: string;
   description?: string;
   enabled: boolean;
   disabledBy?: ToolDisabledBy;
@@ -75,6 +86,10 @@ export interface SessionToolInventory {
   agent?: string;
   tools: SessionTool[];
   servers: McpServerInfo[];
+  /** OpenCode 2's plugins that add tools, or were loaded from a file, or are off. */
+  plugins?: PluginInfo[];
+  /** Whether a plugin can be switched off: OpenCode 2 only. */
+  pluginSwitches?: boolean;
   /** Non-fatal problems worth showing above the list. */
   warnings: string[];
   /** Set when OpenCode could not be read at all; `tools` is then empty. */
@@ -218,13 +233,30 @@ export function toolPolicySignature(policy: Record<string, boolean> | undefined)
   return JSON.stringify(entries);
 }
 
-/** The OpenCode config the board overlays on the agent process for a policy. */
-export function boardConfigOverlay(policy: Record<string, boolean> | undefined): { tools?: Record<string, boolean> } {
-  const entries = Object.entries(policy || {});
-  return entries.length ? { tools: Object.fromEntries(entries) } : {};
+/**
+ * The OpenCode config the board overlays on the agent process for a policy.
+ * A switched-off plugin is a `-id` entry in `plugins` (OpenCode 2, verified on
+ * 2.0.24: removing it from a watched file takes its tools away live). Turning
+ * one back on is dropping the entry — the board cannot load a plugin the
+ * user's config does not.
+ */
+export function boardConfigOverlay(policy: Record<string, boolean> | undefined): {
+  tools?: Record<string, boolean>;
+  plugins?: string[];
+} {
+  const tools: Record<string, boolean> = {};
+  const plugins: string[] = [];
+  for (const [rule, value] of Object.entries(policy || {})) {
+    const plugin = pluginOfRule(rule);
+    if (plugin === undefined) tools[rule] = value;
+    else if (!value) plugins.push(`-${plugin}`);
+  }
+  return {
+    ...(Object.keys(tools).length ? { tools } : {}),
+    ...(plugins.length ? { plugins: plugins.sort() } : {})
+  };
 }
 
-/** Enabled first, then most-used, then alphabetical — the order the panel reads best in. */
 /**
  * The filter box on the tools panel. It searches descriptions as well as names
  * because that is how you find a tool you only know the purpose of.
@@ -255,6 +287,7 @@ export function filterServers(
   );
 }
 
+/** Enabled first, then most-used, then alphabetical — the order the panel reads best in. */
 export function sortTools(tools: SessionTool[]): SessionTool[] {
   return [...tools].sort((a, b) => {
     if (a.enabled !== b.enabled) return a.enabled ? -1 : 1;
@@ -263,14 +296,28 @@ export function sortTools(tools: SessionTool[]): SessionTool[] {
   });
 }
 
+/**
+ * The panel's sections: OpenCode's own tools, one per MCP server, and one per
+ * plugin — `plugin: undefined` for tools a plugin added that the board could
+ * not pin on one.
+ */
 export function groupToolsBySource(tools: SessionTool[]): {
   builtin: SessionTool[];
   byServer: { server: string; source: ToolSource; tools: SessionTool[] }[];
+  byPlugin: { plugin?: string; tools: SessionTool[] }[];
 } {
   const builtin: SessionTool[] = [];
   const servers = new Map<string, { server: string; source: ToolSource; tools: SessionTool[] }>();
+  const plugins = new Map<string, { plugin?: string; tools: SessionTool[] }>();
 
   for (const tool of sortTools(tools)) {
+    if (tool.source === 'plugin') {
+      const key = tool.plugin ?? '';
+      const existing = plugins.get(key);
+      if (existing) existing.tools.push(tool);
+      else plugins.set(key, { ...(tool.plugin ? { plugin: tool.plugin } : {}), tools: [tool] });
+      continue;
+    }
     if (tool.source === 'builtin' || !tool.server) {
       builtin.push(tool);
       continue;
@@ -280,7 +327,11 @@ export function groupToolsBySource(tools: SessionTool[]): {
     else servers.set(tool.server, { server: tool.server, source: tool.source, tools: [tool] });
   }
 
-  return { builtin, byServer: [...servers.values()] };
+  // Named plugins alphabetically, the ones the board could not name last.
+  const byPlugin = [...plugins.values()].sort((a, b) =>
+    !a.plugin ? 1 : !b.plugin ? -1 : a.plugin.localeCompare(b.plugin)
+  );
+  return { builtin, byServer: [...servers.values()], byPlugin };
 }
 
 /**
@@ -305,6 +356,8 @@ export function applyToolPolicyRule(
   policy: Record<string, boolean>,
   pendingRestart = true
 ): SessionToolInventory {
+  const plugin = pluginOfRule(rule);
+  if (plugin !== undefined) return { ...inventory, policy, pendingRestart, ...applyPluginRule(inventory, plugin, enabled) };
   return {
     ...inventory,
     policy,

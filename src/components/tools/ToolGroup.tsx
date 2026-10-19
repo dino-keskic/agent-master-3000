@@ -1,11 +1,12 @@
-import React from 'react';
-import { Badge, Group, Switch, Text, Tooltip } from '@mantine/core';
-import { ClipboardList, Server, Wrench } from 'lucide-react';
-import { McpServerInfo, McpServerStatus, SessionTool, ToolSource } from '../../../shared/agent/tools';
+import React, { useState } from 'react';
+import { Badge, Button, Group, Switch, Text, Tooltip } from '@mantine/core';
+import { ClipboardList, Puzzle, Server, Wrench } from 'lucide-react';
+import { McpServerInfo, McpServerStatus, PluginInfo, SessionTool, ToolSource } from '../../../shared/agent/tools';
 import { ToolRow } from './ToolRow';
 
 /**
- * A boxed section of the panel: built-ins, or one MCP server and its tools.
+ * A boxed section of the panel: built-ins, one MCP server, or one plugin, and
+ * its tools.
  *
  * A server with nothing to list still gets a box. An empty Slack section is the
  * answer to "why is the agent not using it", and leaving it out would read as
@@ -65,7 +66,33 @@ interface RowProps {
   onClear: (tool: SessionTool) => void;
 }
 
-export const BuiltinGroup: React.FC<{ tools: SessionTool[] } & RowProps> = ({ tools, ...rows }) => (
+/** Past this many rows a section folds, so one big plugin does not bury the rest. */
+const FOLD_AFTER = 12;
+const FOLDED_ROWS = 8;
+
+/** A section's rows, folded behind "Show all" when there are many — unless a filter already narrowed them. */
+const ToolRows: React.FC<{ tools: SessionTool[]; filtered: boolean } & RowProps> = ({ tools, filtered, ...rows }) => {
+  const [open, setOpen] = useState(false);
+  const folded = !open && !filtered && tools.length > FOLD_AFTER;
+  return (
+    <>
+      {(folded ? tools.slice(0, FOLDED_ROWS) : tools).map((tool) => (
+        <ToolRow key={tool.name} tool={tool} {...rows} />
+      ))}
+      {folded && (
+        <Button size="compact-xs" variant="subtle" color="gray" fullWidth radius={0} onClick={() => setOpen(true)}>
+          Show all {tools.length}
+        </Button>
+      )}
+    </>
+  );
+};
+
+export const BuiltinGroup: React.FC<{ tools: SessionTool[]; filtered: boolean } & RowProps> = ({
+  tools,
+  filtered,
+  ...rows
+}) => (
   <Card>
     <SectionHeader
       icon={<Wrench className="w-3.5 h-3.5" />}
@@ -76,9 +103,7 @@ export const BuiltinGroup: React.FC<{ tools: SessionTool[] } & RowProps> = ({ to
         </Badge>
       }
     />
-    {tools.map((tool) => (
-      <ToolRow key={tool.name} tool={tool} {...rows} />
-    ))}
+    <ToolRows tools={tools} filtered={filtered} {...rows} />
   </Card>
 );
 
@@ -87,11 +112,12 @@ export const ServerGroup: React.FC<
     server: string;
     source: ToolSource;
     tools: SessionTool[];
+    filtered: boolean;
     info?: McpServerInfo;
     /** Switch every tool from this server at once. */
     onToggleAll: (enabled: boolean) => void;
   } & RowProps
-> = ({ server, source, tools, info, onToggleAll, ...rows }) => {
+> = ({ server, source, tools, filtered, info, onToggleAll, ...rows }) => {
   const anyOn = tools.some((tool) => tool.enabled);
   return (
     <Card>
@@ -124,9 +150,91 @@ export const ServerGroup: React.FC<
           {info.note}
         </Text>
       )}
-      {tools.map((tool) => (
-        <ToolRow key={tool.name} tool={tool} {...rows} />
-      ))}
+      <ToolRows tools={tools} filtered={filtered} {...rows} />
+    </Card>
+  );
+};
+
+const PLUGIN_STATUS: Record<PluginInfo['status'], { label: string; color: string }> = {
+  active: { label: 'loaded', color: 'teal' },
+  failed: { label: 'failed', color: 'red' },
+  off: { label: 'off', color: 'gray' }
+};
+
+/**
+ * One OpenCode plugin and the tools it adds. Its switch turns the whole plugin
+ * off — hooks and all, not just the tools — and, on OpenCode 2, the running
+ * agent drops it on its next turn. `plugin` unset is the section for plugin
+ * tools the board could not pin on one plugin, which has no switch of its own.
+ */
+export const PluginGroup: React.FC<
+  {
+    plugin?: PluginInfo;
+    tools: SessionTool[];
+    filtered: boolean;
+    /** Whether OpenCode can switch a plugin off (2.x). */
+    switchable: boolean;
+    onTogglePlugin: (enabled: boolean) => void;
+  } & RowProps
+> = ({ plugin, tools, filtered, switchable, onTogglePlugin, ...rows }) => {
+  const on = plugin?.status !== 'off';
+  const subtitle = plugin ? (plugin.builtin ? 'ships with OpenCode' : plugin.path) : undefined;
+  return (
+    <Card>
+      <SectionHeader
+        icon={<Puzzle className="w-3.5 h-3.5" />}
+        title={plugin?.id ?? 'Plugin & custom tools'}
+        subtitle={subtitle}
+        right={
+          <Group gap={6} wrap="nowrap">
+            {plugin && (
+              <Badge size="xs" variant="light" color={PLUGIN_STATUS[plugin.status].color}>
+                {PLUGIN_STATUS[plugin.status].label}
+              </Badge>
+            )}
+            <Badge size="xs" variant="light" color="gray" className="font-mono">
+              {tools.length}
+            </Badge>
+            {plugin && switchable && (
+              <Tooltip
+                label={on ? `Switch the ${plugin.id} plugin off for every session` : `Load ${plugin.id} again`}
+                withArrow
+              >
+                <Switch
+                  size="xs"
+                  checked={on}
+                  disabled={rows.busy}
+                  onChange={(e) => onTogglePlugin(e.currentTarget.checked)}
+                  aria-label={`Toggle the ${plugin.id} plugin`}
+                />
+              </Tooltip>
+            )}
+          </Group>
+        }
+      />
+      {plugin?.error && (
+        <Text size="xs" c="red" px="xs" py={4} className="font-mono break-all">
+          {plugin.error}
+        </Text>
+      )}
+      {!plugin && (
+        <Text size="xs" c="dimmed" px="xs" py={4}>
+          {switchable
+            ? 'Added by a plugin the board could not single out. Switch them one by one.'
+            : 'From plugins or .opencode/tool files. OpenCode 1.x cannot switch a plugin off, so switch its tools one by one.'}
+        </Text>
+      )}
+      {plugin && !on && tools.length === 0 && (
+        <Text size="xs" c="dimmed" px="xs" py={6}>
+          Switched off here, so OpenCode does not load it.
+        </Text>
+      )}
+      {plugin && on && tools.length === 0 && !plugin.error && (
+        <Text size="xs" c="dimmed" px="xs" py={6}>
+          Adds no tools — it hooks into OpenCode in other ways.
+        </Text>
+      )}
+      <ToolRows tools={tools} filtered={filtered} {...rows} />
     </Card>
   );
 };
