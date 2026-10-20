@@ -3,6 +3,7 @@ import { pathToFileURL } from 'url';
 import { AsyncLocalStorage } from 'node:async_hooks';
 import { Worker } from 'node:worker_threads';
 import { errorMessage } from '../../shared/errors.js';
+import { joinInFlight } from '../../shared/http/inFlight.js';
 import { IS_BUNDLED, SERVER_BUNDLE_DIR } from '../app/appPaths.js';
 import { opencodeDbPath } from '../setup/locations.js';
 import { READS, ReadName, ReadReply, ReadRequest, runRead } from './reads.js';
@@ -123,12 +124,23 @@ const lanes: Record<LaneName, Lane> = { background: new Lane('background'), inte
 const laneContext = new AsyncLocalStorage<LaneName>();
 
 /**
- * A board spend read already out, by everything but its clock. The board
- * snapshot and the header each ask for one, and a reload asks again: on a
- * large database each is tens of seconds, and queued one behind another they
- * held every read after them. A second ask joins the first.
+ * Spend reads already out. The board snapshot and the header each ask for the
+ * board's, a reload asks again, and a running task's drawer asks for its own
+ * on a timer: on a large database each is tens of seconds, and queued one
+ * behind another they held every read after them. A second ask joins the first.
  */
 const spendInFlight = new Map<string, Promise<unknown>>();
+
+/**
+ * What a spend read is joined by: everything but its clock, and a task by its
+ * id — a running task's drawer re-reads every few seconds, and the task object
+ * itself changes on every status tick.
+ */
+function spendKey(name: 'boardSpend' | 'taskSpend', args: unknown[]): string {
+  const rest = args.filter((_, i) => i !== (name === 'boardSpend' ? 1 : 2));
+  if (name === 'taskSpend') rest[0] = (rest[0] as { id?: string } | undefined)?.id;
+  return JSON.stringify([name, ...rest]);
+}
 
 /** Run `fn` with its reads on the interactive lane: someone is waiting on them. */
 export function interactively<T>(fn: () => Promise<T>): Promise<T> {
@@ -142,13 +154,7 @@ export function readOffThread<N extends ReadName>(
 ): Promise<ReturnType<(typeof READS)[N]>> {
   type Result = ReturnType<(typeof READS)[N]>;
   const lane = !BACKGROUND_ONLY.has(name) && laneContext.getStore() === 'interactive' ? 'interactive' : 'background';
-  if (name !== 'boardSpend') return lanes[lane].read(name, args) as Promise<Result>;
-
-  // Argument 1 is the clock; a read that started a moment ago is as good.
-  const key = JSON.stringify(args.filter((_, i) => i !== 1));
-  const joined = spendInFlight.get(key);
-  if (joined) return joined as Promise<Result>;
-  const started = lanes[lane].read(name, args).finally(() => spendInFlight.delete(key));
-  spendInFlight.set(key, started);
-  return started as Promise<Result>;
+  if (name !== 'boardSpend' && name !== 'taskSpend') return lanes[lane].read(name, args) as Promise<Result>;
+  // A read that started a moment ago is as good as one starting now.
+  return joinInFlight(spendInFlight, spendKey(name, args), () => lanes[lane].read(name, args)) as Promise<Result>;
 }

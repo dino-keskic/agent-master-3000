@@ -7,6 +7,8 @@
  * files beside this one only say which path takes which body.
  */
 
+import { joinInFlight } from '../../shared/http/inFlight';
+
 export class ApiError extends Error {
   constructor(
     message: string,
@@ -17,7 +19,21 @@ export class ApiError extends Error {
   }
 }
 
-export async function request<T>(path: string, init?: RequestInit): Promise<T> {
+/** GETs still out, by path: see `joinInFlight`. */
+const getsInFlight = new Map<string, Promise<unknown>>();
+
+/**
+ * A GET asked again while the same one is still out joins it — the polls fire
+ * on timers whatever the server's pace, and each fetch holds a connection.
+ * Anything that changes something always goes out.
+ */
+export function request<T>(path: string, init?: RequestInit): Promise<T> {
+  const method = init?.method ?? 'GET';
+  if (method !== 'GET') return send<T>(path, init);
+  return joinInFlight(getsInFlight, path, () => send<T>(path, init)) as Promise<T>;
+}
+
+async function send<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(path, {
     ...init,
     headers: init?.body ? { 'Content-Type': 'application/json', ...init.headers } : init?.headers

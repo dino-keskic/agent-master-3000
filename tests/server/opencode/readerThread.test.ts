@@ -5,6 +5,7 @@ import { isMainThread } from 'node:worker_threads';
 import { runRead } from '../../../server/opencode/reads.js';
 import { interactively, readOffThread } from '../../../server/opencode/readerThread.js';
 import { NOW, makeFixture } from '../../fixtures/opencodeDb.js';
+import { task } from '../../fixtures/boardTasks.js';
 
 test('OpenCode reads on the reader thread', async (t) => {
   const { file, root } = makeFixture();
@@ -56,6 +57,17 @@ test('OpenCode reads on the reader thread', async (t) => {
     assert.notStrictEqual(other, first, 'different options are a different read');
     await Promise.all([first, other]);
     assert.notStrictEqual(readOffThread('boardSpend', [], NOW, 'en-US', 'UTC'), first, 'a finished read is not reused');
+  });
+
+  await t.test("a task's spend read already out is joined by the task's id, not its every field", async () => {
+    const first = readOffThread('taskSpend', task(), [], NOW, { fresh: true });
+    const ticked = readOffThread('taskSpend', task({ runState: 'running', updatedAt: 9_000 }), [], NOW + 10_000, { fresh: true });
+    const cached = readOffThread('taskSpend', task(), [], NOW, { fresh: false });
+    const other = readOffThread('taskSpend', task({ id: 'TASK-2' }), [], NOW, { fresh: true });
+    assert.strictEqual(ticked, first, 'a status tick and the clock do not make a new read');
+    assert.notStrictEqual(cached, first, 'skipping the cache is a different read');
+    assert.notStrictEqual(other, first, 'another task is another read');
+    await Promise.all([first, cached, other]);
   });
 
   fs.rmSync(root, { recursive: true, force: true });
