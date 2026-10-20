@@ -13,7 +13,13 @@ import { AcpConfigOptionsResult, SessionConfigurator } from './sessionConfig.js'
 import { AcpSessionRegistry } from './sessionRegistry.js';
 import { ImportSessionOptions, ImportedSessionConfig, SessionLifecycle } from './sessions.js';
 import { TranscriptStream } from './transcript.js';
+import { chooseDriver, majorOf } from '../../shared/agent/driver.js';
+import { setTurnsOutliveBoard } from '../opencode/liveTurns.js';
+import { opencodeVersion } from '../opencode/version.js';
+import { boardConfig, opencodeBin } from '../setup/locations.js';
+import { ServiceTransport } from './serviceTransport.js';
 import { AcpTransport } from './transport.js';
+import type { TransportHandlers, TransportPort } from './transportPort.js';
 import { StartTurnOptions, TurnRunner } from './turns.js';
 
 export type { AcpEvent, AcpEventCallback } from './events.js';
@@ -35,6 +41,21 @@ const AUTO_RESTART_GAP_MS = 30_000;
 const RESTART_WAIT_MS = 5_000;
 
 /**
+ * The transport for the OpenCode this board was set up with: OpenCode 2's
+ * service unless something says otherwise (`shared/agent/driver.ts`).
+ */
+function openTransport(handlers: TransportHandlers): { transport: TransportPort; outlivesBoard: boolean } {
+  const driver = chooseDriver({
+    acpCommand: process.env.ACP_COMMAND,
+    configured: boardConfig().opencodeDriver,
+    major: process.env.ACP_COMMAND ? undefined : majorOf(opencodeVersion(opencodeBin(), process.env))
+  });
+  console.log(`[ACP] Driving OpenCode through ${driver === 'service' ? 'its background service' : '`opencode acp`'}`);
+  if (driver === 'service') return { transport: new ServiceTransport(handlers), outlivesBoard: true };
+  return { transport: new AcpTransport(handlers), outlivesBoard: false };
+}
+
+/**
  * The board's side of the Agent Client Protocol.
  *
  * Each piece owns one concern: the child process and JSON-RPC wire
@@ -48,7 +69,9 @@ const RESTART_WAIT_MS = 5_000;
  */
 export class AcpManager {
   private readonly registry = new AcpSessionRegistry();
-  private readonly transport: AcpTransport;
+  private readonly transport: TransportPort;
+  /** True on OpenCode 2's service: a turn keeps running while the board is down. */
+  private readonly outlivesBoard: boolean;
   private readonly approvals: ApprovalDesk;
   private readonly transcript: TranscriptStream;
   private readonly config: SessionConfigurator;
@@ -62,7 +85,7 @@ export class AcpManager {
 
   constructor() {
     const emit = (taskId: string, event: AcpEvent) => this.emit(taskId, event);
-    this.transport = new AcpTransport({
+    const { transport, outlivesBoard } = openTransport({
       onRequest: (id, method, params) => this.onAgentRequest(id, method, params),
       onNotification: (method, params) => this.onAgentNotification(method, params),
       onExit: () => {
@@ -72,6 +95,9 @@ export class AcpManager {
         this.approvals.dropAll();
       }
     });
+    this.transport = transport;
+    this.outlivesBoard = outlivesBoard;
+    setTurnsOutliveBoard(outlivesBoard);
     this.approvals = new ApprovalDesk({
       respond: (id, result) => this.transport.respond(id, result),
       emit,
@@ -281,6 +307,16 @@ export class AcpManager {
     return this.sessions.importSession(taskId, sessionId, cwd, options);
   }
 
+  /** True when OpenCode keeps a turn running while the board is down, so a boot can adopt it. */
+  public turnsOutliveBoard(): boolean {
+    return this.outlivesBoard;
+  }
+
+  /** Follow a turn OpenCode kept running in this task's session while the board was down. */
+  public adoptTurn(task: BoardTask, sessionId: string): Promise<void> {
+    return this.turns.adopt(task, sessionId);
+  }
+
   public bindExistingSession(task: BoardTask): Promise<void> {
     return this.sessions.bindExistingSession(task);
   }
@@ -364,6 +400,8 @@ export const acpManager = {
   stopTaskExecution: (taskId: string) => getAcpManager().cancelTurn(taskId),
   listSessions: (cwd?: string) => getAcpManager().listSessions(cwd),
   bindExistingSession: (task: BoardTask) => getAcpManager().bindExistingSession(task),
+  turnsOutliveBoard: () => getAcpManager().turnsOutliveBoard(),
+  adoptTurn: (task: BoardTask, sessionId: string) => getAcpManager().adoptTurn(task, sessionId),
   releasePrimarySession: (taskId: string) => getAcpManager().releasePrimarySession(taskId),
   importSession: (taskId: string, sessionId: string, cwd: string, options?: ImportSessionOptions) =>
     getAcpManager().importSession(taskId, sessionId, cwd, options),

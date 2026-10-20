@@ -129,6 +129,8 @@ test('a setup file keeps only absolute paths and valid variables', () => {
     }),
     { dataDir: '/d', moveDataFrom: '/old', opencodeEnv: { OK: 'v' } }
   );
+  assert.deepStrictEqual(parseBoardConfig({ opencodeDriver: 'acp' }), { opencodeDriver: 'acp' });
+  assert.deepStrictEqual(parseBoardConfig({ opencodeDriver: 'tui' }), {});
 });
 
 test('the setup file: override, checkout, installed, Windows', () => {

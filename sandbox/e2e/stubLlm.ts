@@ -15,6 +15,8 @@ import http from 'node:http';
  *   each of several follow-ups has a reply of its own to look for;
  * - `e2e:slow:<marker>` gets the same reply, streamed over a few seconds, so
  *   the test can act while a turn is still running;
+ * - `e2e:long:<marker>` likewise, over twenty seconds: long enough to stop a
+ *   board and start another while it runs;
  * - anything else — OpenCode's own title request included — gets `REPLY`.
  *
  * Plain `node:http`, no dependencies: it runs inside the test process, so the
@@ -31,6 +33,9 @@ export const ECHO_TRIGGER = 'e2e:echo:';
 export const SLOW_TRIGGER = 'e2e:slow:';
 /** How long a slow reply takes to stream, start to finish. */
 export const SLOW_REPLY_MS = 4000;
+/** A reply long enough to stop and start a board in the middle of. */
+export const LONG_TRIGGER = 'e2e:long:';
+export const LONG_REPLY_MS = 20_000;
 
 /** The reply a prompt carrying `${ECHO_TRIGGER}<marker>` gets. */
 export function echoReply(marker: string): string {
@@ -50,7 +55,7 @@ export interface ChatRequest {
 }
 
 type Answer =
-  | { text: string; slow?: boolean }
+  | { text: string; /** Stream it over this long, a character at a time. */ overMs?: number }
   | { toolCall: { id: string; name: string; arguments: string } };
 
 /** The text of a chat message, whether it came as a string or as parts. */
@@ -81,8 +86,11 @@ export function decide(body: ChatRequest): Answer {
   const lastUser = [...messages].reverse().find((m) => m.role === 'user');
   // Only a request that offers tools is the turn itself; the title request
   // quotes the same prompt and must not answer for it.
-  const echo = shell ? new RegExp(`(${ECHO_TRIGGER}|${SLOW_TRIGGER})(\\S+)`).exec(textOf(lastUser)) : null;
-  if (echo?.[2]) return { text: echoReply(echo[2]), slow: echo[1] === SLOW_TRIGGER };
+  const echo = shell ? new RegExp(`(${ECHO_TRIGGER}|${SLOW_TRIGGER}|${LONG_TRIGGER})(\\S+)`).exec(textOf(lastUser)) : null;
+  if (echo?.[2]) {
+    const overMs = echo[1] === SLOW_TRIGGER ? SLOW_REPLY_MS : echo[1] === LONG_TRIGGER ? LONG_REPLY_MS : undefined;
+    return { text: echoReply(echo[2]), overMs };
+  }
   if (shell && textOf(lastUser).includes(TOOL_TRIGGER)) {
     return {
       toolCall: {
@@ -119,8 +127,8 @@ async function streamAnswer(res: http.ServerResponse, model: string, answer: Ans
     send(chunk(model, {}, 'tool_calls'));
   } else {
     // Several deltas, so the board sees a stream rather than one final message.
-    const pieces = answer.slow ? [...answer.text] : answer.text.match(/.{1,12}/g) ?? [''];
-    const pause = answer.slow ? SLOW_REPLY_MS / pieces.length : 0;
+    const pieces = answer.overMs ? [...answer.text] : answer.text.match(/.{1,12}/g) ?? [''];
+    const pause = answer.overMs ? answer.overMs / pieces.length : 0;
     for (const piece of pieces) {
       send(chunk(model, { content: piece }));
       if (pause) await new Promise((r) => setTimeout(r, pause));

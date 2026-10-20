@@ -188,3 +188,27 @@ test('on OpenCode 2 a tool still running in an earlier answer keeps the session 
     closeReadDb();
   }
 });
+
+test('on OpenCode 2 a turn that ended without closing its answer is not live', async (t) => {
+  for (const [name, type, data] of [
+    ['a trailing idle row', 'idle', { time: { created: V2_NOW - 2 }, outcome: 'interrupted' }],
+    ['an answer closed as aborted', 'assistant', { time: { created: V2_NOW - 2 }, agent: 'build', error: { type: 'aborted' }, content: [] }]
+  ] as const) {
+    await t.test(name, () => {
+      const { file } = makeV2Fixture();
+      const db = new DatabaseSync(file);
+      db.prepare(
+        `INSERT INTO session_message (id, session_id, type, seq, time_created, time_updated, data) VALUES (?, ?, ?, 9, ?, ?, ?)`
+      ).run(`msg_end_${type}`, RUNNING, type, V2_NOW - 2, V2_NOW - 2, JSON.stringify(data));
+      db.close();
+      closeReadDb();
+      process.env.OPENCODE_DB = file;
+      try {
+        // The tool part still says running; the last row says the turn is over.
+        assert.ok(!activeRootSessionIds([RUNNING], V2_NOW, 0).has(RUNNING));
+      } finally {
+        closeReadDb();
+      }
+    });
+  }
+});

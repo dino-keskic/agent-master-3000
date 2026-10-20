@@ -30,6 +30,7 @@ function fakeTransport(opts: { refuse?: string; delayMs?: (model: string) => num
   let current = 'opencode/big-pickle';
   const transport = {
     agentMajor: () => 2,
+    answersEarly: () => true,
     async request(method: string, params: { value?: string }) {
       const value = params.value ?? '';
       calls.push(method === 'session/set_config_option' ? `${method}:${value}` : method);
@@ -110,6 +111,7 @@ function folderTransport(extra: Record<string, string[]>, failIn: string[] = [])
   }];
   const transport = {
     agentMajor: () => 2,
+    answersEarly: () => true,
     async request(method: string, params: { cwd?: string; sessionId?: string; value?: string }) {
       if (method === 'session/new') {
         calls.push(`new:${params.cwd}`);
@@ -230,6 +232,7 @@ function coldAgentTransport(
   ];
   const transport = {
     agentMajor: () => opts.major ?? 2,
+    answersEarly: () => (opts.major ?? 2) >= 2,
     request(method: string, params: { configId?: string; value?: string }) {
       calls.push(method === 'session/set_config_option' ? `${params.configId}:${params.value}` : method);
       if (method === 'session/new') {

@@ -12,7 +12,7 @@ import {
 } from './schema.js';
 import { AcpEvent, configInfo, configWarning } from './events.js';
 import { AcpSessionRegistry } from './sessionRegistry.js';
-import { AcpTransport } from './transport.js';
+import type { TransportPort } from './transportPort.js';
 
 const CONFIG_CACHE_TTL_MS = 60000;
 /** A probe answers in milliseconds even mid-turn; longer means the agent is wedged. */
@@ -116,7 +116,7 @@ export class SessionConfigurator {
   private readonly unclaimedPushes = new Map<string, ConfigOption[]>();
 
   constructor(
-    private readonly transport: AcpTransport,
+    private readonly transport: TransportPort,
     private readonly registry: AcpSessionRegistry,
     private readonly emit: (taskId: string, event: AcpEvent) => void,
     /** Lists the board already handed out turned out to be early; it should ask again. */
@@ -211,7 +211,7 @@ export class SessionConfigurator {
    * and `plan`, even when the user disabled them, and none of the user's own
    * agents — then pushes the real lists (`config_option_update`) a moment
    * later, but only if they differ. A list that may be that early answer waits
-   * for the push; 1.x never answers early, so nothing there waits.
+   * for the push; 1.x and the service never answer early, so nothing there waits.
    */
   private async realLists(sessionId: string, first: ConfigOption[]): Promise<ConfigOption[]> {
     const stashed = this.unclaimedPushes.get(sessionId);
@@ -241,7 +241,7 @@ export class SessionConfigurator {
 
   /** True when `options` may be OpenCode 2's answer from before it read the folder's config. */
   private mayBeEarly(options: ConfigOption[]): boolean {
-    if ((this.transport.agentMajor() ?? 2) < 2) return false;
+    if (!this.transport.answersEarly()) return false;
     return mayBeEarlyAgentList(optionValues(options, 'mode'), this.knownAgents.size ? this.knownAgents : undefined);
   }
 
