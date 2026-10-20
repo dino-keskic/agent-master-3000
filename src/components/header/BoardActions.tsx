@@ -1,12 +1,14 @@
 import React from 'react';
 import { Group, Tooltip } from '@mantine/core';
-import { Archive, Bell, BellOff, Columns3, DollarSign, History, MessageSquare, Settings } from 'lucide-react';
+import { Archive, Bell, BellOff, Bot, Columns3, DollarSign, History, MessageSquare, Settings } from 'lucide-react';
 import { formatUsd } from '../../../shared/sessions/cost';
 import { Severity } from '../../../shared/setup/report';
+import { TaskRunState } from '../../../shared/types';
 import { ThemeToggle } from './ThemeToggle';
 
 /**
- * Everything the header opens. The notification button carries three different
+ * Everything the header opens, the manager first — it is the one place that
+ * talks about all of the board. The notification button carries three different
  * counts, so its tooltip is ranked the way the board ranks attention: blocked
  * beats unread, and unread beats work merely running. Above all of them is
  * alerts that are switched on but cannot arrive, since that is the one that
@@ -32,8 +34,19 @@ interface BoardActionsProps {
   /** Opens the archive. Optional only while `App` still has to wire it. */
   onOpenArchive: () => void;
   onOpenSettings: () => void;
+  /** What the manager is doing; absent until it has been started. */
+  managerState?: TaskRunState;
+  onOpenManager: () => void;
   /** How the board's locations look; an error lights the settings button. */
   setupSeverity: Severity;
+}
+
+function managerTooltip(state: TaskRunState | undefined): string {
+  if (!state) return 'Start a manager: one conversation that keeps track of every task for you';
+  if (state === 'awaiting_input') return 'The manager is waiting for you';
+  if (state === 'error') return 'The manager hit an error';
+  if (state === 'running') return 'The manager is looking at the board';
+  return 'Talk to the manager about the board';
 }
 
 function plural(count: number, noun: string): string {
@@ -55,6 +68,8 @@ export const BoardActions: React.FC<BoardActionsProps> = ({
   onOpenSessionImport,
   onOpenArchive,
   onOpenSettings,
+  managerState,
+  onOpenManager,
   setupSeverity
 }) => {
   const bellTooltip = desktopAlertWarning
@@ -70,6 +85,17 @@ export const BoardActions: React.FC<BoardActionsProps> = ({
 
   return (
     <Group gap={4}>
+      <Tooltip label={managerTooltip(managerState)} withArrow>
+        <button
+          type="button"
+          className={`hdr-btn${managerState === 'awaiting_input' || managerState === 'error' ? ' is-alert' : ''}`}
+          onClick={onOpenManager}
+        >
+          <Bot className="w-3.5 h-3.5" />
+          Manager
+          {managerState === 'running' ? ' · working' : ''}
+        </button>
+      </Tooltip>
       <Tooltip label="What the board is costing this week and this month" withArrow>
         <button type="button" className="hdr-btn" onClick={onOpenSpend}>
           <DollarSign className="w-3.5 h-3.5" />

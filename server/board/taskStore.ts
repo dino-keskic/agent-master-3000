@@ -5,6 +5,7 @@ import { applyLogToTask, mergeLogsIntoTask } from '../../shared/task/logWrites.j
 import { isAutoTaskTitle, isPlaceholderSessionTitle } from '../../shared/format.js';
 import { allocateTaskId } from '../../shared/board/normalize.js';
 import { archivedTasks, isArchived, liveTasks, restoreColumnId } from '../../shared/task/archive.js';
+import { withoutManager } from '../../shared/manager/identity.js';
 import { sweepStaleTools } from '../../shared/agent/staleTools.js';
 import { buildTask, NewTaskInput, patchTask } from '../../shared/task/factory.js';
 import {
@@ -188,9 +189,12 @@ export class TaskStore extends BoardDocument {
     return ids;
   }
 
-  /** Clearing a column must not re-archive what is already in the archive. */
+  /**
+   * Clearing a column must not re-archive what is already in the archive, nor
+   * the manager, which is filed under a column but never shown in one.
+   */
   public liveTaskIdsInColumn(columnId: string): string[] {
-    return this.listLiveTasks().filter((task) => task.columnId === columnId).map((task) => task.id);
+    return withoutManager(this.listLiveTasks()).filter((task) => task.columnId === columnId).map((task) => task.id);
   }
 
   public moveTask(taskId: string, columnId: string, options?: { applyConfig?: boolean }): BoardTask | null {

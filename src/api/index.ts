@@ -11,6 +11,7 @@ import { composerApi } from './composer';
 import { diffApi } from './diff';
 import { editorsApi } from './editors';
 import { linksApi } from './links';
+import { managerApi } from './manager';
 import { projectsApi } from './projects';
 import { reviewApi } from './review';
 import { sessionsApi } from './sessions';
@@ -39,5 +40,6 @@ export const api = {
   ...reviewApi,
   ...linksApi,
   ...spendApi,
-  ...editorsApi
+  ...editorsApi,
+  ...managerApi
 };

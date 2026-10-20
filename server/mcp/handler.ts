@@ -1,6 +1,9 @@
 import { ChangelogResponseResult, normalizeChangelogResponses } from '../../shared/review/agentResponses.js';
 import { TaskLink } from '../../shared/types.js';
 import { LEGACY_TOOL_STATUS } from './tools.js';
+import { BoardMcpContext, ToolResult, boardRequest, toolResult } from './request.js';
+import { handleManagerTool, isManagerTool } from './managerTools.js';
+import { isManagerTask } from '../../shared/manager/identity.js';
 import {
   MoveTargets,
   SaveLinksResult,
@@ -14,68 +17,7 @@ import {
   renderWorkspaces
 } from './render.js';
 
-/**
- * One tool call, start to finish.
- *
- * Everything the board tools do is an HTTP call back to the board the agent is
- * running under, so board state stays the single copy: a link the agent saves
- * is on the card before the tool has returned.
- *
- * Nothing here throws. A failed call comes back as an error *result*, because
- * the agent can read that and try something else, where a dead MCP server
- * would just leave it without the tools.
- */
-
-export interface BoardMcpContext {
-  boardUrl: string;
-  taskId: string;
-  /** The board's `BOARD_TOKEN`, when it has one. */
-  token?: string;
-  fetchFn?: typeof fetch;
-}
-
-export interface ToolResult {
-  content: { type: 'text'; text: string }[];
-  isError?: boolean;
-}
-
-function toolResult(text: string, isError = false): ToolResult {
-  return { content: [{ type: 'text', text }], isError };
-}
-
-async function boardRequest(
-  ctx: BoardMcpContext,
-  method: string,
-  pathname: string,
-  body?: unknown
-): Promise<unknown> {
-  const fetchFn = ctx.fetchFn || fetch;
-  const headers: Record<string, string> = {};
-  if (body !== undefined) headers['Content-Type'] = 'application/json';
-  if (ctx.token) headers.Authorization = `Bearer ${ctx.token}`;
-  const res = await fetchFn(`${ctx.boardUrl.replace(/\/+$/, '')}${pathname}`, {
-    method,
-    headers,
-    body: body !== undefined ? JSON.stringify(body) : undefined
-  });
-  const text = await res.text();
-  let json: unknown = null;
-  if (text) {
-    try {
-      json = JSON.parse(text);
-    } catch {
-      json = { error: text };
-    }
-  }
-  if (!res.ok) {
-    const message =
-      json && typeof json === 'object' && 'error' in json && typeof json.error === 'string'
-        ? json.error
-        : `HTTP ${res.status}`;
-    throw new Error(message);
-  }
-  return json;
-}
+export type { BoardMcpContext, ToolResult } from './request.js';
 
 function trimmed(value: unknown): string {
   return typeof value === 'string' ? value.trim() : '';
@@ -122,6 +64,17 @@ async function moveSession(input: Record<string, unknown>, ctx: BoardMcpContext)
   return toolResult(renderMove(result));
 }
 
+/**
+ * One tool call, start to finish.
+ *
+ * Everything the board tools do is an HTTP call back to the board the agent is
+ * running under, so board state stays the single copy: a link the agent saves
+ * is on the card before the tool has returned.
+ *
+ * Nothing here throws. A failed call comes back as an error *result*, because
+ * the agent can read that and try something else, where a dead MCP server
+ * would just leave it without the tools.
+ */
 export async function handleBoardTool(
   name: string,
   args: Record<string, unknown> | undefined,
@@ -129,6 +82,10 @@ export async function handleBoardTool(
 ): Promise<ToolResult> {
   if (!ctx.taskId) return toolResult('No task is bound to these board tools.', true);
   const input = args || {};
+  if (isManagerTool(name)) {
+    if (!isManagerTask(ctx.taskId)) return toolResult(`${name} is only for the board's manager.`, true);
+    return handleManagerTool(name, input, ctx);
+  }
 
   try {
     if (name === 'list_changelog_comments') {

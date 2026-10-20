@@ -6,6 +6,8 @@
  * does internally. `server/mcp/boardMcp.ts` serves them.
  */
 
+import { isManagerTask } from '../../shared/manager/identity.js';
+
 export const BOARD_MCP_NAME = 'agent-master-3000';
 
 const CHANGELOG_TOOLS = [
@@ -159,8 +161,57 @@ const WORKSPACE_TOOLS = [
   }
 ] as const;
 
-/** Everything the board attaches to a session, in the order it is listed. */
+/** Only the manager's sessions get these: they reach every task, not just their own. */
+export const MANAGER_TOOLS = [
+  {
+    name: 'board_overview',
+    description:
+      'Where every task on the board stands, most urgent first: what is blocked on the user (with the question '
+      + 'and its options), what failed, what is running, what is idle — each with its last request and reply. '
+      + 'Call this first whenever you are asked for a status, and again before saying anything changed.',
+    inputSchema: { type: 'object', properties: {} }
+  },
+  {
+    name: 'task_detail',
+    description:
+      "One task's original request and its recent conversation — the prompts, replies and errors, without the "
+      + 'tool calls. Use it when the overview line is not enough to tell what a task needs.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        taskId: { type: 'string', description: 'The task id from board_overview, e.g. TASK-12.' },
+        turns: { type: 'number', description: 'How many recent messages to return. Defaults to 8.' }
+      },
+      required: ['taskId']
+    }
+  },
+  {
+    name: 'prompt_task',
+    description:
+      "Send a message to a task's agent, as if the user typed it in that task: it continues the conversation, "
+      + 'or is queued if a turn is running. Only after the user asked for it or agreed to your suggestion. '
+      + 'It does not answer a blocked permission or question — those still wait for the user.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        taskId: { type: 'string', description: 'The task id from board_overview.' },
+        prompt: { type: 'string', description: 'The message, written to the agent doing the task.' }
+      },
+      required: ['taskId', 'prompt']
+    }
+  }
+] as const;
+
+/** Everything the board attaches to a task's session, in the order it is listed. */
 export const BOARD_MCP_TOOLS = [...CHANGELOG_TOOLS, ...LINK_TOOLS, ...WORKSPACE_TOOLS];
+
+/**
+ * The tool list one session is offered. The manager has no changes, links or
+ * workspace of its own worth managing, so it gets the board tools instead.
+ */
+export function toolsFor(taskId: string): readonly { name: string }[] {
+  return isManagerTask(taskId) ? MANAGER_TOOLS : BOARD_MCP_TOOLS;
+}
 
 /** Older tool names, still accepted so a remembered call is not a dead end. */
 export const LEGACY_TOOL_STATUS: Record<string, 'resolved' | 'open' | undefined> = {

@@ -4,6 +4,7 @@ import { registerBoardRoutes } from './board.js';
 import { registerCommentRoutes } from './comments.js';
 import { RouteContext } from './context.js';
 import { registerLinkRoutes } from './links.js';
+import { registerManagerRoutes } from './manager.js';
 import { registerMentionRoutes } from './mentions.js';
 import { registerProjectMoveRoutes } from './projectMove.js';
 import { registerProjectRoutes } from './projects.js';
@@ -41,6 +42,7 @@ export function registerRoutes(app: Express, ctx: RouteContext): void {
   registerSessionRoutes(app, ctx);
   registerCommentRoutes(app, ctx);
   registerLinkRoutes(app, ctx);
+  registerManagerRoutes(app, ctx);
   registerMentionRoutes(app);
   registerToolRoutes(app, ctx);
   registerSpendRoutes(app);

@@ -1,7 +1,8 @@
 /**
  * Stdio MCP server that gives the agent the board's own view of the task it is
  * working on: the changelog comments left on its changes, and the tickets, PRs
- * and pages the task is linked to.
+ * and pages the task is linked to. The manager's sessions get the whole board
+ * instead (`toolsFor`).
  *
  * Spawned by OpenCode from `session/new` / `session/load`. Talks back to the
  * board over HTTP, so everything it reads and writes stays in board state — the
@@ -17,7 +18,7 @@
 import readline from 'readline';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { BOARD_MCP_NAME, BOARD_MCP_TOOLS } from './tools.js';
+import { BOARD_MCP_NAME, toolsFor } from './tools.js';
 import { BoardMcpContext, handleBoardTool } from './handler.js';
 import { IS_BUNDLED, SERVER_BUNDLE_DIR, listenAddress } from '../app/appPaths.js';
 import { boardToken } from '../http/requestGuard.js';
@@ -97,7 +98,7 @@ async function handleRpc(msg: {
   }
 
   if (method === 'tools/list') {
-    writeMessage({ jsonrpc: '2.0', id, result: { tools: BOARD_MCP_TOOLS } });
+    writeMessage({ jsonrpc: '2.0', id, result: { tools: toolsFor(ctx.taskId) } });
     return;
   }
 

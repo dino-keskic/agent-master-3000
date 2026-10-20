@@ -1,7 +1,7 @@
 import React from 'react';
 import { Group, Stack } from '@mantine/core';
 import { OpenCodeAgent, OpenCodeModel } from '../../../shared/sessions/types';
-import { BoardTask, GlobalSettings, ProjectFolder } from '../../../shared/types';
+import { BoardTask, GlobalSettings, ProjectFolder, TaskRunState } from '../../../shared/types';
 import { worktreeName } from '../../../shared/git/worktree';
 import { pullRequestIn, ticketInText } from '../../../shared/task/links';
 import { BoardLoadPhase, connectionLabel } from '../../../shared/board/load';
@@ -29,6 +29,9 @@ interface HeaderProps {
   /** Opens the archive of tasks that were taken off the board. */
   onOpenArchive: () => void;
   onOpenSettings: () => void;
+  /** What the manager is doing; absent until it has been started. */
+  managerState?: TaskRunState;
+  onOpenManager: () => void;
   /** How the board's locations look; an error lights the settings button. */
   setupSeverity: Severity;
   /** Open review notes across tasks. */
@@ -70,6 +73,8 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenComments,
   onOpenArchive,
   onOpenSettings,
+  managerState,
+  onOpenManager,
   setupSeverity,
   openCommentsCount,
   weekSpend,
@@ -120,6 +125,8 @@ export const Header: React.FC<HeaderProps> = ({
             onOpenSessionImport={onOpenSessionImport}
             onOpenArchive={onOpenArchive}
             onOpenSettings={onOpenSettings}
+            managerState={managerState}
+            onOpenManager={onOpenManager}
             setupSeverity={setupSeverity}
           />
         </Group>

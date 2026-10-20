@@ -13,6 +13,7 @@ import { useProjectFilter } from './useProjectFilter';
 import { useTaskViewFilter } from './useTaskViewFilter';
 import { useOnboarding } from './useOnboarding';
 import { useOpenTasks } from './useOpenTasks';
+import { useManager } from './useManager';
 import { useTaskActions } from './useTaskActions';
 import { BoardOverlays } from './BoardOverlays';
 import { Header } from '../components/header/Header';
@@ -36,9 +37,13 @@ import { useSetup } from '../components/setup/useSetup';
 
 export const App: React.FC = () => {
   const board = useBoardData();
-  const { tasks, projects, settings, models, agents } = board;
+  const { projects, settings, models, agents } = board;
 
-  const selection = useOpenTasks(tasks, board.applySnapshot);
+  // The drawer and the notifications see every task; the kanban and its counts
+  // see every task but the manager, which has a button of its own.
+  const selection = useOpenTasks(board.tasks, board.applySnapshot);
+  const manager = useManager(board.tasks, board.applySnapshot, selection.select);
+  const tasks = manager.boardTasks;
   const filter = useProjectFilter(tasks, projects);
   const view = useTaskViewFilter(filter.visibleTasks);
   const boardSettings = useBoardSettings(board);
@@ -51,9 +56,9 @@ export const App: React.FC = () => {
     refresh: board.refresh
   });
 
-  const sessionCounts = useMemo(() => activityCounts(boardSessionActivity(tasks)), [tasks]);
+  const sessionCounts = useMemo(() => activityCounts(boardSessionActivity(board.tasks)), [board.tasks]);
   const notifications = useBoardNotifications({
-    tasks,
+    tasks: board.tasks,
     awaitingCount: sessionCounts.awaiting,
     settings: settings.notifications,
     updateSettings: boardSettings.updateSettings,
@@ -142,6 +147,8 @@ export const App: React.FC = () => {
         onOpenSpend={overlays.spend.open}
         onOpenArchive={overlays.archive.open}
         onOpenSettings={overlays.settings.open}
+        managerState={manager.state}
+        onOpenManager={manager.open}
         setupSeverity={setup.report ? setupSeverity(setup.report.locations) : 'ok'}
         onOpenComments={overlays.comments.open}
         openCommentsCount={openCommentsCount}
