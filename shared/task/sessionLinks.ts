@@ -72,6 +72,38 @@ export function setLinkChoice(task: BoardTask, sessionId: string, choice: Sessio
   task.updatedAt = Date.now();
 }
 
+/** The settings a task and its sessions both carry. */
+export const RUN_SETTINGS = ['model', 'agent', 'thinkingLevel'] as const;
+
+/**
+ * The task's model/agent/thinking changed: its sessions follow.
+ *
+ * The primary session *is* the task's conversation, so a change made there
+ * lands on the task — and a pick of its own for the same setting (left by a
+ * "new session" started as primary, say) would otherwise shadow it, and the
+ * drawer's dropdown snapped straight back to the old value. That pick is
+ * dropped. Every other session keeps its own picks and follows the task in the
+ * rest. Returns new link objects: `task` may share its array with the task
+ * as it was before the patch.
+ */
+export function followTaskSettings(task: BoardTask, changed: (typeof RUN_SETTINGS)[number][]): void {
+  if (changed.length === 0 || !task.sessions) return;
+  task.sessions = task.sessions.map((link) => {
+    if (link.archivedAt) return link;
+    let chosen = link.chosen;
+    if (chosen && link.sessionId === task.sessionId) {
+      const rest: SessionChoice = { ...chosen };
+      for (const key of changed) delete rest[key];
+      chosen = Object.keys(rest).length > 0 ? rest : undefined;
+    }
+    const runs = sessionRunSettings(task, chosen);
+    const next: TaskSessionLink = { ...link, chosen };
+    for (const key of changed) next[key] = runs[key];
+    if (!chosen) delete next.chosen;
+    return next;
+  });
+}
+
 /**
  * Retire a session link: it is history now, and the board will not send it
  * another turn. Whatever run state it was carrying goes with it — a link

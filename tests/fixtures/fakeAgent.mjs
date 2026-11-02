@@ -28,10 +28,14 @@ let formElicitation = false;
 const STREAMS = SCRIPT === 'stream' || SCRIPT === 'demo';
 const ASK_SESSIONS = new Set((process.env.ACP_FAKE_ASK_SESSIONS || '').split(',').filter(Boolean));
 
+/** Each session's switched values, so `session/set_config_option` sticks like OpenCode's. */
+const switched = new Map();
+
 /** What `session/new` offers in the demo: the dropdowns the board fills from it. */
-function demoConfigOptions() {
+function demoConfigOptions(sid) {
   if (SCRIPT !== 'demo') return [];
-  const select = (id, currentValue, options) => ({ id, currentValue, options });
+  const current = switched.get(sid) || {};
+  const select = (id, fallback, options) => ({ id, currentValue: current[id] ?? fallback, options });
   return [
     select('model', 'anthropic/claude-opus-5-5', [
       { value: 'anthropic/claude-opus-5-5', name: 'Claude Opus 5.5' },
@@ -112,7 +116,7 @@ readline.createInterface({ input: process.stdin }).on('line', (line) => {
   }
 
   if (STREAMS && msg.method === 'session/load') {
-    result(msg.id, { configOptions: demoConfigOptions() });
+    result(msg.id, { configOptions: demoConfigOptions(msg.params?.sessionId) });
     return;
   }
 
@@ -128,7 +132,9 @@ readline.createInterface({ input: process.stdin }).on('line', (line) => {
   }
 
   if (msg.method === 'session/set_config_option') {
-    result(msg.id, { configOptions: demoConfigOptions() });
+    const { sessionId: sid, configId, value } = msg.params || {};
+    switched.set(sid, { ...switched.get(sid), [configId]: value });
+    result(msg.id, { configOptions: demoConfigOptions(sid) });
     return;
   }
 

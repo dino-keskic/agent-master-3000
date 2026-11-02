@@ -5,6 +5,7 @@ import { findColumn, resolveColumnId } from '../board/columns.js';
 import { buildTaskLink, mergeTaskLinks } from './links.js';
 import { linksInPrompt } from './promptLinks.js';
 import { trimTaskLogs } from './logWrites.js';
+import { followTaskSettings, RUN_SETTINGS } from './sessionLinks.js';
 
 /**
  * Making a task, and patching one.
@@ -143,5 +144,6 @@ export function patchTask(current: BoardTask, updates: Partial<BoardTask>): Boar
   ) {
     updated.titleLocked = true;
   }
+  followTaskSettings(updated, RUN_SETTINGS.filter((key) => key in next && next[key] !== current[key]));
   return updated;
 }
