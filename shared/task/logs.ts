@@ -328,6 +328,24 @@ export function sessionTranscript(
   return stampAttribution(mergeSessionTranscript(logsForSession(logs, sessionId, links), history), history);
 }
 
+/** `held` as it is, with the transcript `read` carries folded in — task and links alike. */
+function withTranscriptOf(held: BoardTask, read: BoardTask, max: number): BoardTask {
+  const readLinks = new Map((read.sessions || []).map((link) => [link.sessionId, link]));
+  return {
+    ...foldTranscript(held, read, max),
+    sessions: held.sessions?.map((link) => foldTranscript(link, readLinks.get(link.sessionId), max))
+  };
+}
+
+function foldTranscript<T extends { logs?: TaskLogItem[]; logsOmitted?: boolean }>(
+  held: T,
+  read: T | undefined,
+  max: number
+): T {
+  if (!read || read.logsOmitted) return held;
+  return { ...held, logs: unionLogs(held.logs || [], read.logs || [], max), logsOmitted: read.logsOmitted };
+}
+
 function mergeLink(previous: TaskSessionLink | undefined, incoming: TaskSessionLink, max: number): TaskSessionLink {
   if (!previous) return incoming;
   if (!incoming.logsOmitted) {
@@ -350,6 +368,12 @@ function mergeLink(previous: TaskSessionLink | undefined, incoming: TaskSessionL
  *
  * `logsOmitted` survives only while the client has never held the real
  * transcript, which is what tells the drawer it still has to fetch one.
+ *
+ * Unless the snapshot is older than what is held. Opening a panel re-reads the
+ * task, which on a busy board takes seconds, and a rename saved meanwhile was
+ * put back by the read arriving after it. `updatedAt` only moves forward, so
+ * an older snapshot was read strictly before the held copy: it brings its
+ * transcript and nothing else.
  */
 export function mergeTaskSnapshot(
   previous: BoardTask | undefined,
@@ -357,6 +381,7 @@ export function mergeTaskSnapshot(
   max = MAX_TASK_LOGS
 ): BoardTask {
   if (!previous) return incoming;
+  if (incoming.updatedAt < previous.updatedAt) return withTranscriptOf(previous, incoming, max);
 
   const previousLinks = new Map((previous.sessions || []).map((link) => [link.sessionId, link]));
   const sessions = incoming.sessions?.map((link) => mergeLink(previousLinks.get(link.sessionId), link, max));

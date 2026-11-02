@@ -148,6 +148,35 @@ test('mergeTaskSnapshot', async (t) => {
     assert.ok(!merged.sessions?.[0]?.logsOmitted);
   });
 
+  await t.test('a full read older than the held copy brings its transcript and nothing else', () => {
+    // Opened at 2_000, renamed at 3_000, the open's read arriving last.
+    const renamed = stripped({
+      title: 'Renamed',
+      titleLocked: true,
+      updatedAt: 3_000,
+      sessions: [{ sessionId: 'ses-1', title: 'Main', kind: 'main', createdAt: 1, logsOmitted: true }]
+    });
+    const read = task({
+      logs: [log({ id: 'a' })],
+      sessions: [{ sessionId: 'ses-1', title: 'Old', kind: 'main', createdAt: 1, logs: [log({ id: 's' })] }]
+    });
+    const merged = mergeTaskSnapshot(renamed, read);
+    assert.strictEqual(merged.title, 'Renamed');
+    assert.strictEqual(merged.titleLocked, true);
+    assert.strictEqual(merged.updatedAt, 3_000);
+    assert.deepStrictEqual(merged.logs.map((l) => l.id), ['a']);
+    assert.ok(!merged.logsOmitted);
+    assert.strictEqual(merged.sessions?.[0]?.title, 'Main');
+    assert.deepStrictEqual(merged.sessions?.[0]?.logs?.map((l) => l.id), ['s']);
+  });
+
+  await t.test('an older stripped push changes nothing', () => {
+    const held = task({ title: 'Renamed', updatedAt: 3_000, logs: [log({ id: 'a' })] });
+    const merged = mergeTaskSnapshot(held, stripped({ title: 'Old' }));
+    assert.strictEqual(merged.title, 'Renamed');
+    assert.deepStrictEqual(merged.logs.map((l) => l.id), ['a']);
+  });
+
   await t.test('leaves a session the client has never seen alone', () => {
     const merged = mergeTaskSnapshot(
       task(),

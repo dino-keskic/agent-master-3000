@@ -87,7 +87,8 @@ export function registerTaskRoutes(app: Express, { publisher, turns, sync }: Rou
         console.warn(`[Server] Could not bind ${primary} while opening ${id}:`, errorMessage(e) ?? e);
       });
     }
-    res.json(publisher.present(task));
+    // Re-read: a rename saved while the reads above were out is the task now.
+    res.json(publisher.present(taskStore.getTask(id) || task));
   }));
 
   app.patch('/api/tasks/:id/title', (req: Request<IdParams>, res: Response) => {
