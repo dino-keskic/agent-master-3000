@@ -175,16 +175,12 @@ export async function readOpencode(cwd: string, policy: Record<string, boolean> 
   const version = opencodeVersion(opencodeBin(), process.env);
   const live = policyDelivery(version, childBaseEnv(version)) === 'file';
   const cacheKey = live ? cwd : `${cwd}::${toolPolicySignature(policy)}`;
-  const cached = snapshotCache.get(cacheKey);
-  if (cached) return cached;
-
-  const warnings: string[] = [];
-  const snapshot = await withOpencodeServer(cwd, policy, async (server, policyFile, probe) =>
-    (await v2Version(server)) ? readV2(server, cwd, warnings, policyFile, probe) : readV1(server, cwd, warnings)
-  );
-
-  snapshotCache.set(cacheKey, snapshot);
-  return snapshot;
+  return snapshotCache.read(cacheKey, () => {
+    const warnings: string[] = [];
+    return withOpencodeServer(cwd, policy, async (server, policyFile, probe) =>
+      (await v2Version(server)) ? readV2(server, cwd, warnings, policyFile, probe) : readV1(server, cwd, warnings)
+    );
+  });
 }
 
 async function readV1(server: OpencodeServer, cwd: string, warnings: string[]): Promise<OpencodeSnapshot> {

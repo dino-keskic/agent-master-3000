@@ -17,12 +17,10 @@ const MCP_TOOLS_TTL_MS = 30 * 60_000;
  * Keyed by `mcpProbeKey`, so most entries are shared by every folder.
  */
 const mcpToolsCache = cwdCache<string[] | null>(MCP_TOOLS_TTL_MS);
-const inFlight = new Map<string, Promise<string[] | null>>();
 
 /** Forget every server's answer: most are not any one folder's to forget. */
 export function clearMcpToolsCache(): void {
   mcpToolsCache.clear();
-  inFlight.clear();
 }
 
 /**
@@ -53,23 +51,7 @@ export function listLocalMcpTools(entry: McpConfigEntry, cwd: string): Promise<s
   const [bin, ...args] = command;
   if (!bin) return Promise.resolve(null);
 
-  const cacheKey = mcpProbeKey(entry, cwd);
-  const cached = mcpToolsCache.get(cacheKey);
-  if (cached !== undefined) return Promise.resolve(cached);
-  // A second panel asking while the first is still waiting gets the same answer.
-  const pending = inFlight.get(cacheKey);
-  if (pending) return pending;
-
-  const asking = askServer(bin, args, entry, cwd)
-    .then((result) => {
-      mcpToolsCache.set(cacheKey, result);
-      return result;
-    })
-    .finally(() => {
-      if (inFlight.get(cacheKey) === asking) inFlight.delete(cacheKey);
-    });
-  inFlight.set(cacheKey, asking);
-  return asking;
+  return mcpToolsCache.read(mcpProbeKey(entry, cwd), () => askServer(bin, args, entry, cwd));
 }
 
 /** Start the server, `initialize`, `tools/list`, and stop it again. */
