@@ -30,6 +30,14 @@ import { AcpTransport, NO_TIMEOUT } from './transport.js';
  */
 const COMPACT_COMMAND = '/compact';
 
+/**
+ * How long a new prompt waits for a cancelled one to unwind. OpenCode rejects
+ * a `session/prompt` while the session's previous one has not returned
+ * ("Session already has an active ACP prompt"), and `session/cancel` is only a
+ * notification — the old prompt answers when OpenCode gets round to it.
+ */
+const PREVIOUS_PROMPT_WAIT_MS = 15_000;
+
 export interface StartTurnOptions {
   reconfigure?: boolean;
   /** What this turn's session should run as, when it is not the task's settings. */
@@ -59,6 +67,9 @@ function messageOf(e: unknown): string {
  * quiet instead of overwriting a story somebody else already told.
  */
 export class TurnRunner {
+  /** The `session/prompt` each session last sent, until it has returned. */
+  private readonly outstanding = new Map<string, Promise<unknown>>();
+
   constructor(
     private readonly transport: AcpTransport,
     private readonly registry: AcpSessionRegistry,
@@ -141,11 +152,7 @@ export class TurnRunner {
       }
       this.emit(task.id, compactStarted(sessionId, COMPACT_COMMAND));
 
-      const res = await this.transport.request(
-        'session/prompt',
-        { sessionId, prompt: [{ type: 'text', text: COMPACT_COMMAND }] },
-        NO_TIMEOUT
-      );
+      const res = await this.sendPrompt(sessionId, [{ type: 'text', text: COMPACT_COMMAND }]);
       if (this.settle(task.id, sessionId, generation)) return;
 
       const stopReason = promptResultSchema.safeParse(res).data?.stopReason || 'end_turn';
@@ -242,8 +249,7 @@ export class TurnRunner {
     // in front of it takes.
     const prompt = promptBlocks(text, loadImageData(images));
 
-    void this.transport
-      .request('session/prompt', { sessionId, prompt }, NO_TIMEOUT)
+    void this.sendPrompt(sessionId, prompt)
       .then((res) => {
         if (this.settle(taskId, sessionId, generation)) return;
         const stopReason = promptResultSchema.safeParse(res).data?.stopReason || 'end_turn';
@@ -258,6 +264,34 @@ export class TurnRunner {
   }
 
   /**
+   * Send `session/prompt` once the session's previous one has returned. A
+   * stopped turn is released on the board at once, but OpenCode keeps it
+   * active until its prompt answers; sending over it fails the new turn.
+   * If it still has not answered in time, cancel it again and send anyway —
+   * a hung agent must not hold the session forever.
+   */
+  private async sendPrompt(sessionId: string, prompt: unknown[]): Promise<unknown> {
+    const previous = this.outstanding.get(sessionId);
+    if (previous) {
+      let timer: NodeJS.Timeout | undefined;
+      const timedOut = await Promise.race([
+        previous.then(() => false, () => false),
+        new Promise<boolean>((resolve) => { timer = setTimeout(() => resolve(true), PREVIOUS_PROMPT_WAIT_MS); })
+      ]);
+      clearTimeout(timer);
+      if (timedOut) {
+        console.warn(`[ACP] ${sessionId}: previous prompt still active, cancelling it again`);
+        this.transport.notify('session/cancel', { sessionId });
+      }
+    }
+    const request = this.transport.request('session/prompt', { sessionId, prompt }, NO_TIMEOUT);
+    this.outstanding.set(sessionId, request);
+    const forget = () => { if (this.outstanding.get(sessionId) === request) this.outstanding.delete(sessionId); };
+    request.then(forget, forget);
+    return request;
+  }
+
+  /**
    * Release the turn, and report whether it was already superseded — by a stop,
    * or by a newer turn — in which case the caller must stay quiet and leave the
    * story to whoever superseded it.
@@ -266,8 +300,8 @@ export class TurnRunner {
    * change is not bounced straight back onto the queue.
    */
   private settle(taskId: string, sessionId: string, generation: number): boolean {
-    this.registry.clearInFlight(sessionId);
     if (this.registry.isCurrentGeneration(sessionId, generation)) {
+      this.registry.clearInFlight(sessionId);
       // The turn is over, so anything it left parked is dead — an agent that
       // was still waiting for an answer would not have returned from the
       // prompt. Only for the turn that is still the current one: a superseded
@@ -277,6 +311,8 @@ export class TurnRunner {
       this.sessions.turnSettled(taskId, sessionId);
       return false;
     }
+    // A superseded turn answering late must not free the session under the
+    // turn that replaced it — its cancel already released this one.
     this.emit(taskId, turnSuperseded(sessionId));
     return true;
   }
