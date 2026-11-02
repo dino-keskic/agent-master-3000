@@ -8,7 +8,8 @@ import { FAKE_AGENT } from '../../fixtures/paths.js';
 /**
  * Turns against the fake agent: what a start sends, and what it does not.
  * The "permission" script answers every prompt with a permission request, so
- * a turn that reached the agent always leaves one parked.
+ * a turn that reached the agent always leaves one parked; "stream" runs each
+ * prompt for a couple of seconds and ends it early on a cancel.
  */
 
 function task(id: string): BoardTask {
@@ -29,9 +30,12 @@ function task(id: string): BoardTask {
   };
 }
 
-async function withFakeAgent(fn: (manager: AcpManager, events: AcpEvent[]) => Promise<void>) {
+async function withFakeAgent(
+  fn: (manager: AcpManager, events: AcpEvent[]) => Promise<void>,
+  script = 'permission'
+) {
   process.env.ACP_COMMAND = `node ${FAKE_AGENT}`;
-  process.env.ACP_FAKE_SCRIPT = 'permission';
+  process.env.ACP_FAKE_SCRIPT = script;
   const manager = new AcpManager();
   const events: AcpEvent[] = [];
   manager.setEventCallback((_taskId, event) => events.push(event));
@@ -71,4 +75,21 @@ test('a new session without openOnly still runs the task prompt', async () => {
     const echo = events.find((e) => e.type === 'log' && e.log?.type === 'user_say');
     assert.strictEqual(echo?.type === 'log' ? echo.log?.text : undefined, 'do the thing');
   });
+});
+
+test('a stopped turn answering late leaves the turn that replaced it running', async () => {
+  await withFakeAgent(async (manager, events) => {
+    const first = task('TASK-3');
+    const sessionId = await manager.startTaskExecution(first, 'one', { newSession: true, primary: true });
+    await settle();
+    await manager.cancelSessionTurn(first.id, sessionId);
+    const before = events.length;
+    await manager.startTaskExecution({ ...first, sessionId }, 'two', { sessionId });
+    // Long enough for the cancelled prompt to answer, short of the new turn's end.
+    await settle();
+
+    assert.ok(manager.isSessionTurnInFlight(sessionId));
+    // A status change here is what idled the session under the new turn.
+    assert.ok(!events.slice(before).some((e) => e.type === 'status_change'));
+  }, 'stream');
 });

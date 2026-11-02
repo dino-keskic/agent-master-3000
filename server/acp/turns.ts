@@ -312,8 +312,11 @@ export class TurnRunner {
       return false;
     }
     // A superseded turn answering late must not free the session under the
-    // turn that replaced it — its cancel already released this one.
-    this.emit(taskId, turnSuperseded(sessionId));
+    // turn that replaced it — its cancel already released this one. Nor may it
+    // report the session as settled: the board idles it and drains its queue
+    // on that, under a turn that is still running. Only a stop with nothing
+    // after it needs the refresh.
+    if (!this.registry.isInFlight(sessionId)) this.emit(taskId, turnSuperseded(sessionId));
     return true;
   }
 
