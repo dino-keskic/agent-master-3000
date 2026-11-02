@@ -74,6 +74,27 @@ export function sumDiffStats(stats: DiffStat[]): DiffStat {
   );
 }
 
+/**
+ * An untracked file as `git diff --no-index /dev/null <path>` would show it,
+ * built from its contents instead. Asking git costs a process per file, and a
+ * turn that writes a dozen new files made the Changes tab wait seconds for
+ * them. `content` is null for a binary file, which git shows without lines.
+ */
+export function addedFileDiff(path: string, content: string | null): DiffFile {
+  const file: DiffFile = { ...newFile(path), status: 'added', binary: content === null };
+  if (!content) return file;
+  // A trailing newline ends the last line rather than starting another.
+  const lines = (content.endsWith('\n') ? content.slice(0, -1) : content).split('\n');
+  file.additions = lines.length;
+  file.hunks.push({
+    header: '',
+    oldStart: 0,
+    newStart: 1,
+    lines: lines.map((text, i) => ({ kind: 'add', text, newLine: i + 1 }))
+  });
+  return file;
+}
+
 const HUNK_RE = /^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@(.*)$/;
 
 /** `a/src/App.tsx` -> `src/App.tsx`; leaves paths that lack the git prefix alone. */

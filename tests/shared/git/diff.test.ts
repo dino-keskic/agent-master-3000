@@ -1,6 +1,6 @@
 import test, { describe } from 'node:test';
 import assert from 'node:assert';
-import { diffStat, fileStatLabel, parseUnifiedDiff, sumDiffStats } from '../../../shared/git/diff.js';
+import { addedFileDiff, diffStat, fileStatLabel, parseUnifiedDiff, sumDiffStats } from '../../../shared/git/diff.js';
 
 const MODIFIED = `diff --git a/src/app.ts b/src/app.ts
 index 1111111..2222222 100644
@@ -162,4 +162,24 @@ test('the header counts every folder a task worked in', () => {
     { files: 3, additions: 14, deletions: 3 }
   );
   assert.deepStrictEqual(sumDiffStats([]), { files: 0, additions: 0, deletions: 0 });
+});
+
+describe('A new file read from disk', () => {
+  test('matches what git shows for it', () => {
+    assert.deepStrictEqual(addedFileDiff('NEW.md', 'hello\nworld\n'), parseUnifiedDiff(ADDED)[0]);
+  });
+
+  test('a last line without a newline is still one line', () => {
+    const file = addedFileDiff('a.txt', 'one\ntwo');
+    assert.strictEqual(file.additions, 2);
+    assert.deepStrictEqual(file.hunks[0]!.lines.map((line) => line.text), ['one', 'two']);
+  });
+
+  test('an empty file has no lines and a binary one is marked', () => {
+    assert.deepStrictEqual(addedFileDiff('empty', '').hunks, []);
+    const binary = addedFileDiff('logo.png', null);
+    assert.strictEqual(binary.binary, true);
+    assert.strictEqual(binary.status, 'added');
+    assert.deepStrictEqual(binary.hunks, []);
+  });
 });
