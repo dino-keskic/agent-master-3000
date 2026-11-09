@@ -2,7 +2,7 @@ import { TaskLogItem, ToolCallInfo } from '../../shared/types.js';
 import { normalizeToolStatus, toolLabel } from '../../shared/agent/toolCall.js';
 import { codeModeCalls } from '../../shared/agent/codeMode.js';
 import { newId } from '../../shared/ids.js';
-import { MAX_LOG_TEXT } from '../../shared/task/logWrites.js';
+import { textCapFor } from '../../shared/task/logWrites.js';
 import { extractToolOutput, ParsedUpdate, SessionUpdate } from './schema.js';
 import { AcpEvent } from './events.js';
 import { AcpSessionRegistry } from './sessionRegistry.js';
@@ -130,7 +130,7 @@ export class TranscriptStream {
       buf = { id: newId(), text: '', type, startedAt: Date.now() };
       messages.set(key, buf);
     }
-    if (buf.text.length <= MAX_LOG_TEXT) buf.text += text;
+    if (buf.text.length <= textCapFor(type)) buf.text += text;
     return buf;
   }
 

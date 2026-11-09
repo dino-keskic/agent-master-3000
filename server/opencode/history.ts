@@ -3,17 +3,19 @@ import { TaskLogItem } from '../../shared/types.js';
 import { isSubagentTool, replayedToolStatus, toolKind } from '../../shared/agent/toolCall.js';
 import { codeModeCalls } from '../../shared/agent/codeMode.js';
 import { turnAttributionFromMessage } from '../../shared/turns/attribution.js';
+import { MAX_SAY_TEXT } from '../../shared/task/logWrites.js';
 import { parseSessionModel } from './models.js';
 import { readDb } from './db.js';
 import { SubagentResolver, subagentResolver } from './subagentLinks.js';
 
 const MAX_IMPORT_LOGS = 250;
+/** Tool output and thinking, as read back; what was said is kept as the store keeps it. */
 const MAX_IMPORT_TEXT = 4_000;
 const MAX_HISTORY_MESSAGES = 120;
 
-function clipImportText(text: string): string {
-  if (text.length <= MAX_IMPORT_TEXT) return text;
-  return `${text.slice(0, MAX_IMPORT_TEXT)}\n…`;
+function clipImportText(text: string, cap = MAX_IMPORT_TEXT): string {
+  if (text.length <= cap) return text;
+  return `${text.slice(0, cap)}\n…`;
 }
 
 export interface SessionHistory {
@@ -120,7 +122,7 @@ function textLog(id: string, { part, message, timestamp }: ParsedPart): TaskLogI
     timestamp,
     type: isUser ? 'user_say' : 'agent_say',
     title: isUser ? 'User Prompt' : 'OpenCode Agent',
-    text: clipImportText(part.text),
+    text: clipImportText(part.text, MAX_SAY_TEXT),
     metadata: attr && (attr.model || attr.agent || attr.thinkingLevel) ? { ...attr } : undefined
   };
 }

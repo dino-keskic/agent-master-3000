@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert';
 import { AcpSessionRegistry } from '../../../server/acp/sessionRegistry.js';
 import { TranscriptStream } from '../../../server/acp/transcript.js';
-import { MAX_LOG_TEXT } from '../../../shared/task/logWrites.js';
+import { MAX_LOG_TEXT, MAX_SAY_TEXT } from '../../../shared/task/logWrites.js';
 import { TaskLogItem } from '../../../shared/types.js';
 
 const chunk = (text: string, messageId?: string) => ({ kind: 'agent_chunk' as const, messageId, text });
@@ -76,9 +76,18 @@ test('a Code Mode call shows what its script calls, then what it reported runnin
 
 test('a message longer than the store keeps stops growing in memory', () => {
   const stream = new TranscriptStream(new AcpSessionRegistry());
-  const piece = 'x'.repeat(1000);
+  const piece = 'x'.repeat(10_000);
   let text = '';
-  for (let i = 0; i < 50; i++) text = logOf(stream.toEvent('TASK-1', chunk(piece, 'm'), 'ses-a')).text;
-  assert.ok(text.length > MAX_LOG_TEXT, 'still at least what the store keeps');
-  assert.ok(text.length <= MAX_LOG_TEXT + piece.length);
+  for (let i = 0; i < 30; i++) text = logOf(stream.toEvent('TASK-1', chunk(piece, 'm'), 'ses-a')).text;
+  assert.ok(text.length > MAX_SAY_TEXT, 'still at least what the store keeps');
+  assert.ok(text.length <= MAX_SAY_TEXT + piece.length);
+});
+
+test('a long answer is streamed whole, well past what a tool output keeps', () => {
+  const stream = new TranscriptStream(new AcpSessionRegistry());
+  const piece = 'y'.repeat(1000);
+  let text = '';
+  for (let i = 0; i < 20; i++) text = logOf(stream.toEvent('TASK-1', chunk(piece, 'm'), 'ses-a')).text;
+  assert.strictEqual(text.length, 20 * piece.length);
+  assert.ok(text.length > MAX_LOG_TEXT);
 });

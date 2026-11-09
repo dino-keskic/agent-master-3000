@@ -1,4 +1,4 @@
-import { BoardTask, TaskLogItem } from '../types.js';
+import { BoardTask, TaskLogItem, TaskLogType } from '../types.js';
 import { clipText } from '../sessions/list.js';
 import { MAX_TASK_LOGS, combineLogItems, findMatchingLogIndex } from './logs.js';
 
@@ -10,12 +10,25 @@ import { MAX_TASK_LOGS, combineLogItems, findMatchingLogIndex } from './logs.js'
  * previews on the session it came from, and the cap on how much is kept.
  */
 
+/** Tool output and thinking: kept for a glance, and they can run to megabytes. */
 export const MAX_LOG_TEXT = 8_000;
+/**
+ * What the agent and the user said is the transcript itself, read in full —
+ * a long report cut off at the old 8,000 characters looked like the agent had
+ * stopped mid-sentence. This only guards the state file against a runaway.
+ */
+export const MAX_SAY_TEXT = 200_000;
+
+/** How much of a line's text the store keeps. */
+export function textCapFor(type: TaskLogType): number {
+  return type === 'agent_say' || type === 'user_say' ? MAX_SAY_TEXT : MAX_LOG_TEXT;
+}
 
 /** One log line, with anything unreasonably long cut down before it is stored. */
 export function clipLogItem(log: TaskLogItem): TaskLogItem {
-  const text = log.text && log.text.length > MAX_LOG_TEXT
-    ? `${log.text.slice(0, MAX_LOG_TEXT)}\n…`
+  const cap = textCapFor(log.type);
+  const text = log.text && log.text.length > cap
+    ? `${log.text.slice(0, cap)}\n…`
     : log.text;
   const output = log.toolCall?.output && log.toolCall.output.length > MAX_LOG_TEXT
     ? `${log.toolCall.output.slice(0, MAX_LOG_TEXT)}\n…`

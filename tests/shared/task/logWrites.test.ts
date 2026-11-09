@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert';
-import { applyLogToTask, mergeLogsIntoTask } from '../../../shared/task/logWrites.js';
+import { MAX_LOG_TEXT, applyLogToTask, clipLogItem, mergeLogsIntoTask } from '../../../shared/task/logWrites.js';
 import { TaskLogItem } from '../../../shared/types.js';
 import { link, task } from '../../fixtures/boardTasks.js';
 
@@ -50,4 +50,19 @@ test('a live line is activity now', () => {
   const before = Date.now();
   applyLogToTask(t, say('live', 2_000));
   assert.ok(t.updatedAt >= before);
+});
+
+test('an answer is stored whole; a tool output is cut to a glance', () => {
+  const long = 'word '.repeat(4_000);
+  const said = clipLogItem({ id: 'a', timestamp: 1, type: 'agent_say', title: 'Agent', text: long });
+  assert.strictEqual(said.text, long);
+  const ran = clipLogItem({ id: 't', timestamp: 1, type: 'tool_call', title: 'bash', text: long });
+  assert.strictEqual(ran.text, `${long.slice(0, MAX_LOG_TEXT)}\n…`);
+});
+
+test('an answer an older board cut short is restored when it is read again', () => {
+  const long = 'word '.repeat(4_000);
+  const t = task({ logs: [{ id: 'a', timestamp: 1, type: 'agent_say', title: 'Agent', text: `${long.slice(0, MAX_LOG_TEXT)}\n…` }] });
+  mergeLogsIntoTask(t, [{ id: 'a', timestamp: 1, type: 'agent_say', title: 'Agent', text: long }]);
+  assert.strictEqual(t.logs[0]?.text, long);
 });

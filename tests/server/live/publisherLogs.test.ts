@@ -7,6 +7,7 @@ import { BoardPublisher } from '../../../server/live/publisher.js';
 import { taskStore } from '../../../server/board/taskStore.js';
 import { TurnRegistry } from '../../../server/turns/registry.js';
 import { TaskLogItem, WebSocketMessage } from '../../../shared/types.js';
+import { MAX_SAY_TEXT } from '../../../shared/task/logWrites.js';
 
 /** A hub that records what it would have sent, with one client attached. */
 class RecordingHub extends LiveHub {
@@ -53,7 +54,7 @@ test('what goes out is the stored line, clipped, not the raw update', async () =
   const publisher = new BoardPublisher(hub, new Presenter(new TurnRegistry()));
   const task = taskStore.createTask({ title: 'clip', prompt: 'p' });
 
-  publisher.log(task.id, say('huge', 'x'.repeat(50_000)));
+  publisher.log(task.id, say('huge', 'x'.repeat(MAX_SAY_TEXT + 50_000)));
   await sleep(150);
-  assert.ok(hub.sent[0]!.log.text.length < 10_000);
+  assert.strictEqual(hub.sent[0]!.log.text, `${'x'.repeat(MAX_SAY_TEXT)}\n…`);
 });
