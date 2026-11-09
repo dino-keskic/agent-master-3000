@@ -1,6 +1,7 @@
 import { loadSessionHistory } from './history.js';
-import { activeRootSessionIds } from './liveTurns.js';
+import { activeRootSessionIds, activeSessionIds } from './liveTurns.js';
 import { getOpenCodeSessionsById } from './sessionList.js';
+import { listChildSessions } from './subagents.js';
 import { boardSpend, taskSpend } from './spend.js';
 
 /**
@@ -19,6 +20,15 @@ export const READS = {
     activeRootSessionIds(ids, now, boardStartedAt),
   sessionHistory: (sessionId: string, since: number) => loadSessionHistory(sessionId, since),
   sessionsById: (ids: string[]) => getOpenCodeSessionsById(ids),
+  /**
+   * Each parent's subagent tree, and which of those sessions are live. A
+   * running task's drawer asks every few seconds; inline, the recursive walks
+   * held the event loop and every transcript load queued behind them.
+   */
+  subagentTrees: (parentIds: string[], now: number, boardStartedAt: number) => ({
+    trees: Object.fromEntries(parentIds.map((id) => [id, listChildSessions(id)])),
+    live: [...activeSessionIds(parentIds, now, boardStartedAt)]
+  }),
   // The spend reads walk every message in the window. Their caches live on the
   // thread with them, which is where the next read looks.
   boardSpend: (...args: Parameters<typeof boardSpend>) => boardSpend(...args),

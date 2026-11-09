@@ -94,8 +94,10 @@ export class OpenCodeSync {
   /**
    * Pull OpenCode's own transcript into the board task.
    *
-   * `incremental` reads only what has arrived since the last pass; a full read
-   * is what opening a task does, since the client may have nothing cached.
+   * `incremental` reads only what has arrived since the last pass — the poll
+   * and opening a task both do: the store holds the transcript, so the client
+   * gets it whole either way. A session this process has not read yet has no
+   * watermark, and is read in full.
    */
   async resyncTask(
     taskId: string,

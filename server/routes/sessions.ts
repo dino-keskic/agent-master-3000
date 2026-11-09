@@ -7,8 +7,7 @@ import { acpManager } from '../acp/client.js';
 import { IdParams, SessionParams, route } from '../http/app.js';
 import { cloneOpenCodeSession } from '../opencode/clone.js';
 import { interactively, readOffThread } from '../opencode/readerThread.js';
-import { listChildSessions } from '../opencode/subagents.js';
-import { activeSessionIds } from '../opencode/liveTurns.js';
+import { BOARD_STARTED_AT } from '../opencode/liveTurns.js';
 import { markRunningSubagents } from '../../shared/sessions/subagents.js';
 import { resolveImages } from '../board/attachments.js';
 import { taskStore } from '../board/taskStore.js';
@@ -158,21 +157,21 @@ export function registerSessionRoutes(app: Express, ctx: RouteContext): void {
   }));
 
   /** Child OpenCode sessions (subagents) of every linked session on this task. */
-  app.get('/api/tasks/:id/subagents', (req: Request<IdParams>, res: Response) => {
+  app.get('/api/tasks/:id/subagents', route(async (req: Request<IdParams>, res: Response) => {
     const task = taskStore.getTask(req.params.id);
     if (!task) return res.status(404).json({ error: 'Task not found' });
 
-    const links = listTaskSessions(task);
+    const ids = listTaskSessions(task).map((link) => link.sessionId);
     // One probe for the whole task: the liveness walk is a recursive query per
     // call, and every linked session's tree hangs off the same few roots.
-    const live = activeSessionIds(links.map((link) => link.sessionId));
+    const { trees, live } = await interactively(() =>
+      readOffThread('subagentTrees', ids, Date.now(), BOARD_STARTED_AT));
+    const running = new Set(live);
 
     const result: Record<string, SubagentSession[]> = {};
-    for (const link of links) {
-      result[link.sessionId] = markRunningSubagents(listChildSessions(link.sessionId), live);
-    }
+    for (const id of ids) result[id] = markRunningSubagents(trees[id] ?? [], running);
     res.json(result);
-  });
+  }));
 
   /** Send a follow-up prompt to a specific linked session. */
   app.post('/api/tasks/:id/sessions/:sessionId/prompt', route(async (req: Request<SessionParams>, res: Response) => {

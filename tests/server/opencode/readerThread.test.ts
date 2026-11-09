@@ -28,6 +28,15 @@ test('OpenCode reads on the reader thread', async (t) => {
     assert.deepStrictEqual(active, runRead('activeRootSessionIds', [['ses-diff-yesterday'], NOW, NOW - 60_000]));
   });
 
+  await t.test('a drawer\'s subagent trees are read off the thread, keyed by parent', async () => {
+    const ids = ['ses-diff-yesterday', 'no-such-session'];
+    const offThread = await interactively(() => readOffThread('subagentTrees', ids, NOW, NOW - 60_000));
+    assert.deepStrictEqual(offThread, runRead('subagentTrees', [ids, NOW, NOW - 60_000]));
+    assert.strictEqual(offThread.trees['ses-diff-yesterday']?.[0]?.sessionId, 'ses-subagent');
+    assert.deepStrictEqual(offThread.trees['no-such-session'], []);
+    assert.ok(Array.isArray(offThread.live));
+  });
+
   await t.test('the thread reads the database the main thread resolves now', async () => {
     const elsewhere = makeFixture();
     try {

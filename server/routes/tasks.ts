@@ -73,8 +73,11 @@ export function registerTaskRoutes(app: Express, { publisher, turns, sync }: Rou
     const existing = taskStore.getTask(id);
     if (!existing) return res.status(404).json({ error: 'Task not found' });
 
-    // Someone is waiting on these: past the poll and the spend reads.
-    const synced = await interactively(() => sync.resyncTask(id));
+    // Someone is waiting on these: past the poll and the spend reads. Only
+    // what OpenCode wrote since the board last looked — the store already has
+    // the rest, and re-parsing every session's whole window (megabytes of tool
+    // JSON each) is what made a long task take seconds to open.
+    const synced = await interactively(() => sync.resyncTask(id, { incremental: true }));
     const task = synced?.task || taskStore.getTask(id) || existing;
     const primary = task.sessionId;
     if (
