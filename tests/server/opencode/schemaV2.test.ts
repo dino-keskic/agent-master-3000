@@ -188,3 +188,21 @@ test('on OpenCode 2 a tool still running in an earlier answer keeps the session 
     closeReadDb();
   }
 });
+
+test('on OpenCode 2 a tool left running behind a finished answer is not live', () => {
+  const { file } = makeV2Fixture();
+  // The running tool's answer is followed by one that finished: the turn ended,
+  // and only the newest answer is unpacked to look for running tools.
+  const db = new DatabaseSync(file);
+  db.prepare(
+    `INSERT INTO session_message (id, session_id, type, seq, time_created, time_updated, data) VALUES (?, ?, 'assistant', 9, ?, ?, ?)`
+  ).run('msg_done', RUNNING, V2_NOW - 1, V2_NOW - 1, JSON.stringify({ time: { created: V2_NOW - 1, completed: V2_NOW - 1 }, content: [] }));
+  db.close();
+  closeReadDb();
+  process.env.OPENCODE_DB = file;
+  try {
+    assert.ok(!activeRootSessionIds([RUNNING], V2_NOW + 200_000, V2_NOW - 1_000_000).has(RUNNING));
+  } finally {
+    closeReadDb();
+  }
+});

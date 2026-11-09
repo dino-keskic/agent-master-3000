@@ -51,8 +51,9 @@ export function lastTurnSnapshot(db: DatabaseSync, ids: string[]): Map<string, L
         : `SELECT data FROM message WHERE session_id = ? ORDER BY time_created DESC, id DESC LIMIT ?`
     );
     for (const id of unique) {
-      const rows = stmt.all(id, LAST_CONTEXT_MESSAGES) as { data: string }[];
-      for (const row of rows) {
+      // Iterated, not `all`: each row is a whole answer's JSON rebuilt by the
+      // view, and the newest one almost always has its tokens.
+      for (const row of stmt.iterate(id, LAST_CONTEXT_MESSAGES) as Iterable<{ data: string }>) {
         const ctx = contextFromMessageData(row.data);
         if (ctx <= 0) continue;
         let model: string | undefined;
