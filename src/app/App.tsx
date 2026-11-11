@@ -1,4 +1,5 @@
 import React, { useCallback, useMemo, useRef } from 'react';
+import { useMantineColorScheme } from '@mantine/core';
 import { BoardTask } from '../../shared/types';
 import { listBackgroundTasks } from '../../shared/agent/backgroundTasks';
 import { activityCounts, boardSessionActivity } from '../../shared/task/sessions';
@@ -17,6 +18,9 @@ import { useManager } from './useManager';
 import { useTaskActions } from './useTaskActions';
 import { BoardOverlays } from './BoardOverlays';
 import { Header } from '../components/header/Header';
+import { useNewTaskDraft } from '../components/header/useNewTaskDraft';
+import { CommandPalette } from '../components/palette/CommandPalette';
+import { usePalette } from '../components/palette/usePalette';
 import { KanbanBoard } from '../components/board/KanbanBoard';
 import { BoardLoadingScreen } from '../components/loading/BoardLoadingScreen';
 import { useBoardLoadState } from '../components/loading/useBoardLoadState';
@@ -77,6 +81,12 @@ export const App: React.FC = () => {
     [createTask, select]
   );
 
+  // One draft for both ways in: the header's composer, and a line typed into
+  // the palette, which lands with the same defaults in the same place.
+  const draft = useNewTaskDraft(settings, projects, createAndOpenTask);
+  const palette = usePalette();
+  const { toggleColorScheme } = useMantineColorScheme();
+
   const promptInputRef = useRef<HTMLTextAreaElement | null>(null);
   const load = useBoardLoadState(board);
   const onboarding = useOnboarding(board.hasLoaded, projects, tasks, settings.selectedProjectId);
@@ -107,7 +117,7 @@ export const App: React.FC = () => {
   // `LOADING_REVEAL_MS` (the usual case against a local server) never flashes
   // a spinner; holding a minimum instead would delay a board that is ready.
   if (!load.showBoard) {
-    if (!load.showLoadingScreen) return <div className="min-h-screen bg-canvas" />;
+    if (!load.showLoadingScreen) return <div className="min-h-screen" />;
     return <BoardLoadingScreen state={load} onRetry={() => void board.refresh()} />;
   }
 
@@ -132,7 +142,7 @@ export const App: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-canvas text-ink flex flex-col font-sans">
+    <div className="min-h-screen text-ink flex flex-col font-sans">
       <Header
         settings={settings}
         projects={projects}
@@ -159,7 +169,8 @@ export const App: React.FC = () => {
         backgroundTaskCount={backgroundTaskCount}
         desktopAlertWarning={desktopAlertWarning(notifications.alertState)}
         onDeleteProject={boardSettings.deleteProject}
-        onCreateTask={createAndOpenTask}
+        draft={draft}
+        onOpenPalette={palette.open}
         promptInputRef={promptInputRef}
       />
 
@@ -190,6 +201,31 @@ export const App: React.FC = () => {
           onFocusPromptInput={() => promptInputRef.current?.focus()}
         />
       </main>
+
+      {palette.opened && (
+        <CommandPalette
+          tasks={tasks}
+          columns={settings.columns}
+          createHint={[
+            draft.runsOnCreate ? 'Dispatch an agent' : `Queue to ${draft.firstColumnTitle || 'Backlog'}`,
+            draft.project?.name
+          ].filter(Boolean).join(' · ')}
+          onClose={palette.close}
+          onOpenTask={selection.select}
+          onOpenTaskBeside={selection.openBeside}
+          onCreateTask={(text) => void draft.create(text)}
+          onNewTask={() => promptInputRef.current?.focus()}
+          onOpenManager={() => void manager.open()}
+          onOpenSpend={overlays.spend.open}
+          onOpenNotifications={notifications.openPanel}
+          onOpenComments={overlays.comments.open}
+          onOpenColumnEditor={overlays.columnEditor.open}
+          onOpenArchive={overlays.archive.open}
+          onOpenSessionImport={overlays.sessionImport.open}
+          onOpenSettings={overlays.settings.open}
+          onToggleTheme={toggleColorScheme}
+        />
+      )}
 
       <BoardOverlays
         board={board}

@@ -30,6 +30,12 @@ export interface NewTaskDraft {
    * `images` ride along with the task's first turn.
    */
   submit: (composed: string, images?: PromptImage[]) => Promise<void>;
+  /**
+   * Create a task from a line of text typed somewhere else — the command
+   * palette — with the same defaults and the same target as the header's own.
+   * What is being typed in the header is left alone.
+   */
+  create: (text: string) => Promise<void>;
 }
 
 export function useNewTaskDraft(
@@ -48,6 +54,37 @@ export function useNewTaskDraft(
   const firstColumn = settings.columns[0];
   const runsOnCreate = firstColumn?.autoRun === true;
 
+  const createFrom = async (text: string, composed: string, images?: PromptImage[]) => {
+    const turn = composed.trim() || text;
+    // A card dropped as a picture with nothing typed still needs a name.
+    const derivedTitle = deriveTaskTitle(text) || imageCountLabel(images || []);
+    const { cwd, worktreeName } = await worktree.resolveCwd(text);
+
+    await onCreateTask(
+      {
+        title: derivedTitle,
+        prompt: turn,
+        description: text,
+        // Keeps `{{prompt}}` exact even after columns stack their templates.
+        originalPrompt: turn,
+        model: settings.defaultModel,
+        agent: settings.defaultAgent,
+        thinkingLevel: settings.defaultThinkingLevel,
+        permissionMode: settings.defaultPermissionMode,
+        cwd,
+        projectId: project?.id,
+        columnId: firstColumn?.id,
+        promptImages: images?.length ? images : undefined
+      },
+      runsOnCreate
+    );
+
+    notifySuccess(
+      runsOnCreate ? 'Agent dispatched' : 'Queued',
+      worktreeName ? `"${derivedTitle}" in worktree ${worktreeName}` : `"${derivedTitle}"`
+    );
+  };
+
   return {
     prompt,
     setPrompt,
@@ -62,37 +99,22 @@ export function useNewTaskDraft(
 
       setIsSubmitting(true);
       try {
-        const text = prompt.trim();
-        const turn = composed.trim() || text;
-        // A card dropped as a picture with nothing typed still needs a name.
-        const derivedTitle = deriveTaskTitle(text) || imageCountLabel(images || []);
-        const { cwd, worktreeName } = await worktree.resolveCwd(text);
-
-        await onCreateTask(
-          {
-            title: derivedTitle,
-            prompt: turn,
-            description: text,
-            // Keeps `{{prompt}}` exact even after columns stack their templates.
-            originalPrompt: turn,
-            model: settings.defaultModel,
-            agent: settings.defaultAgent,
-            thinkingLevel: settings.defaultThinkingLevel,
-            permissionMode: settings.defaultPermissionMode,
-            cwd,
-            projectId: project?.id,
-            columnId: firstColumn?.id,
-            promptImages: images?.length ? images : undefined
-          },
-          runsOnCreate
-        );
-
-        notifySuccess(
-          runsOnCreate ? 'Agent dispatched' : 'Queued',
-          worktreeName ? `"${derivedTitle}" in worktree ${worktreeName}` : `"${derivedTitle}"`
-        );
-
+        await createFrom(prompt.trim(), composed, images);
         setPrompt('');
+      } catch (err) {
+        reportError('Could not create task', err);
+      } finally {
+        setIsSubmitting(false);
+      }
+    },
+
+    async create(text) {
+      const typed = text.trim();
+      if (!typed || isSubmitting) return;
+
+      setIsSubmitting(true);
+      try {
+        await createFrom(typed, typed);
       } catch (err) {
         reportError('Could not create task', err);
       } finally {

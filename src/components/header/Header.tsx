@@ -1,7 +1,7 @@
 import React from 'react';
 import { Group, Stack } from '@mantine/core';
 import { OpenCodeAgent, OpenCodeModel } from '../../../shared/sessions/types';
-import { BoardTask, GlobalSettings, ProjectFolder, TaskRunState } from '../../../shared/types';
+import { GlobalSettings, ProjectFolder, TaskRunState } from '../../../shared/types';
 import { worktreeName } from '../../../shared/git/worktree';
 import { pullRequestIn, ticketInText } from '../../../shared/task/links';
 import { BoardLoadPhase, connectionLabel } from '../../../shared/board/load';
@@ -9,7 +9,7 @@ import { Severity } from '../../../shared/setup/report';
 import { Composer } from '../composer/Composer';
 import { BoardActions } from './BoardActions';
 import { TaskTargetBar } from './TaskTargetBar';
-import { useNewTaskDraft } from './useNewTaskDraft';
+import { NewTaskDraft } from './useNewTaskDraft';
 import { LogoMark } from '../brand/LogoMark';
 
 interface HeaderProps {
@@ -49,7 +49,9 @@ interface HeaderProps {
   /** Set when desktop alerts are switched on but cannot reach this browser. */
   desktopAlertWarning?: string;
   onDeleteProject?: (projectId: string) => void;
-  onCreateTask: (taskInput: Partial<BoardTask>, startImmediately?: boolean) => Promise<void>;
+  /** The task being typed. Held by `App`, since the command palette creates through it too. */
+  draft: NewTaskDraft;
+  onOpenPalette: () => void;
   promptInputRef?: React.MutableRefObject<HTMLTextAreaElement | null>;
 }
 
@@ -84,29 +86,29 @@ export const Header: React.FC<HeaderProps> = ({
   backgroundTaskCount,
   desktopAlertWarning,
   onDeleteProject,
-  onCreateTask,
+  draft,
+  onOpenPalette,
   promptInputRef
 }) => {
-  const draft = useNewTaskDraft(settings, projects, onCreateTask);
   const projectPath = draft.project?.path;
 
   return (
-    <header className="sticky top-0 z-40 bg-surface border-b border-hairline shadow-panel px-[18px] py-3 backdrop-blur-panel overflow-visible">
+    <header className="glass-chrome sticky top-3 z-40 mx-3 mt-3 rounded-[24px] px-5 py-3.5 overflow-visible">
       <Stack className="max-w-[2200px] mx-auto" gap="sm">
         <Group justify="space-between" align="center">
           <Group gap="sm">
             <LogoMark size={30} />
             <Group gap={8} align="baseline">
-              <h1 className="text-[17px] font-bold tracking-[-0.02em] text-ink m-0">
+              <h1 className="text-[18px] font-semibold tracking-[-0.02em] text-ink m-0">
                 Agent Master 3000
               </h1>
-              <span className="font-mono text-[11px] leading-none px-[9px] py-[2px] rounded-full bg-acc-bg text-acc-fg">
+              <span className="font-mono text-[12px] leading-none px-[9px] py-[2px] rounded-full bg-acc-bg text-acc-fg">
                 OpenCode ACP
               </span>
             </Group>
             <Group gap={6} className="pl-3 border-l border-line">
               <span className={`w-1.5 h-1.5 rounded-full ${connection === 'ready' ? 'bg-ok' : 'bg-err'}`} />
-              <span className="text-[11px] text-ink-3">{connectionLabel(connection)}</span>
+              <span className="text-[12px] text-ink-3">{connectionLabel(connection)}</span>
             </Group>
           </Group>
 
@@ -125,6 +127,7 @@ export const Header: React.FC<HeaderProps> = ({
             onOpenSessionImport={onOpenSessionImport}
             onOpenArchive={onOpenArchive}
             onOpenSettings={onOpenSettings}
+            onOpenPalette={onOpenPalette}
             managerState={managerState}
             onOpenManager={onOpenManager}
             setupSeverity={setupSeverity}

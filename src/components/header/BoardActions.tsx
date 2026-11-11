@@ -1,6 +1,6 @@
 import React from 'react';
 import { Group, Tooltip } from '@mantine/core';
-import { Archive, Bell, BellOff, Bot, Columns3, DollarSign, History, MessageSquare, Settings } from 'lucide-react';
+import { Archive, Bell, BellOff, Bot, Columns3, DollarSign, History, MessageSquare, Search, Settings } from 'lucide-react';
 import { formatUsd } from '../../../shared/sessions/cost';
 import { Severity } from '../../../shared/setup/report';
 import { TaskRunState } from '../../../shared/types';
@@ -34,6 +34,8 @@ interface BoardActionsProps {
   /** Opens the archive. Optional only while `App` still has to wire it. */
   onOpenArchive: () => void;
   onOpenSettings: () => void;
+  /** Raises the command palette — the same thing ⌘K does. */
+  onOpenPalette: () => void;
   /** What the manager is doing; absent until it has been started. */
   managerState?: TaskRunState;
   onOpenManager: () => void;
@@ -68,6 +70,7 @@ export const BoardActions: React.FC<BoardActionsProps> = ({
   onOpenSessionImport,
   onOpenArchive,
   onOpenSettings,
+  onOpenPalette,
   managerState,
   onOpenManager,
   setupSeverity
@@ -85,6 +88,13 @@ export const BoardActions: React.FC<BoardActionsProps> = ({
 
   return (
     <Group gap={4}>
+      <Tooltip label="Find a task, a ticket or a command — or type a new task" withArrow>
+        <button type="button" className="search-pill" onClick={onOpenPalette} aria-label="Search the board">
+          <Search className="w-3.5 h-3.5" />
+          Search
+          <span className="kbd">⌘K</span>
+        </button>
+      </Tooltip>
       <Tooltip label={managerTooltip(managerState)} withArrow>
         <button
           type="button"
