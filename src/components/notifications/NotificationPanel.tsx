@@ -31,7 +31,7 @@ interface NotificationPanelProps {
 }
 
 const DRAWER_STYLES = {
-  content: { backgroundColor: 'rgb(var(--c-canvas))', color: 'rgb(var(--c-ink))' },
+  content: { backgroundColor: 'var(--glass-pane)', color: 'rgb(var(--c-ink))' },
   header: { backgroundColor: 'rgb(var(--c-surface-3))', borderBottom: '1px solid rgb(var(--c-line) / 0.7)' },
   body: { padding: 0, height: 'calc(100vh - 60px)', display: 'flex', flexDirection: 'column' }
 } as const;

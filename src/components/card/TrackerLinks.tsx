@@ -33,14 +33,14 @@ export const TrackerLinks: React.FC<{ links: TaskLink[] }> = ({ links }) => {
               target="_blank"
               rel="noreferrer noopener"
               draggable={false}
-              className={`relative z-[2] inline-flex items-center gap-1 min-w-0 max-w-full rounded px-1.5 py-0.5 bg-s4 border border-line font-mono text-[10px] hover:text-acc-fg ${
+              className={`relative z-[2] inline-flex items-center gap-1 min-w-0 max-w-full rounded px-1.5 py-0.5 bg-s4 border border-line font-mono text-[11px] hover:text-acc-fg ${
                 finished ? 'text-ink-4' : 'text-ink-3'
               }`}
               onClick={(e) => e.stopPropagation()}
             >
               <Icon className="w-3 h-3 shrink-0" />
               <span className="truncate">{link.ref || link.title}</span>
-              {badge && <LinkStatusBadge badge={badge} className="text-[10px] ml-0.5" />}
+              {badge && <LinkStatusBadge badge={badge} className="text-[11px] ml-0.5" />}
             </a>
           </Tooltip>
         );

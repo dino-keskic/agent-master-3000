@@ -3,7 +3,7 @@ import React from 'react';
 /**
  * The board's type. The sizes live in `src/index.css` under `.type-*`; this is
  * the way a screen asks for one, so a card and the session beside it cannot
- * drift apart by each inventing a `text-[11px]`.
+ * drift apart by each inventing a `text-[12px]`.
  *
  * Color is a separate choice (`tone`) and only one is applied. Two Tailwind
  * color classes on the same node do not compose — whichever was generated

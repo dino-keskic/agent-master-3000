@@ -45,7 +45,7 @@ export const PendingRequestCard: React.FC<PendingRequestCardProps> = ({ request,
             <span className="font-mono text-[12px] font-semibold text-wait-fg">Agent question</span>
           )}
         </div>
-        <span className="font-mono text-[10px] text-wait-fg shrink-0 tabular-nums">
+        <span className="font-mono text-[11px] text-wait-fg shrink-0 tabular-nums">
           waiting {elapsed(request.askedAt, now)}
         </span>
       </div>

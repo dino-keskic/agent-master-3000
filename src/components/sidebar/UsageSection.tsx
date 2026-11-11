@@ -105,7 +105,7 @@ export const UsageSection: React.FC<UsageSectionProps> = ({
           <div className="flex flex-col gap-1.5 border-t border-line px-3 py-2.5">
             <div className="flex items-baseline justify-between gap-2">
               <span className="type-meta text-ink-3">Context</span>
-              <span className="font-mono text-[11px] tabular-nums text-ink-2">
+              <span className="font-mono text-[12px] tabular-nums text-ink-2">
                 {contextLabel}
                 {contextPct != null && (
                   <span className={tone === 'ok' ? 'text-ink-4' : tone === 'warn' ? 'text-wait-fg' : 'text-err-fg'}>

@@ -112,7 +112,7 @@ export const CommandMenu: React.FC<CommandMenuProps> = ({
               <React.Fragment key={entry.id}>
                 {header && (
                   <Text
-                    size="10px"
+                    size="11px"
                     className="font-mono uppercase tracking-wide text-ink-3 px-3 pt-2 pb-1 sticky top-0 bg-surface z-10"
                   >
                     {header}
@@ -140,12 +140,12 @@ export const CommandMenu: React.FC<CommandMenuProps> = ({
                     <Text size="xs" fw={600} className="font-mono text-ink truncate">
                       {titleOf(entry)}
                     </Text>
-                    <Text size="11px" className="text-ink-2 truncate">
+                    <Text size="12px" className="text-ink-2 truncate">
                       {subtitleOf(entry)}
                     </Text>
                   </Stack>
                   {hint && (
-                    <Text size="10px" c="dimmed" className="font-mono shrink-0 mt-0.5">
+                    <Text size="11px" c="dimmed" className="font-mono shrink-0 mt-0.5">
                       {hint}
                     </Text>
                   )}

@@ -55,13 +55,13 @@ export const PromptImageStrip: React.FC<PromptImageStripProps> = ({
         {uploading && (
           <Group gap={5} className="h-14 px-1">
             <Loader size={12} />
-            <Text size="10px" className="font-mono text-ink-3">Attaching…</Text>
+            <Text size="11px" className="font-mono text-ink-3">Attaching…</Text>
           </Group>
         )}
       </Group>
 
       {error && (
-        <Text size="10px" className="font-mono text-wait-fg pt-1">
+        <Text size="11px" className="font-mono text-wait-fg pt-1">
           {error}
         </Text>
       )}

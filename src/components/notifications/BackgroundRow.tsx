@@ -50,11 +50,11 @@ export const BackgroundRow: React.FC<{
         </Badge>
       </Group>
       {summary && (
-        <Text size="11px" className="font-mono text-ink-2 truncate">
+        <Text size="12px" className="font-mono text-ink-2 truncate">
           {summary}
         </Text>
       )}
-      <Group gap={6} wrap="wrap" className="text-[10px] text-ink-3 font-mono">
+      <Group gap={6} wrap="wrap" className="text-[11px] text-ink-3 font-mono">
         <span className="truncate max-w-[180px]">{item.taskTitle}</span>
         {item.sessionTitle && item.sessionTitle !== item.taskTitle && <span>· {item.sessionTitle}</span>}
         {item.projectName && <span>· {item.projectName}</span>}

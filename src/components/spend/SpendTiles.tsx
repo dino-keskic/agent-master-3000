@@ -31,7 +31,7 @@ const Tile: React.FC<TileProps> = ({ label, value, footer, lead }) => (
       lead ? 'border-acc-bd' : 'border-line'
     }`}
   >
-    <span className="font-mono text-[10px] uppercase tracking-[0.07em] text-ink-3">{label}</span>
+    <span className="font-mono text-[11px] uppercase tracking-[0.07em] text-ink-3">{label}</span>
     <span
       className={`font-mono tabular-nums leading-tight ${
         lead ? 'text-[28px] font-bold text-ink' : 'text-[22px] font-semibold text-ink-2'
@@ -39,7 +39,7 @@ const Tile: React.FC<TileProps> = ({ label, value, footer, lead }) => (
     >
       {value}
     </span>
-    <span className="font-mono text-[10px] text-ink-4">{footer}</span>
+    <span className="font-mono text-[11px] text-ink-4">{footer}</span>
   </div>
 );
 

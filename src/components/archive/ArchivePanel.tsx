@@ -24,7 +24,7 @@ interface ArchivePanelProps {
 }
 
 const DRAWER_STYLES = {
-  content: { backgroundColor: 'rgb(var(--c-canvas))', color: 'rgb(var(--c-ink))' },
+  content: { backgroundColor: 'var(--glass-pane)', color: 'rgb(var(--c-ink))' },
   header: { backgroundColor: 'rgb(var(--c-surface-3))', borderBottom: '1px solid rgb(var(--c-line) / 0.7)' },
   body: { padding: 0, height: 'calc(100vh - 60px)', display: 'flex', flexDirection: 'column' }
 } as const;
@@ -68,7 +68,7 @@ export const ArchivePanel: React.FC<ArchivePanelProps> = ({
       styles={DRAWER_STYLES}
     >
       <Group justify="space-between" align="center" p="sm" className="shrink-0 border-b border-line/70">
-        <span className="font-mono text-[11px] text-ink-3">
+        <span className="font-mono text-[12px] text-ink-3">
           Archived tasks keep their transcript, sessions and notes.
         </span>
         <Tooltip label="Re-read the archive" withArrow>

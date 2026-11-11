@@ -28,17 +28,17 @@ export const RunProgress: React.FC<{
           <Loader2 className="w-3 h-3 text-run-fg animate-spin shrink-0" />
           <span className="text-[11.5px] font-semibold text-ink flex-1 min-w-0 truncate">{tool.title}</span>
           {tool.stepBadge && (
-            <span className="font-mono text-[10px] text-ink-3 shrink-0">{tool.stepBadge}</span>
+            <span className="font-mono text-[11px] text-ink-3 shrink-0">{tool.stepBadge}</span>
           )}
           {!tool.command && (
-            <span className="font-mono text-[10px] text-ink-4 shrink-0 tabular-nums">{duration}</span>
+            <span className="font-mono text-[11px] text-ink-4 shrink-0 tabular-nums">{duration}</span>
           )}
         </div>
         {tool.command && (
           <div className="flex items-center gap-1.5 px-[9px] pb-[7px]">
             <Terminal className="w-[11px] h-[11px] text-ink-4 shrink-0" />
             <span className="font-mono text-[10.5px] text-ink-3 flex-1 min-w-0 truncate">{tool.command}</span>
-            <span className="font-mono text-[10px] text-ink-4 shrink-0 tabular-nums">{duration}</span>
+            <span className="font-mono text-[11px] text-ink-4 shrink-0 tabular-nums">{duration}</span>
           </div>
         )}
         <div className="tool-sweep-track">
@@ -56,7 +56,7 @@ export const RunProgress: React.FC<{
       {nextPrompt && (
         <div className="flex items-center gap-1.5 px-px">
           <ArrowRight className="w-[11px] h-[11px] text-ink-4 shrink-0" />
-          <span className="font-mono text-[10px] uppercase tracking-[0.05em] text-ink-4 shrink-0">Next</span>
+          <span className="font-mono text-[11px] uppercase tracking-[0.05em] text-ink-4 shrink-0">Next</span>
           <span className="text-[11.5px] text-ink-3 flex-1 min-w-0 truncate">{nextPrompt}</span>
         </div>
       )}

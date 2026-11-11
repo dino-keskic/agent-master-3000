@@ -84,28 +84,21 @@ export default {
         panel: 'var(--panel-sh)'
       },
       backdropBlur: {
-        panel: '8px'
+        panel: '28px'
       },
       fontFamily: {
-        sans: ['Inter var', 'Inter', 'ui-sans-serif', 'system-ui', '-apple-system', 'Segoe UI', 'sans-serif'],
-        mono: [
-          'JetBrains Mono',
-          'ui-monospace',
-          'SFMono-Regular',
-          'SF Mono',
-          'Menlo',
-          'Consolas',
-          'monospace'
-        ]
+        // The stacks live in `src/index.css`, so CSS and Tailwind cannot drift.
+        sans: ['var(--font-sans)'],
+        mono: ['var(--font-mono)']
       },
       fontSize: {
         // The transcript reads at `log`; `log-sm` is its labels and gutters,
         // `log-ui` the tool-call chrome, `log-code` the tool and code panes.
-        meta: ['10px', { lineHeight: '1.4' }],
-        'log-sm': ['11px', { lineHeight: '1.45' }],
-        'log-ui': ['12px', { lineHeight: '1.45' }],
-        log: ['13px', { lineHeight: '1.6' }],
-        'log-code': ['12px', { lineHeight: '1.55' }]
+        meta: ['11px', { lineHeight: '1.4' }],
+        'log-sm': ['12px', { lineHeight: '1.45' }],
+        'log-ui': ['13px', { lineHeight: '1.45' }],
+        log: ['14px', { lineHeight: '1.6' }],
+        'log-code': ['12.5px', { lineHeight: '1.55' }]
       }
     }
   },

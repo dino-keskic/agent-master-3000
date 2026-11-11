@@ -35,6 +35,6 @@ export const SpendSkeleton: React.FC = () => (
 export const SpendUnavailable: React.FC<{ reason: string; hint?: string }> = ({ reason, hint }) => (
   <div className="flex flex-col gap-1.5 rounded-xl border border-line bg-surface-2 px-4 py-6 text-center">
     <span className="text-[13px] text-ink-2">{reason}</span>
-    {hint && <span className="font-mono text-[11px] text-ink-4">{hint}</span>}
+    {hint && <span className="font-mono text-[12px] text-ink-4">{hint}</span>}
   </div>
 );

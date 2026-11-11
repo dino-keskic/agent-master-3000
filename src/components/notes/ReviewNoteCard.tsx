@@ -82,7 +82,7 @@ export const ReviewNoteCard: React.FC<ReviewNoteCardProps> = ({
         <button
           type="button"
           onClick={handleNavigate}
-          className="font-mono text-[11px] font-semibold px-2 py-0.5 rounded-md bg-acc-bg text-acc-fg hover:opacity-80 transition-opacity cursor-pointer border-0"
+          className="font-mono text-[12px] font-semibold px-2 py-0.5 rounded-md bg-acc-bg text-acc-fg hover:opacity-80 transition-opacity cursor-pointer border-0"
         >
           {item.taskId}
         </button>
@@ -93,7 +93,7 @@ export const ReviewNoteCard: React.FC<ReviewNoteCardProps> = ({
         >
           {item.taskTitle}
         </button>
-        <span className="font-mono text-[11px] text-ink-3 shrink-0">{item.location}</span>
+        <span className="font-mono text-[12px] text-ink-3 shrink-0">{item.location}</span>
       </div>
 
       {/* Content */}
@@ -108,14 +108,14 @@ export const ReviewNoteCard: React.FC<ReviewNoteCardProps> = ({
           <div className={`w-[3px] rounded-full shrink-0 ${isResolved ? 'bg-ok' : 'bg-accent'}`} />
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-1">
-              <span className="font-mono text-[10px] uppercase tracking-wider font-semibold text-acc-fg">
+              <span className="font-mono text-[11px] uppercase tracking-wider font-semibold text-acc-fg">
                 {comment.author === 'agent' ? 'Agent' : 'You'}
               </span>
-              <span className="font-mono text-[10px] text-ink-4">
+              <span className="font-mono text-[11px] text-ink-4">
                 {relativeTime(comment.createdAt)}
               </span>
               {isResolved && (
-                <span className="font-mono text-[10px] text-ok ml-auto">✓ Resolved</span>
+                <span className="font-mono text-[11px] text-ok ml-auto">✓ Resolved</span>
               )}
             </div>
             <div className="text-[13px] leading-relaxed text-ink whitespace-pre-wrap">{comment.body}</div>

@@ -5,6 +5,17 @@
 @tailwind utilities;
 
 @layer base {
+  /*
+   * The system's own faces first: San Francisco on a Mac is hinted for the
+   * screen it is on and is what every other window there is set in, which a
+   * web font at 11px never quite matches. Inter and JetBrains Mono (loaded by
+   * `index.html`) are what everything else falls back to.
+   */
+  :root {
+    --font-sans: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Inter, system-ui, sans-serif;
+    --font-mono: ui-monospace, 'SF Mono', SFMono-Regular, 'JetBrains Mono', Menlo, Consolas, monospace;
+  }
+
   html {
     color-scheme: dark;
   }
@@ -14,20 +25,36 @@
   }
 
   body {
-    font-family: 'Inter var', Inter, ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
-    /* `cv11` gives Inter a single-storey `a` and a straight `l`, which is what
-       keeps agent output legible where paths and prose sit on the same line. */
-    font-feature-settings: 'cv11', 'ss01';
+    font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
     background-color: rgb(var(--c-canvas));
     color: rgb(var(--c-ink));
+  }
+
+  /*
+   * The colour the glass sits on. Fixed to the viewport, so a column scrolling
+   * past does not drag it along, and a pseudo-element rather than
+   * `background-attachment: fixed`, which repaints on every scroll frame.
+   */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    background:
+      radial-gradient(62vw 54vh at 10% -6%, var(--blob-1), transparent 62%),
+      radial-gradient(52vw 48vh at 94% 4%, var(--blob-2), transparent 62%),
+      radial-gradient(58vw 52vh at 72% 108%, var(--blob-3), transparent 62%),
+      radial-gradient(46vw 42vh at -4% 92%, var(--blob-4), transparent 62%);
   }
 
   code,
   pre,
   kbd {
-    font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
+    font-family: var(--font-mono);
     font-variant-ligatures: none;
   }
 
@@ -57,31 +84,39 @@
 }
 
 /*
- * Panels and cards.
+ * Panels and cards — the glass.
  *
- * The dark scheme floats a translucent card on a blurred navy panel; paper
- * drops the blur and earns its separation from a hairline shadow instead. Both
- * come out of the same declarations because `--s3`, `--blur` and `--card-sh`
- * already differ per scheme.
+ * `.glass-chrome` is what floats over content that moves under it (the header,
+ * the palette, menus): translucent, blurred, with a lit top edge. A column is
+ * the same material without the blur, because all that is behind it is the
+ * still canvas, and a card is a thinner pane again — a blur per card would be
+ * a hundred compositor layers for a difference nobody can see.
  */
+.glass-chrome {
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-bd);
+  box-shadow: var(--glass-hi), var(--glass-sh);
+}
+
 .glass-panel {
-  background: rgb(var(--c-surface-2));
-  border: 1px solid rgb(var(--c-line));
+  background: var(--glass-panel);
+  border: 1px solid var(--glass-bd);
   box-shadow: var(--panel-sh);
 }
 
 .glass-card {
   background: var(--s3);
-  backdrop-filter: var(--blur);
-  -webkit-backdrop-filter: var(--blur);
-  border: 1px solid rgb(var(--c-line));
+  border: 1px solid var(--hairline);
   box-shadow: var(--card-sh);
   transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .glass-card:hover {
   background: var(--s3h);
-  border-color: rgb(var(--c-line-strong));
+  border-color: var(--glass-bd);
+  transform: translateY(-1px);
 }
 
 .task-card {
@@ -252,9 +287,9 @@
   display: flex;
   gap: 2px;
   padding: 2px;
-  border: 1px solid rgb(var(--c-line));
-  border-radius: 8px;
-  background: rgb(var(--c-surface-2));
+  border: 1px solid var(--hairline);
+  border-radius: 999px;
+  background: var(--s3);
 }
 
 .seg-btn {
@@ -264,7 +299,7 @@
   height: 24px;
   padding: 0 10px;
   border: 0;
-  border-radius: 6px;
+  border-radius: 999px;
   background: transparent;
   color: rgb(var(--c-ink-3));
   font-family: inherit;
@@ -298,13 +333,13 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  height: 30px;
-  padding: 0 10px;
+  height: 32px;
+  padding: 0 12px;
   border: 0;
-  border-radius: 8px;
+  border-radius: 999px;
   background: transparent;
   color: rgb(var(--c-ink-2));
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 500;
   font-variant-numeric: tabular-nums;
   cursor: pointer;
@@ -312,13 +347,13 @@
 }
 
 .hdr-btn.is-icon {
-  width: 30px;
+  width: 32px;
   padding: 0;
   justify-content: center;
 }
 
 .hdr-btn:hover {
-  background: rgb(var(--c-surface-2));
+  background: var(--s3h);
   color: rgb(var(--c-ink));
 }
 
@@ -348,11 +383,11 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 26px;
-  height: 26px;
+  width: 28px;
+  height: 28px;
   padding: 0;
   border: 0;
-  border-radius: 6px;
+  border-radius: 999px;
   background: transparent;
   color: rgb(var(--c-ink-3));
   cursor: pointer;
@@ -360,7 +395,7 @@
 
 .icon-btn:hover,
 .icon-btn.is-on {
-  background: rgb(var(--c-surface-2));
+  background: var(--s3h);
   color: rgb(var(--c-ink));
 }
 
@@ -372,13 +407,13 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 18px;
-  height: 18px;
-  padding: 0 5px;
+  min-width: 19px;
+  height: 19px;
+  padding: 0 6px;
   border-radius: 999px;
-  font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 10px;
-  font-weight: 700;
+  font-size: 11px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
   line-height: 1;
   background: var(--acc-bg);
   color: var(--acc-fg);
@@ -410,13 +445,12 @@
   align-items: center;
   gap: 3px;
   max-width: 100%;
-  padding: 1px 6px;
+  padding: 1px 7px;
   border-radius: 999px;
-  border: 1px solid rgb(var(--c-line));
-  background: rgb(var(--c-surface-3) / 0.5);
+  border: 1px solid var(--hairline);
+  background: var(--s3);
   color: rgb(var(--c-ink-2));
-  font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 500;
   line-height: 1.45;
   white-space: nowrap;
@@ -450,31 +484,31 @@
  * size instead of each file picking a `text-[Npx]`.
  */
 .type-meta {
-  font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 10px;
+  font-family: var(--font-mono);
+  font-size: 11px;
   line-height: 1.4;
   font-variant-numeric: tabular-nums;
 }
 
 .type-sm {
-  font-size: 11px;
+  font-size: 12px;
   line-height: 1.45;
 }
 
 .type-ui,
 .tool-name {
-  font-size: 12px;
+  font-size: 13px;
   line-height: 1.45;
 }
 
 .type-body {
-  font-size: 13px;
+  font-size: 14px;
   line-height: 1.6;
 }
 
 .type-code {
-  font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 11px;
+  font-family: var(--font-mono);
+  font-size: 12px;
   line-height: 1.5;
   font-variant-numeric: tabular-nums;
 }
@@ -490,37 +524,38 @@
  * label  — the word beside that number
  */
 .type-title {
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 600;
   line-height: 1.35;
+  letter-spacing: -0.01em;
 }
 
 .type-title.is-sm {
-  font-size: 13px;
+  font-size: 14px;
 }
 
 .type-copy {
   margin: 0;
-  font-size: 12px;
+  font-size: 13px;
   line-height: 1.55;
 }
 
 .type-meta-line {
-  font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 11px;
+  font-family: var(--font-mono);
+  font-size: 11.5px;
   line-height: 1.45;
   font-variant-numeric: tabular-nums;
 }
 
 .type-stat {
-  font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-family: var(--font-mono);
   font-size: 12px;
   line-height: 1.45;
   font-variant-numeric: tabular-nums;
 }
 
 .type-label {
-  font-size: 12px;
+  font-size: 13px;
   line-height: 1.45;
 }
 
@@ -546,13 +581,13 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  height: 28px;
-  padding: 0 10px 0 8px;
-  border: 1px solid rgb(var(--c-line));
+  height: 30px;
+  padding: 0 11px 0 9px;
+  border: 1px solid var(--hairline);
   border-radius: 999px;
-  background: rgb(var(--c-surface));
+  background: var(--s3);
   color: rgb(var(--c-ink-2));
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 500;
   line-height: 1;
   box-shadow: var(--card-sh);
@@ -582,8 +617,8 @@
   border-radius: 999px;
   background: rgb(var(--c-ink-4));
   color: #fff;
-  font-size: 10px;
-  font-weight: 700;
+  font-size: 11px;
+  font-weight: 600;
   line-height: 1;
   font-variant-numeric: tabular-nums;
   flex-shrink: 0;
@@ -764,11 +799,10 @@
  * never restyle the app around it.
  */
 .md {
-  /* The card title is 14px Inter. The transcript used to be 13px and a step
-     greyer, so opening a task felt like a different face. Color is inherited
+  /* The transcript is set in the same face and size as a card's copy, so
+     opening a task does not feel like a different product. Color is inherited
      so a message can be ink the way a title is; code stays mono below. */
-  font-family: 'Inter var', Inter, ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
-  font-feature-settings: 'cv11', 'ss01';
+  font-family: var(--font-sans);
   font-size: 14px;
   line-height: 1.55;
   color: inherit;
@@ -949,9 +983,8 @@
 }
 
 .md code {
-  font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  font-feature-settings: normal;
-  font-size: 12px;
+  font-family: var(--font-mono);
+  font-size: 12.5px;
   line-height: 1.45;
   padding: 1px 5px;
   border-radius: 4px;
@@ -968,7 +1001,7 @@
 }
 
 .md-inline code {
-  font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-family: var(--font-mono);
   font-size: 0.88em;
   padding: 0 4px;
   border-radius: 4px;
@@ -1045,7 +1078,7 @@
   padding: 0.3em 0.7em;
   background: rgb(var(--c-surface-2));
   border-bottom: 1px solid rgb(var(--c-line));
-  font-size: 10px;
+  font-size: 11px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: rgb(var(--c-ink-3));
@@ -1055,8 +1088,7 @@
   margin: 0;
   padding: 10px 12px;
   overflow-x: auto;
-  font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  font-feature-settings: normal;
+  font-family: var(--font-mono);
   font-size: 12px;
   line-height: 1.55;
   color: rgb(var(--c-ink-2));
@@ -1064,7 +1096,7 @@
 }
 
 pre.text-log-code {
-  font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-family: var(--font-mono);
   font-size: 12px;
   line-height: 1.55;
 }
@@ -1095,16 +1127,57 @@ pre.text-log-code {
 
 /* Custom Scrollbar */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 8px;
+  height: 8px;
 }
 ::-webkit-scrollbar-track {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: rgb(var(--c-line-strong));
-  border-radius: 4px;
+  background: rgb(var(--c-ink-3) / 0.35);
+  border: 2px solid transparent;
+  background-clip: content-box;
+  border-radius: 999px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: rgb(var(--c-accent) / 0.8);
+  background: rgb(var(--c-ink-3) / 0.6);
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+
+/*
+ * Mantine's floating surfaces, as glass.
+ *
+ * Menus, popovers, select lists, modals and the side drawers all float over
+ * the board, so they are the chrome material too. The static `mantine-*`
+ * class names are the documented hook; this file loads after Mantine's own
+ * stylesheet, so a single class is enough to win.
+ */
+[class*='mantine-'][class*='-dropdown'],
+.mantine-Modal-content,
+.mantine-Drawer-content {
+  background: var(--glass-bg-strong);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-bd);
+  box-shadow: var(--glass-hi), var(--glass-sh);
+}
+
+[class*='mantine-'][class*='-dropdown'] {
+  border-radius: 14px;
+}
+
+.mantine-Modal-content {
+  border-radius: 22px;
+}
+
+/* A header that is its own opaque strip would cut the pane in two. */
+.mantine-Modal-header,
+.mantine-Drawer-header {
+  background: transparent;
+}
+
+.mantine-Tooltip-tooltip {
+  border-radius: 8px;
+  font-size: 12px;
 }

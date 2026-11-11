@@ -27,13 +27,13 @@ export function CommentIndexRow({
       )}
       {entry.workspace && (
         <span
-          className="font-mono text-[10px] text-ink-3 shrink-0 rounded bg-surface-3 px-1.5 py-0.5 max-w-[130px] truncate"
+          className="font-mono text-[11px] text-ink-3 shrink-0 rounded bg-surface-3 px-1.5 py-0.5 max-w-[130px] truncate"
           title={entry.workspace}
         >
           {entry.workspace}
         </span>
       )}
-      <span className="font-mono text-[11px] text-ink-2 shrink-0 w-[230px] truncate" title={entry.location}>
+      <span className="font-mono text-[12px] text-ink-2 shrink-0 w-[230px] truncate" title={entry.location}>
         {entry.location}
       </span>
       <span className="text-xs text-ink-3 flex-1 min-w-0 truncate">{entry.preview}</span>
@@ -41,7 +41,7 @@ export function CommentIndexRow({
         <Unlink className="w-3.5 h-3.5 text-wait-fg shrink-0" aria-label="Not on the current diff" />
       )}
       {entry.replyCount > 0 && (
-        <span className="font-mono text-[10px] text-ink-4 shrink-0">
+        <span className="font-mono text-[11px] text-ink-4 shrink-0">
           {entry.replyCount} {entry.replyCount === 1 ? 'reply' : 'replies'}
         </span>
       )}

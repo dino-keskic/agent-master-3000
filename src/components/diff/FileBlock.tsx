@@ -55,22 +55,22 @@ const FileHeader: React.FC<FileBlockProps> = ({
       {file.path}
     </span>
     {file.additions > 0 && (
-      <span className="font-mono text-[11px] text-add shrink-0">
+      <span className="font-mono text-[12px] text-add shrink-0">
         +{file.additions}
       </span>
     )}
     {file.deletions > 0 && (
-      <span className="font-mono text-[11px] text-del shrink-0">
+      <span className="font-mono text-[12px] text-del shrink-0">
         −{file.deletions}
       </span>
     )}
     {comments.length > 0 && (
-      <span className="font-mono text-[10px] font-semibold px-2 py-0.5 rounded-full bg-acc-bg text-acc-fg shrink-0">
+      <span className="font-mono text-[11px] font-semibold px-2 py-0.5 rounded-full bg-acc-bg text-acc-fg shrink-0">
         {comments.length} {comments.length === 1 ? 'note' : 'notes'}
       </span>
     )}
     {file.status !== 'modified' && (
-      <span className="font-mono text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded bg-surface-3 text-ink-3 shrink-0">
+      <span className="font-mono text-[11px] uppercase tracking-wide px-1.5 py-0.5 rounded bg-surface-3 text-ink-3 shrink-0">
         {FILE_STATUS_LABEL[file.status]}
       </span>
     )}

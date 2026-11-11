@@ -88,7 +88,7 @@ export const SplitPicker: React.FC<SplitPickerProps> = ({ tasks, openTaskIds, at
                   onClick={() => pick(task.id)}
                 >
                   <SessionStateDot state={task.runState} />
-                  <span className="font-mono text-[11px] text-ink-3 shrink-0">{task.id}</span>
+                  <span className="font-mono text-[12px] text-ink-3 shrink-0">{task.id}</span>
                   <span className="text-[13px] text-ink truncate min-w-0">{task.title}</span>
                 </button>
               ))

@@ -38,14 +38,14 @@ const WorkspaceHeader: React.FC<{ workspace: WorkspaceDiff }> = ({ workspace }) 
       {workspaceTitle(workspace)}
     </span>
     {workspace.branch && (
-      <span className="flex items-center gap-1 font-mono text-[11px] text-ink-3 shrink-0">
+      <span className="flex items-center gap-1 font-mono text-[12px] text-ink-3 shrink-0">
         <GitBranch className="w-3 h-3" />
         {workspace.branch}
       </span>
     )}
     <span className="flex-1" />
     {!workspace.error && (
-      <span className="font-mono text-[11px] text-ink-3 shrink-0">
+      <span className="font-mono text-[12px] text-ink-3 shrink-0">
         {workspace.stat.files} file{workspace.stat.files === 1 ? '' : 's'}{' '}
         <span className="text-add">+{workspace.stat.additions}</span>{' '}
         <span className="text-del">−{workspace.stat.deletions}</span>

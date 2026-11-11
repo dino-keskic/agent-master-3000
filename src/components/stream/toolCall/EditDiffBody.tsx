@@ -48,7 +48,7 @@ function toRows(files: DiffFile[]): Row[] {
 }
 
 const StatLabel: React.FC<{ additions: number; deletions: number }> = ({ additions, deletions }) => (
-  <span className="font-mono text-[11px] shrink-0 tabular-nums">
+  <span className="font-mono text-[12px] shrink-0 tabular-nums">
     {additions > 0 && <span className="text-add">+{additions}</span>}
     {additions > 0 && deletions > 0 && ' '}
     {deletions > 0 && <span className="text-del">−{deletions}</span>}
@@ -106,13 +106,13 @@ export const EditDiffBody: React.FC<{ diff: EditDiff; rawInput?: Record<string, 
       <div className="rounded-md border border-line overflow-hidden bg-code">
         <div className="flex items-center gap-2 px-2 py-1 bg-surface-2 border-b border-hairline">
           <span
-            className="font-mono text-[11px] text-ink-2 truncate flex-1 min-w-0"
+            className="font-mono text-[12px] text-ink-2 truncate flex-1 min-w-0"
             title={single?.path}
           >
             {single ? single.path : `${stat.files} files`}
           </span>
           {diff.truncated && (
-            <span className="font-mono text-[10px] text-ink-4 shrink-0" title="Capped so a very large edit cannot stall the transcript">
+            <span className="font-mono text-[11px] text-ink-4 shrink-0" title="Capped so a very large edit cannot stall the transcript">
               truncated
             </span>
           )}
@@ -150,7 +150,7 @@ export const EditDiffBody: React.FC<{ diff: EditDiff; rawInput?: Record<string, 
           <UnstyledButton
             onClick={() => setExpanded((open) => !open)}
             aria-expanded={expanded}
-            className="w-full px-2 py-1 border-t border-hairline bg-surface-2 hover:bg-surface-3 transition-colors font-mono text-[11px] text-ink-3 text-left"
+            className="w-full px-2 py-1 border-t border-hairline bg-surface-2 hover:bg-surface-3 transition-colors font-mono text-[12px] text-ink-3 text-left"
           >
             {expanded ? 'Show less' : `Show ${hidden} more ${hidden === 1 ? 'line' : 'lines'}`}
           </UnstyledButton>

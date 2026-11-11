@@ -23,7 +23,7 @@ export const SpendLabel: React.FC<SpendLabelProps> = ({ cost, contextTokens, con
     <>
       {usd && (
         <Tooltip label={costLabel} withArrow>
-          <Text size="xs" className="font-mono text-ink-2 text-[11px] shrink-0">
+          <Text size="xs" className="font-mono text-ink-2 text-[12px] shrink-0">
             {prefix}{usd}
           </Text>
         </Tooltip>
@@ -33,7 +33,7 @@ export const SpendLabel: React.FC<SpendLabelProps> = ({ cost, contextTokens, con
           label={pct != null ? `Last turn used ${pct}% of the context window` : 'Last turn context size'}
           withArrow
         >
-          <Text size="xs" className="font-mono text-ink-3 text-[11px] shrink-0">
+          <Text size="xs" className="font-mono text-ink-3 text-[12px] shrink-0">
             {prefix && !usd ? prefix : ''}{ctx}
           </Text>
         </Tooltip>

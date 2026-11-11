@@ -38,13 +38,13 @@ export const MicButton: React.FC<MicButtonProps> = ({ onText, disabled = false, 
   return (
     <div className="flex items-center gap-1.5 shrink-0">
       {recording && (
-        <span className="font-mono text-[11px] text-err-fg tabular-nums flex items-center gap-1" aria-live="polite">
+        <span className="font-mono text-[12px] text-err-fg tabular-nums flex items-center gap-1" aria-live="polite">
           <span className="w-1.5 h-1.5 rounded-full bg-err animate-pulse" />
           {formatElapsed(elapsed)}
         </span>
       )}
       {phase === 'transcribing' && size === 'md' && (
-        <span className="font-mono text-[11px] text-ink-3">{hint}</span>
+        <span className="font-mono text-[12px] text-ink-3">{hint}</span>
       )}
       <Tooltip label={hint} withArrow multiline maw={280} disabled={phase === 'transcribing' && size === 'md'}>
         <button

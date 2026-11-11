@@ -51,7 +51,7 @@ const SectionHeader: React.FC<{
       {title}
     </Text>
     {subtitle && (
-      <Text size="10px" c="dimmed" className="truncate min-w-0" title={subtitle}>
+      <Text size="11px" c="dimmed" className="truncate min-w-0" title={subtitle}>
         {subtitle}
       </Text>
     )}

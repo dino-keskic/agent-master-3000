@@ -9,7 +9,7 @@ export const Byline: React.FC<{ author: ChangelogComment['author']; at: number }
   const colorClass = isAgent ? 'text-run-fg' : 'text-acc-fg';
 
   return (
-    <div className="flex items-center gap-1.5 font-mono text-[10px]">
+    <div className="flex items-center gap-1.5 font-mono text-[11px]">
       {isAgent ? (
         <Bot className={`w-3 h-3 ${colorClass} shrink-0`} />
       ) : (

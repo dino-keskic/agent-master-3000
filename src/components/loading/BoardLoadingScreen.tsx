@@ -23,7 +23,7 @@ export const BoardLoadingScreen: React.FC<BoardLoadingScreenProps> = ({ state, o
 
   return (
     <div
-      className="min-h-screen bg-canvas text-ink font-sans flex items-center justify-center p-8"
+      className="min-h-screen text-ink font-sans flex items-center justify-center p-8"
       role="status"
       aria-live="polite"
       aria-busy={!failed}

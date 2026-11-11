@@ -88,7 +88,7 @@ export const WorktreePicker: React.FC<WorktreePickerProps> = ({ worktree, projec
                   )}
                 </Group>
                 {entry && (
-                  <Text size="10px" c="dimmed" className="font-mono truncate">
+                  <Text size="11px" c="dimmed" className="font-mono truncate">
                     {branchOf(entry)}
                   </Text>
                 )}

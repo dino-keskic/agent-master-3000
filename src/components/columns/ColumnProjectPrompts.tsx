@@ -98,7 +98,7 @@ export const ColumnProjectPrompts: React.FC<ColumnProjectPromptsProps> = ({
 
           {configured.length > 0 && (
             <Group gap={6} wrap="wrap">
-              <Text size="10px" className="text-ink-3 font-mono uppercase tracking-wide">
+              <Text size="11px" className="text-ink-3 font-mono uppercase tracking-wide">
                 Has instructions
               </Text>
               {configured.map((project) => (

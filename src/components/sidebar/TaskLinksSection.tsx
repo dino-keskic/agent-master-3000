@@ -66,7 +66,7 @@ const LinkRow: React.FC<{ link: TaskLink; onRemove: () => void }> = ({ link, onR
             </Anchor>
           </Tooltip>
           {/* Outside the link, so a long title truncates and the status stays. */}
-          {badge && <LinkStatusBadge badge={badge} className="text-[11px]" />}
+          {badge && <LinkStatusBadge badge={badge} className="text-[12px]" />}
         </Group>
         {link.note && (
           <Type role="meta" className="block truncate">{link.note}</Type>

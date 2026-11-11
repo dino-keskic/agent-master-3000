@@ -50,7 +50,7 @@ export const ArchiveRow: React.FC<ArchiveRowProps> = ({
         <Group justify="space-between" align="flex-start" gap="xs" wrap="nowrap">
           <Stack gap={2} className="min-w-0">
             <Group gap={8} wrap="nowrap" className="min-w-0">
-              <span className="font-mono text-[11px] text-ink-3 shrink-0">{task.id}</span>
+              <span className="font-mono text-[12px] text-ink-3 shrink-0">{task.id}</span>
               <span className="text-[13px] text-ink truncate">{task.title}</span>
             </Group>
             <Group gap={8} wrap="nowrap" className="min-w-0">

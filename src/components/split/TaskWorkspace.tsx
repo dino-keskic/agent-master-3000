@@ -36,7 +36,7 @@ interface TaskWorkspaceProps {
 const EXPANDED_KEY = 'agentMasterDrawerExpanded';
 
 const WORKSPACE_STYLES = {
-  content: { backgroundColor: 'rgb(var(--c-canvas))', color: 'rgb(var(--c-ink))' },
+  content: { backgroundColor: 'var(--glass-pane)', color: 'rgb(var(--c-ink))' },
   body: { padding: 0, height: '100vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }
 } as const;
 
@@ -168,7 +168,7 @@ const PaneTabs: React.FC<{
             onClick={() => onFocus(task.id)}
           >
             <SessionStateDot state={task.runState} />
-            <span className="font-mono text-[11px] truncate">{task.id}</span>
+            <span className="font-mono text-[12px] truncate">{task.id}</span>
           </button>
           <button
             type="button"

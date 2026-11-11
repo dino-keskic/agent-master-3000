@@ -74,11 +74,11 @@ export const InboxRow: React.FC<InboxRowProps> = ({
         </Badge>
       </Group>
 
-      <Text size="11px" className={live ? 'text-amber-200' : 'text-ink-2'}>
+      <Text size="12px" className={live ? 'text-amber-200' : 'text-ink-2'}>
         {item.detail || eventHeadline(item.event)}
       </Text>
 
-      <Group gap={6} wrap="wrap" className="text-[10px] text-ink-3 font-mono">
+      <Group gap={6} wrap="wrap" className="text-[11px] text-ink-3 font-mono">
         {item.projectName && <span>{item.projectName}</span>}
         {task && <span>· {columnTitle(task.columnId)}</span>}
         <span>· {relativeTime(item.createdAt)}</span>

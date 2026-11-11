@@ -49,7 +49,7 @@ export const TaskCard: React.FC<TaskCardProps> = React.memo(({ task, column, cha
 
   return (
     <article
-      className={`glass-card task-card rounded-xl p-4 cursor-pointer relative group flex flex-col gap-3 ${
+      className={`glass-card task-card rounded-2xl p-4 cursor-pointer relative group flex flex-col gap-3 ${
         summary.folderGone ? 'opacity-60' : settledLabel ? 'is-settled' : ''
       } ${stateClass}`}
     >

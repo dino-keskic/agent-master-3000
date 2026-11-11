@@ -16,11 +16,11 @@ export const PlanChecklist: React.FC<PlanChecklistProps> = ({ plan, className = 
   return (
     <div className={`flex flex-col gap-1 ${className}`}>
       <div className="flex items-center gap-2 py-1 px-1">
-        <span className="font-mono text-[10px] uppercase tracking-[0.06em] text-ink-4">
+        <span className="font-mono text-[11px] uppercase tracking-[0.06em] text-ink-4">
           Agent plan · todowrite
         </span>
         <div className="flex-1" />
-        <span className="font-mono text-[10px] text-ink-4">
+        <span className="font-mono text-[11px] text-ink-4">
           {[
             plan.doneCount > 0 && `${plan.doneCount} done`,
             plan.runningCount > 0 && `${plan.runningCount} running`,
@@ -45,7 +45,7 @@ export const PlanChecklist: React.FC<PlanChecklistProps> = ({ plan, className = 
                 isRunning ? 'bg-run-bg' : 'hover:bg-surface-3/60'
               }`}
             >
-              <span className="shrink-0 mt-0.5 w-3.5 flex items-center justify-center font-mono text-[11px] font-bold">
+              <span className="shrink-0 mt-0.5 w-3.5 flex items-center justify-center font-mono text-[12px] font-bold">
                 {isDone ? (
                   <Check className="w-3 h-3 text-ok" />
                 ) : isRunning ? (

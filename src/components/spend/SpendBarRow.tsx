@@ -36,7 +36,7 @@ export const SpendBarRow: React.FC<SpendBarRowProps> = ({ bucket, top, tone }) =
       </span>
       <div className="flex shrink-0 items-baseline gap-2">
         {bucket.tokens ? (
-          <span className="font-mono text-[10px] text-ink-4">{formatCompactCount(bucket.tokens)}</span>
+          <span className="font-mono text-[11px] text-ink-4">{formatCompactCount(bucket.tokens)}</span>
         ) : null}
         <span className="font-mono text-[12px] tabular-nums text-ink">
           {formatUsd(bucket.cost) || '$0.00'}

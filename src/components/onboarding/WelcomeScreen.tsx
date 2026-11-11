@@ -38,7 +38,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
   onImport,
   onFinish
 }) => (
-  <div className="min-h-screen bg-canvas text-ink font-sans flex items-center justify-center p-6">
+  <div className="min-h-screen text-ink font-sans flex items-center justify-center p-6">
     <div className="flex flex-col items-center gap-8 w-full max-w-[560px]">
       <BoardMark />
       <div className="w-full rounded-xl border border-line bg-surface-2 shadow-card p-6">

@@ -58,7 +58,7 @@ const Bars: React.FC<{ bars: Bar[] }> = ({ bars }) => {
       </div>
       <div className="mt-1.5 flex gap-0.5">
         {bars.map((bar) => (
-          <span key={bar.key} className="min-w-0 flex-1 truncate text-center font-mono text-[9px] text-ink-4">
+          <span key={bar.key} className="min-w-0 flex-1 truncate text-center font-mono text-[11px] text-ink-4">
             {bar.tick}
           </span>
         ))}
@@ -106,7 +106,7 @@ export const SpendAverageTabs: React.FC<{ summary: SpendSummary }> = ({ summary 
   return (
     <div className="rounded-xl border border-line bg-surface-2 px-4 py-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <span className="font-mono text-[11px] font-semibold uppercase tracking-[0.07em] text-ink-3">
+        <span className="font-mono text-[12px] font-semibold uppercase tracking-[0.07em] text-ink-3">
           Average cost
         </span>
         <SegmentedControl
@@ -123,7 +123,7 @@ export const SpendAverageTabs: React.FC<{ summary: SpendSummary }> = ({ summary 
         <span className="font-mono text-[28px] font-bold tabular-nums leading-none text-ink">{money(figure)}</span>
         <span className="font-mono text-[12px] text-ink-3">{unit}</span>
       </div>
-      <span className="mt-1 block font-mono text-[10px] text-ink-4">{footer}</span>
+      <span className="mt-1 block font-mono text-[11px] text-ink-4">{footer}</span>
       <Bars bars={tab === 'day' ? dayBars : weekBars} />
     </div>
   );

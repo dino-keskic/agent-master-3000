@@ -222,7 +222,7 @@ export const Composer: React.FC<ComposerProps> = ({
             onToggle={mentions.toggle}
           />
           {mentions.error && (
-            <Text size="10px" className="font-mono text-wait-fg px-0.5">
+            <Text size="11px" className="font-mono text-wait-fg px-0.5">
               {mentions.error}
             </Text>
           )}

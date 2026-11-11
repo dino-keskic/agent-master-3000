@@ -38,7 +38,7 @@ export const QueuedTurns: React.FC<QueuedTurnsProps> = ({ turns, sending, onRemo
       </Group>
       {turns.map((turn, index) => (
         <Group key={turn.id} gap={8} wrap="nowrap" className="rounded-md border border-line bg-s4 px-2 py-1">
-          <Text size="xs" className="font-mono text-[11px] text-ink-3 shrink-0">
+          <Text size="xs" className="font-mono text-[12px] text-ink-3 shrink-0">
             {index + 1}
           </Text>
           <Text size="xs" className="flex-1 min-w-0 truncate text-ink-2">
@@ -70,7 +70,7 @@ export const QueuedTurns: React.FC<QueuedTurnsProps> = ({ turns, sending, onRemo
       ))}
       {sending.map((prompt, index) => (
         <Group key={`sending-${prompt.id}`} gap={8} wrap="nowrap" className="rounded-md border border-dashed border-line px-2 py-1 opacity-70">
-          <Text size="xs" className="font-mono text-[11px] text-ink-3 shrink-0">
+          <Text size="xs" className="font-mono text-[12px] text-ink-3 shrink-0">
             {turns.length + index + 1}
           </Text>
           <Text size="xs" className="flex-1 min-w-0 truncate text-ink-2">

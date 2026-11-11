@@ -58,7 +58,7 @@ export const SessionImportModal: React.FC<SessionImportModalProps> = ({
                 {list.total} session{list.total === 1 ? '' : 's'}
               </Badge>
             </Group>
-            <Text size="xs" c="dimmed" className="font-mono text-[11px]">
+            <Text size="xs" c="dimmed" className="font-mono text-[12px]">
               Search, browse, and import historical or active sessions onto your Agent Master 3000
             </Text>
           </Stack>

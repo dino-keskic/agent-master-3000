@@ -44,7 +44,7 @@ function AttachedContext({ id, extra, body }: { id: string; extra: MentionExtra;
         type="button"
         onClick={() => setOpen((prev) => !prev)}
         aria-expanded={open}
-        className="flex items-center gap-1.5 w-full px-2 py-1.5 text-left font-mono text-[11px] leading-[1.45] text-ink-3 hover:text-ink transition-colors"
+        className="flex items-center gap-1.5 w-full px-2 py-1.5 text-left font-mono text-[12px] leading-[1.45] text-ink-3 hover:text-ink transition-colors"
       >
         {open ? <ChevronDown className="w-3 h-3 shrink-0" /> : <ChevronRight className="w-3 h-3 shrink-0" />}
         <Paperclip className="w-3 h-3 shrink-0 text-acc-fg" />
@@ -152,7 +152,7 @@ export const LogEntry = memo(function LogEntry({
   if (log.type === 'error') {
     return (
       <Surface variant="error" radius="md" className="p-3">
-        <div className="flex items-center gap-1.5 mb-1.5 font-mono text-[11px] font-medium uppercase tracking-[0.08em] text-err-fg">
+        <div className="flex items-center gap-1.5 mb-1.5 font-mono text-[12px] font-medium uppercase tracking-[0.08em] text-err-fg">
           <AlertCircle className="w-3.5 h-3.5" />
           {log.title || 'Error'}
         </div>

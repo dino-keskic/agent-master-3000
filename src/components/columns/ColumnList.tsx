@@ -34,7 +34,7 @@ export const ColumnList: React.FC<ColumnListProps> = ({ columns, selectedId, tas
                   <Text size="sm" className={`truncate ${active ? 'text-ink' : 'text-ink-2'}`}>
                     {column.title || 'Untitled'}
                   </Text>
-                  <Text size="10px" c="dimmed" className="font-mono">
+                  <Text size="11px" c="dimmed" className="font-mono">
                     {columnSummaryLine(column, taskCounts[column.id] || 0)}
                   </Text>
                 </div>

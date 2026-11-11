@@ -42,7 +42,7 @@ export const ColumnPanel: React.FC<ColumnPanelProps> = ({
       onDragOver={(e) => drag.onColumnDragOver(e, column.id)}
       onDragLeave={() => drag.onColumnDragLeave(column.id)}
       onDrop={(e) => drag.onColumnDrop(e, column.id)}
-      className={`glass-panel rounded-[14px] p-[18px] flex flex-col border ${
+      className={`glass-panel rounded-[22px] p-4 flex flex-col border ${
         isHovered ? 'border-line-strong' : ''
       } transition-all duration-150 min-w-0`}
     >
@@ -83,7 +83,7 @@ export const ColumnPanel: React.FC<ColumnPanelProps> = ({
                 No tasks in {column.title}
               </span>
               {isInbox && (
-                <button type="button" className="hdr-btn h-6 px-2 text-[11px]" onClick={onFocusPromptInput}>
+                <button type="button" className="hdr-btn h-6 px-2 text-[12px]" onClick={onFocusPromptInput}>
                   + Type Prompt Above
                 </button>
               )}

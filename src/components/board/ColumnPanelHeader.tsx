@@ -52,7 +52,7 @@ export const ColumnPanelHeader: React.FC<ColumnPanelHeaderProps> = ({
         </h2>
         <span className={`bubble${runningCount > 0 ? ' is-running' : ''}`}>{taskCount}</span>
         {columnRunsOnDrop(column) && (
-          <span className="inline-flex items-center gap-1 h-[18px] px-[7px] rounded-full border border-line text-ink-3 text-[10px] font-medium">
+          <span className="inline-flex items-center gap-1 h-[18px] px-[7px] rounded-full border border-line text-ink-3 text-[11px] font-medium">
             <Zap className="w-3 h-3" />
             drop runs
           </span>
@@ -61,7 +61,7 @@ export const ColumnPanelHeader: React.FC<ColumnPanelHeaderProps> = ({
 
       <Group gap={4} wrap="nowrap">
         {isInbox && (
-          <button type="button" className="hdr-btn h-6 px-2 text-[11px]" onClick={onFocusPromptInput}>
+          <button type="button" className="hdr-btn h-6 px-2 text-[12px]" onClick={onFocusPromptInput}>
             <Plus className="w-3.5 h-3.5" />
             Prompt
           </button>

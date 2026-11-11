@@ -79,7 +79,7 @@ export const ReviewNotesDrawer: React.FC<ReviewNotesDrawerProps> = ({
           padding: '14px 20px'
         },
         body: {
-          backgroundColor: 'rgb(var(--c-canvas))',
+          backgroundColor: 'var(--glass-pane)',
           padding: 0,
           height: 'calc(100vh - 65px)',
           display: 'flex',
@@ -100,7 +100,7 @@ export const ReviewNotesDrawer: React.FC<ReviewNotesDrawerProps> = ({
             }`}
           >
             Open
-            <span className="font-mono text-[10px] text-ink-3">{counts.open}</span>
+            <span className="font-mono text-[11px] text-ink-3">{counts.open}</span>
           </button>
           <button
             type="button"
@@ -112,7 +112,7 @@ export const ReviewNotesDrawer: React.FC<ReviewNotesDrawerProps> = ({
             }`}
           >
             Resolved
-            <span className="font-mono text-[10px] text-ink-3">{counts.resolved}</span>
+            <span className="font-mono text-[11px] text-ink-3">{counts.resolved}</span>
           </button>
           <button
             type="button"
@@ -124,7 +124,7 @@ export const ReviewNotesDrawer: React.FC<ReviewNotesDrawerProps> = ({
             }`}
           >
             Waiting on agent
-            <span className="font-mono text-[10px] text-ink-3">{counts.waitingAgent}</span>
+            <span className="font-mono text-[11px] text-ink-3">{counts.waitingAgent}</span>
           </button>
           <button
             type="button"
@@ -136,7 +136,7 @@ export const ReviewNotesDrawer: React.FC<ReviewNotesDrawerProps> = ({
             }`}
           >
             All
-            <span className="font-mono text-[10px] text-ink-3">{counts.total}</span>
+            <span className="font-mono text-[11px] text-ink-3">{counts.total}</span>
           </button>
         </div>
 

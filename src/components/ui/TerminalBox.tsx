@@ -39,7 +39,7 @@ export const TerminalBox: React.FC<TerminalBoxProps> = ({
           <span className="w-2 h-2 rounded-full bg-ok opacity-60" />
         </div>
         {meta && (
-          <span className="font-mono text-[10px] text-ink-4 truncate">
+          <span className="font-mono text-[11px] text-ink-4 truncate">
             {meta}
           </span>
         )}
@@ -55,7 +55,7 @@ export const TerminalBox: React.FC<TerminalBoxProps> = ({
 
       {/* Output block */}
       {output && (
-        <pre className="m-0 px-2.5 py-2 font-mono text-[11px] leading-[1.6] text-ink-3 max-h-[240px] overflow-auto whitespace-pre-wrap select-text">
+        <pre className="m-0 px-2.5 py-2 font-mono text-[12px] leading-[1.6] text-ink-3 max-h-[240px] overflow-auto whitespace-pre-wrap select-text">
           {output}
         </pre>
       )}

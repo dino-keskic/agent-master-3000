@@ -49,7 +49,7 @@ export const AgentPlanBanner: React.FC<AgentPlanBannerProps> = ({
           </span>
         )}
 
-        <span className="font-mono text-[11px] font-semibold uppercase tracking-[0.06em] text-run-fg shrink-0">
+        <span className="font-mono text-[12px] font-semibold uppercase tracking-[0.06em] text-run-fg shrink-0">
           {running ? 'Working' : 'Plan'}
         </span>
 
@@ -58,7 +58,7 @@ export const AgentPlanBanner: React.FC<AgentPlanBannerProps> = ({
         </span>
 
         {stepCount && (
-          <span className="font-mono text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-surface-2 text-run-fg shrink-0">
+          <span className="font-mono text-[11px] font-semibold px-1.5 py-0.5 rounded-full bg-surface-2 text-run-fg shrink-0">
             {stepCount}
           </span>
         )}
@@ -73,7 +73,7 @@ export const AgentPlanBanner: React.FC<AgentPlanBannerProps> = ({
         )}
 
         {costLabel && (
-          <span className="font-mono text-[11px] text-ink-3 shrink-0 tabular-nums">
+          <span className="font-mono text-[12px] text-ink-3 shrink-0 tabular-nums">
             {costLabel}
           </span>
         )}

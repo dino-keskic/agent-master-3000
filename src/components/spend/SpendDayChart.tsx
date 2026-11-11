@@ -23,10 +23,10 @@ export const SpendDayChart: React.FC<{ daily: { date: string; cost: number }[] }
   return (
     <div className="rounded-xl border border-line bg-surface-2 px-4 py-4">
       <div className="mb-3 flex items-baseline justify-between">
-        <span className="font-mono text-[11px] font-semibold uppercase tracking-[0.07em] text-ink-3">
+        <span className="font-mono text-[12px] font-semibold uppercase tracking-[0.07em] text-ink-3">
           By day
         </span>
-        <span className="font-mono text-[10px] text-ink-4">
+        <span className="font-mono text-[11px] text-ink-4">
           {peak > 0 ? `peak ${formatUsd(peak) || '$0.00'}` : 'no spend this month'}
         </span>
       </div>
@@ -49,8 +49,8 @@ export const SpendDayChart: React.FC<{ daily: { date: string; cost: number }[] }
         ))}
       </div>
       <div className="mt-2 flex justify-between">
-        <span className="font-mono text-[10px] text-ink-4">{dayLabel(localDateFromKey(first.date))}</span>
-        <span className="font-mono text-[10px] text-ink-4">{dayLabel(localDateFromKey(last.date))}</span>
+        <span className="font-mono text-[11px] text-ink-4">{dayLabel(localDateFromKey(first.date))}</span>
+        <span className="font-mono text-[11px] text-ink-4">{dayLabel(localDateFromKey(last.date))}</span>
       </div>
     </div>
   );

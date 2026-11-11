@@ -79,11 +79,11 @@ export const SessionStream: React.FC<SessionStreamProps> = ({
     <FileLinkProvider cwd={cwd} taskId={taskId}>
       <ScrollArea
         viewportRef={view.viewportRef}
-        className="flex-1 p-3.5 bg-canvas"
+        className="flex-1 p-3.5"
         onScrollPositionChange={view.onScrollPositionChange}
       >
         <Stack gap={10}>
-          <Group justify="space-between" className="pb-1 font-mono text-[11px] leading-[1.45] text-ink-3">
+          <Group justify="space-between" className="pb-1 font-mono text-[12px] leading-[1.45] text-ink-3">
             <Group gap={6}>
               <Terminal className="w-3.5 h-3.5" />
               <span>Session</span>

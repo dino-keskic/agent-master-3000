@@ -60,9 +60,9 @@ export const ColumnEditorModal: React.FC<ColumnEditorModalProps> = ({
       }
       size="xl"
       styles={{
-        content: { backgroundColor: 'rgb(var(--c-canvas))', color: 'rgb(var(--c-ink))' },
+        content: { backgroundColor: 'var(--glass-pane)', color: 'rgb(var(--c-ink))' },
         header: { backgroundColor: 'rgb(var(--c-surface-3))', borderBottom: '1px solid rgb(var(--c-line) / 0.7)' },
-        body: { backgroundColor: 'rgb(var(--c-canvas))', padding: 0 }
+        body: { backgroundColor: 'transparent', padding: 0 }
       }}
     >
       <div className="flex flex-col md:flex-row min-h-[460px]">

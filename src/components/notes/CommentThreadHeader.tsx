@@ -29,12 +29,12 @@ export const CommentThreadHeader: React.FC<CommentThreadHeaderProps> = ({
     <div className="flex items-center gap-2 min-w-0 flex-1">
       <Byline author={comment.author} at={comment.createdAt} />
       {resolved && (
-        <span className="font-mono text-[10px] uppercase font-semibold text-run-fg shrink-0">
+        <span className="font-mono text-[11px] uppercase font-semibold text-run-fg shrink-0">
           resolved
         </span>
       )}
       {showAnchor && (
-        <span className="font-mono text-[11px] text-ink-3 truncate min-w-0" title={commentLocation(comment)}>
+        <span className="font-mono text-[12px] text-ink-3 truncate min-w-0" title={commentLocation(comment)}>
           {commentLocation(comment)}
         </span>
       )}
@@ -49,7 +49,7 @@ export const CommentThreadHeader: React.FC<CommentThreadHeaderProps> = ({
       <button
         type="button"
         onClick={() => thread.setCollapsed(!thread.collapsed)}
-        className="flex items-center gap-1 text-[11px] text-ink-3 hover:text-ink cursor-pointer border-0 bg-transparent p-0 transition-colors"
+        className="flex items-center gap-1 text-[12px] text-ink-3 hover:text-ink cursor-pointer border-0 bg-transparent p-0 transition-colors"
       >
         {thread.collapsed ? (
           <>
@@ -70,7 +70,7 @@ export const CommentThreadHeader: React.FC<CommentThreadHeaderProps> = ({
         <button
           type="button"
           onClick={() => thread.setReplying(true)}
-          className="text-[11px] text-ink-3 hover:text-ink cursor-pointer border-0 bg-transparent p-0 transition-colors"
+          className="text-[12px] text-ink-3 hover:text-ink cursor-pointer border-0 bg-transparent p-0 transition-colors"
         >
           Reply
         </button>
@@ -80,7 +80,7 @@ export const CommentThreadHeader: React.FC<CommentThreadHeaderProps> = ({
         type="button"
         onClick={() => void onResolve(comment.id, !resolved)}
         disabled={thread.busy}
-        className={`flex items-center gap-1 text-[11px] cursor-pointer border-0 bg-transparent p-0 transition-colors disabled:opacity-50 ${
+        className={`flex items-center gap-1 text-[12px] cursor-pointer border-0 bg-transparent p-0 transition-colors disabled:opacity-50 ${
           resolved ? 'text-ink-3 hover:text-ink' : 'text-run-fg hover:opacity-80'
         }`}
       >
@@ -102,7 +102,7 @@ export const CommentThreadHeader: React.FC<CommentThreadHeaderProps> = ({
         onClick={thread.remove}
         disabled={thread.busy}
         title={thread.confirmDelete ? 'Click again to delete' : 'Delete note'}
-        className={`flex items-center text-[11px] cursor-pointer border-0 bg-transparent p-0 transition-colors disabled:opacity-50 ${
+        className={`flex items-center text-[12px] cursor-pointer border-0 bg-transparent p-0 transition-colors disabled:opacity-50 ${
           thread.confirmDelete ? 'text-err-fg font-semibold' : 'text-ink-4 hover:text-err-fg'
         }`}
       >

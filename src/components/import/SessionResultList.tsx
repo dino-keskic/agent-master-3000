@@ -95,7 +95,7 @@ export const SessionResultList: React.FC<SessionResultListProps> = ({
               <Stack key={group.key} gap={6}>
                 <Group gap="xs" align="center" className="px-2 pt-2">
                   <Calendar className="w-3.5 h-3.5 text-ink-3" />
-                  <Text size="xs" className="font-mono text-[11px] uppercase tracking-wider text-ink-2 font-semibold">
+                  <Text size="xs" className="font-mono text-[12px] uppercase tracking-wider text-ink-2 font-semibold">
                     {group.label}
                   </Text>
                   <Badge size="xs" color="gray" variant="light" className="font-mono">

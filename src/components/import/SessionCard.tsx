@@ -16,7 +16,7 @@ const SessionTags: React.FC<{ session: AcpSessionSummary }> = ({ session }) => {
         {session.title}
       </Text>
 
-      <Badge size="xs" color="gray" variant="dot" className="font-mono text-[10px] shrink-0">
+      <Badge size="xs" color="gray" variant="dot" className="font-mono text-[11px] shrink-0">
         {session.sessionId.slice(0, 14)}
       </Badge>
 
@@ -66,7 +66,7 @@ const SessionMeta: React.FC<{ session: AcpSessionSummary }> = ({ session }) => (
     <Group gap={4} wrap="nowrap" className="min-w-0 max-w-[280px]">
       <Folder className="w-3.5 h-3.5 text-ink-3 shrink-0" />
       <Tooltip label={session.cwd} withArrow>
-        <Text size="xs" c="dimmed" className="font-mono text-[11px] truncate">
+        <Text size="xs" c="dimmed" className="font-mono text-[12px] truncate">
           {shortPath(session.cwd)}
         </Text>
       </Tooltip>
@@ -75,7 +75,7 @@ const SessionMeta: React.FC<{ session: AcpSessionSummary }> = ({ session }) => (
     {session.model && (
       <Group gap={4} wrap="nowrap">
         <Cpu className="w-3 h-3 text-ink-3" />
-        <Text size="xs" c="dimmed" className="font-mono text-[11px]">
+        <Text size="xs" c="dimmed" className="font-mono text-[12px]">
           {shortModelLabel(session.model)}
         </Text>
       </Group>
@@ -84,7 +84,7 @@ const SessionMeta: React.FC<{ session: AcpSessionSummary }> = ({ session }) => (
     {session.agent && (
       <Group gap={4} wrap="nowrap">
         <Bot className="w-3 h-3 text-ink-3" />
-        <Text size="xs" c="dimmed" className="font-mono text-[11px]">
+        <Text size="xs" c="dimmed" className="font-mono text-[12px]">
           {session.agent}
         </Text>
       </Group>
@@ -93,7 +93,7 @@ const SessionMeta: React.FC<{ session: AcpSessionSummary }> = ({ session }) => (
     {!!session.subagentCount && session.subagentCount > 0 && (
       <Group gap={4} wrap="nowrap">
         <Users className="w-3 h-3 text-accent" />
-        <Text size="xs" className="font-mono text-[11px] text-acc-fg">
+        <Text size="xs" className="font-mono text-[12px] text-acc-fg">
           {session.subagentCount} subagent{session.subagentCount === 1 ? '' : 's'}
         </Text>
       </Group>
@@ -107,13 +107,13 @@ const SessionMeta: React.FC<{ session: AcpSessionSummary }> = ({ session }) => (
     />
 
     {!!session.tokenCount && session.tokenCount > 0 && (
-      <Text size="xs" c="dimmed" className="font-mono text-[11px]">
+      <Text size="xs" c="dimmed" className="font-mono text-[12px]">
         {formatTokenCount(session.tokenCount)}
       </Text>
     )}
 
     <Tooltip label={`Updated ${new Date(session.updatedAt).toLocaleString()}`} withArrow>
-      <Text size="xs" c="dimmed" className="font-mono text-[11px] shrink-0">
+      <Text size="xs" c="dimmed" className="font-mono text-[12px] shrink-0">
         · {relativeTime(session.updatedAt)}
       </Text>
     </Tooltip>

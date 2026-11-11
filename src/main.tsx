@@ -36,8 +36,11 @@ const theme = createTheme({
   },
   primaryColor: 'accent',
   primaryShade: 6,
-  fontFamily: "'Inter var', Inter, ui-sans-serif, system-ui, -apple-system, sans-serif",
-  fontFamilyMonospace: "'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace",
+  // The stacks themselves are in `src/index.css`.
+  fontFamily: 'var(--font-sans)',
+  fontFamilyMonospace: 'var(--font-mono)',
+  // Glass wants rounder corners than Mantine's stock 8px.
+  radius: { xs: '6px', sm: '8px', md: '12px', lg: '16px', xl: '24px' },
   defaultRadius: 'md',
   headings: { fontWeight: '600' }
 });

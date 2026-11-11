@@ -43,14 +43,14 @@ export const CommentIndex: React.FC<CommentIndexProps> = ({ entries, onJump }) =
           <ChevronDown className="w-3.5 h-3.5 text-ink-3 shrink-0" />
         )}
         <MessageSquare className="w-3.5 h-3.5 text-acc-fg shrink-0" />
-        <span className="font-mono text-[11px] font-semibold uppercase tracking-[0.06em] text-ink-2">
+        <span className="font-mono text-[12px] font-semibold uppercase tracking-[0.06em] text-ink-2">
           Comments
         </span>
-        <span className="font-mono text-[10px] font-semibold px-2 py-0.5 rounded-full bg-acc-bg text-acc-fg shrink-0">
+        <span className="font-mono text-[11px] font-semibold px-2 py-0.5 rounded-full bg-acc-bg text-acc-fg shrink-0">
           {open.length} open
         </span>
         {resolved > 0 && (
-          <span className="font-mono text-[10px] font-semibold px-2 py-0.5 rounded-full bg-run-bg text-run-fg shrink-0">
+          <span className="font-mono text-[11px] font-semibold px-2 py-0.5 rounded-full bg-run-bg text-run-fg shrink-0">
             {resolved} resolved
           </span>
         )}
@@ -58,7 +58,7 @@ export const CommentIndex: React.FC<CommentIndexProps> = ({ entries, onJump }) =
         {resolved > 0 && (
           <button
             type="button"
-            className="font-mono text-[11px] text-ink-3 hover:text-ink shrink-0 border-0 bg-transparent cursor-pointer p-0"
+            className="font-mono text-[12px] text-ink-3 hover:text-ink shrink-0 border-0 bg-transparent cursor-pointer p-0"
             onClick={(e) => {
               e.stopPropagation();
               setShowResolved((prev) => !prev);
@@ -73,7 +73,7 @@ export const CommentIndex: React.FC<CommentIndexProps> = ({ entries, onJump }) =
       {!collapsed && (
         <div className="max-h-64 overflow-y-auto divide-y divide-hairline">
           {shown.length === 0 ? (
-            <span className="font-mono text-[11px] text-ink-3 px-3 py-2 block">
+            <span className="font-mono text-[12px] text-ink-3 px-3 py-2 block">
               Every note on this task is resolved.
             </span>
           ) : (

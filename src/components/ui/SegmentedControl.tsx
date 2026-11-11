@@ -22,7 +22,7 @@ export function SegmentedControl<T extends string = string>({
   size = 'sm',
   className = ''
 }: SegmentedControlProps<T>) {
-  const heightClass = size === 'xs' ? 'h-6 text-[11px] px-2' : 'h-6 text-xs px-2.5';
+  const heightClass = size === 'xs' ? 'h-6 text-[12px] px-2' : 'h-6 text-xs px-2.5';
 
   return (
     <div
@@ -48,7 +48,7 @@ export function SegmentedControl<T extends string = string>({
             <span>{opt.label}</span>
             {opt.count != null && (
               <span
-                className={`font-mono text-[10px] px-1 rounded-full ${
+                className={`font-mono text-[11px] px-1 rounded-full ${
                   isActive ? 'text-ink-3' : 'text-ink-4'
                 }`}
               >

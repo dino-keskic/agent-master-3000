@@ -131,16 +131,16 @@
     --c-blue-900: 30 58 138;
     --c-blue-950: 23 37 84;
 
-    --c-canvas: 11 15 25;
-    --c-surface: 13 19 34;
-    --c-surface-2: 17 26 44;
-    --c-surface-3: 9 13 22;
+    --c-canvas: 8 10 20;
+    --c-surface: 15 20 37;
+    --c-surface-2: 21 28 49;
+    --c-surface-3: 9 12 23;
     --c-line: 35 48 73;
     --c-line-strong: 51 65 85;
     --c-ink: 241 245 249;
-    --c-ink-2: 148 163 184;
-    --c-ink-3: 100 116 139;
-    --c-ink-4: 71 85 105;
+    --c-ink-2: 172 184 204;
+    --c-ink-3: 128 142 166;
+    --c-ink-4: 88 102 126;
     --c-accent: 59 130 246;
     --c-tok-key: 196 181 253;
     --c-tok-str: 134 239 172;
@@ -157,13 +157,13 @@
      * paper — so these hold whole colours rather than triplets, and the classes
      * that use them never apply an opacity modifier.
      */
-    --s3: rgba(30, 41, 59, 0.65);
-    --s3h: rgba(30, 41, 59, 0.85);
-    --s4: #16203a;
-    --code: #020617;
-    --hairline: rgba(30, 41, 59, 0.8);
-    --dash: rgba(30, 41, 59, 0.7);
-    --scrim: rgba(2, 6, 23, 0.72);
+    --s3: rgba(255, 255, 255, 0.065);
+    --s3h: rgba(255, 255, 255, 0.1);
+    --s4: #1c2644;
+    --code: rgba(2, 6, 23, 0.72);
+    --hairline: rgba(255, 255, 255, 0.07);
+    --dash: rgba(255, 255, 255, 0.1);
+    --scrim: rgba(3, 5, 14, 0.5);
     --acc-tile: #2563eb;
     --acc-bg: rgba(59, 130, 246, 0.16);
     --acc-fg: #bfdbfe;
@@ -182,9 +182,33 @@
     --err-fg: #fda4af;
     --err-bd: rgba(244, 63, 94, 0.35);
     --ok: #34d399;
-    --blur: blur(8px);
-    --card-sh: none;
-    --panel-sh: 0 12px 32px -18px rgba(0, 0, 0, 0.8);
+    --blur: none;
+    --card-sh: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 1px 2px rgba(0, 0, 0, 0.22);
+    --panel-sh: inset 0 1px 0 rgba(255, 255, 255, 0.07), 0 20px 48px -28px rgba(0, 0, 0, 0.75);
+
+    /*
+     * Glass. Three thicknesses of the same material: `--glass-bg` is the
+     * chrome that floats over moving content (the header, menus, the palette)
+     * and is the only one that pays for a backdrop blur; `--glass-panel` is a
+     * column, which sits on the still canvas and so needs no blur to look the
+     * same; `--s3` above is a card. The highlight is the lit top edge that
+     * makes a translucent rectangle read as a pane with thickness.
+     */
+    --glass-bg: rgba(28, 36, 64, 0.55);
+    --glass-bg-strong: rgba(15, 20, 38, 0.78);
+    --glass-panel: rgba(255, 255, 255, 0.045);
+    /* A drawer or modal you read in: nearly opaque, so a transcript is never
+       fighting the board behind it, but still visibly a pane of the same glass. */
+    --glass-pane: rgba(10, 13, 26, 0.84);
+    --glass-bd: rgba(255, 255, 255, 0.1);
+    --glass-hi: inset 0 1px 0 rgba(255, 255, 255, 0.12), inset 0 0 0 1px rgba(255, 255, 255, 0.02);
+    --glass-sh: 0 24px 60px -24px rgba(0, 0, 0, 0.75), 0 2px 8px rgba(0, 0, 0, 0.2);
+    --glass-blur: blur(28px) saturate(175%);
+    /* The colour behind the glass; without something to refract it is just grey. */
+    --blob-1: rgba(59, 130, 246, 0.42);
+    --blob-2: rgba(139, 92, 246, 0.36);
+    --blob-3: rgba(20, 184, 166, 0.24);
+    --blob-4: rgba(236, 72, 153, 0.11);
 }
 
 [data-mantine-color-scheme='light'] {
@@ -299,10 +323,10 @@
     --c-blue-900: 219 234 254;
     --c-blue-950: 239 246 255;
 
-    --c-canvas: 244 246 250;
+    --c-canvas: 235 239 248;
     --c-surface: 255 255 255;
-    --c-surface-2: 251 252 254;
-    --c-surface-3: 248 250 252;
+    --c-surface-2: 246 248 252;
+    --c-surface-3: 241 244 250;
     --c-line: 227 232 239;
     --c-line-strong: 203 213 225;
     --c-ink: 15 23 42;
@@ -319,15 +343,15 @@
     --c-add: 5 150 105;
     --c-del: 225 29 72;
 
-    /* Paper flattens every wash into a solid tint, and trades the dark scheme's
-       backdrop blur for a hairline shadow. */
-    --s3: #ffffff;
-    --s3h: #f8fafc;
+    /* The light scheme keeps its washes as solid tints — they have to stay
+       readable on frosted white — and frosts the surfaces under them. */
+    --s3: rgba(255, 255, 255, 0.72);
+    --s3h: rgba(255, 255, 255, 0.95);
     --s4: #ffffff;
     --code: #f8fafc;
-    --hairline: #eef1f6;
-    --dash: #dde3ec;
-    --scrim: rgba(15, 23, 42, 0.4);
+    --hairline: rgba(15, 23, 42, 0.07);
+    --dash: rgba(15, 23, 42, 0.14);
+    --scrim: rgba(30, 41, 80, 0.22);
     --acc-tile: #2563eb;
     --acc-bg: #eff6ff;
     --acc-fg: #1d4ed8;
@@ -347,8 +371,21 @@
     --err-bd: #fecdd3;
     --ok: #059669;
     --blur: none;
-    --card-sh: 0 1px 2px rgba(15, 23, 42, 0.05), 0 1px 3px rgba(15, 23, 42, 0.04);
-    --panel-sh: 0 1px 2px rgba(15, 23, 42, 0.04);
+    --card-sh: inset 0 1px 0 rgba(255, 255, 255, 0.9), 0 1px 2px rgba(30, 41, 80, 0.06), 0 4px 12px -6px rgba(30, 41, 80, 0.1);
+    --panel-sh: inset 0 1px 0 rgba(255, 255, 255, 0.8), 0 16px 40px -28px rgba(30, 41, 80, 0.3);
+
+    --glass-bg: rgba(255, 255, 255, 0.62);
+    --glass-bg-strong: rgba(255, 255, 255, 0.82);
+    --glass-panel: rgba(255, 255, 255, 0.4);
+    --glass-pane: rgba(240, 243, 250, 0.86);
+    --glass-bd: rgba(255, 255, 255, 0.85);
+    --glass-hi: inset 0 1px 0 rgba(255, 255, 255, 0.95), 0 0 0 1px rgba(30, 41, 80, 0.05);
+    --glass-sh: 0 24px 60px -28px rgba(30, 41, 80, 0.35), 0 2px 8px rgba(30, 41, 80, 0.06);
+    --glass-blur: blur(28px) saturate(180%);
+    --blob-1: rgba(96, 165, 250, 0.38);
+    --blob-2: rgba(167, 139, 250, 0.3);
+    --blob-3: rgba(45, 212, 191, 0.24);
+    --blob-4: rgba(244, 114, 182, 0.18);
 }
 
 /*

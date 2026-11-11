@@ -35,7 +35,7 @@ export const CommentDraft: React.FC<CommentDraftProps> = ({
       className="w-full max-w-[640px] my-1.5 p-2.5 flex flex-col gap-2 shadow-card"
     >
       {anchor && (
-        <span className="font-mono text-[11px] text-ink-3 truncate" title={anchor}>
+        <span className="font-mono text-[12px] text-ink-3 truncate" title={anchor}>
           {anchor}
         </span>
       )}

@@ -5,7 +5,7 @@ export const SECTION_LABEL = 'text-meta uppercase tracking-[0.08em] font-mono te
 export const CODE_PANE =
   'p-2 rounded-md bg-code border border-line text-log-code text-ink-2 font-mono overflow-x-auto';
 export const ERROR_BADGE =
-  'font-mono text-[10px] rounded px-1.5 py-0.5 bg-err-bg text-err-fg border border-err-bd';
+  'font-mono text-[11px] rounded px-1.5 py-0.5 bg-err-bg text-err-fg border border-err-bd';
 
 /*
  * Status carries a colour now. A transcript is mostly tool calls, and when they

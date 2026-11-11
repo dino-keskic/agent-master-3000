@@ -20,15 +20,15 @@ export const TopSessionsTable: React.FC<{ rows: SpendSessionRow[]; windowLabel: 
 }) => (
   <div className="overflow-hidden rounded-xl border border-line bg-surface-2">
     <div className="flex items-center gap-2.5 border-b border-hairline bg-surface px-3.5 py-2.5">
-      <span className="font-mono text-[11px] font-semibold uppercase tracking-[0.07em] text-ink-3">
+      <span className="font-mono text-[12px] font-semibold uppercase tracking-[0.07em] text-ink-3">
         Most expensive sessions
       </span>
       <div className="flex-1" />
-      <span className="font-mono text-[11px] text-ink-3">{windowLabel}</span>
+      <span className="font-mono text-[12px] text-ink-3">{windowLabel}</span>
     </div>
 
     <div
-      className={`${COLUMNS} border-b border-hairline py-1.5 font-mono text-[10px] uppercase tracking-[0.05em] text-ink-4`}
+      className={`${COLUMNS} border-b border-hairline py-1.5 font-mono text-[11px] uppercase tracking-[0.05em] text-ink-4`}
     >
       <span>Session</span>
       <span>Model</span>
@@ -47,13 +47,13 @@ export const TopSessionsTable: React.FC<{ rows: SpendSessionRow[]; windowLabel: 
           <span className="truncate text-[13px] text-ink" title={row.title}>
             {row.title}
           </span>
-          <span className="truncate font-mono text-[11px] text-ink-2" title={row.model}>
+          <span className="truncate font-mono text-[12px] text-ink-2" title={row.model}>
             {row.model ? shortModelLabel(row.model) : '—'}
           </span>
-          <span className="truncate font-mono text-[11px] text-ink-3" title={row.project}>
+          <span className="truncate font-mono text-[12px] text-ink-3" title={row.project}>
             {row.project || '—'}
           </span>
-          <span className="text-right font-mono text-[11px] tabular-nums text-ink-3">
+          <span className="text-right font-mono text-[12px] tabular-nums text-ink-3">
             {formatCompactCount(row.tokens) || '0'}
           </span>
           <span className="text-right font-mono text-[12px] font-semibold tabular-nums text-ink">

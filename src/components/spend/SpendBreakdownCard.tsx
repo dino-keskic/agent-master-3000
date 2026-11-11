@@ -35,7 +35,7 @@ export const SpendBreakdownCard: React.FC<SpendBreakdownCardProps> = ({
 
   return (
     <div className="rounded-xl border border-line bg-surface-2 p-4">
-      <span className="mb-3 block font-mono text-[11px] font-semibold uppercase tracking-[0.07em] text-ink-3">
+      <span className="mb-3 block font-mono text-[12px] font-semibold uppercase tracking-[0.07em] text-ink-3">
         {title}
       </span>
       {shown.length === 0 ? (
@@ -46,7 +46,7 @@ export const SpendBreakdownCard: React.FC<SpendBreakdownCardProps> = ({
             <SpendBarRow key={bucket.key} bucket={bucket} top={top} tone={tone} />
           ))}
           {hidden > 0 && (
-            <span className="font-mono text-[10px] text-ink-4">
+            <span className="font-mono text-[11px] text-ink-4">
               +{hidden} more below the top {VISIBLE_ROWS}
             </span>
           )}

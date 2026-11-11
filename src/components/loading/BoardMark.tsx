@@ -15,7 +15,7 @@ export const BoardMark: React.FC = () => (
       <h1 className="text-[22px] font-bold tracking-[-0.02em] text-ink m-0 leading-none">
         Agent Master 3000
       </h1>
-      <span className="font-mono text-[11px] leading-none text-ink-4">OpenCode ACP</span>
+      <span className="font-mono text-[12px] leading-none text-ink-4">OpenCode ACP</span>
     </div>
   </div>
 );

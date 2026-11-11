@@ -29,7 +29,7 @@ const Row: React.FC<{ row: SpendRow; fill: string }> = ({ row, fill }) => (
       </span>
       <span className="flex shrink-0 items-baseline gap-2">
         {row.tokens ? (
-          <span className="font-mono text-[10px] text-ink-4">{formatCompactCount(row.tokens)}</span>
+          <span className="font-mono text-[11px] text-ink-4">{formatCompactCount(row.tokens)}</span>
         ) : null}
         <span className="font-mono text-[12px] tabular-nums text-ink">{formatUsdExact(row.cost) || '$0.00'}</span>
       </span>

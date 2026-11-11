@@ -68,7 +68,7 @@ export const SpendPanel: React.FC<SpendPanelProps> = ({ opened, onClose, summary
       </div>
     }
     styles={{
-      content: { backgroundColor: 'rgb(var(--c-canvas))', color: 'rgb(var(--c-ink))' },
+      content: { backgroundColor: 'var(--glass-pane)', color: 'rgb(var(--c-ink))' },
       header: { backgroundColor: 'rgb(var(--c-surface-3))', borderBottom: '1px solid rgb(var(--c-line) / 0.7)' },
       body: { padding: 0, height: 'calc(100vh - 60px)', display: 'flex', flexDirection: 'column' }
     }}
@@ -91,7 +91,7 @@ export const SpendPanel: React.FC<SpendPanelProps> = ({ opened, onClose, summary
         )}
 
         <div className="flex items-center justify-between pb-2">
-          <span className="font-mono text-[10px] text-ink-4">
+          <span className="font-mono text-[11px] text-ink-4">
             {summary ? `read ${new Date(summary.generatedAt).toLocaleTimeString()}` : 'not read yet'}
           </span>
           <Tooltip label="Re-read from OpenCode" withArrow>
