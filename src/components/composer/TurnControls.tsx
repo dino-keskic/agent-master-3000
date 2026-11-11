@@ -1,18 +1,21 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Group, Tooltip } from '@mantine/core';
-import { ArrowUp, Bot, Brain, Cpu, ListPlus, Loader2, ShieldCheck } from 'lucide-react';
+import { ArrowUp, Bot, Brain, ChevronDown, Cpu, ListPlus, Loader2, ShieldCheck, Square } from 'lucide-react';
 import { OpenCodeAgent, OpenCodeModel } from '../../../shared/sessions/types';
 import { PermissionMode } from '../../../shared/types';
 import { PERMISSION_MODES } from '../../../shared/agent/permissions';
 import { shortModelLabel, thinkingLevelOptions } from '../../../shared/format';
 import { modelOptionLabel } from '../../../shared/agent/modelScope';
 import { useModelOptions } from '../../app/modelOptions';
+import { runSummary } from '../../../shared/composer/runSummary';
 import { InlineSelect } from '../ui/InlineSelect';
 
 /**
  * The row under the box: how this turn will be run, and the button that runs
- * it. Four settings that belong to the turn rather than to the task, so they
- * are picked where the prompt is written.
+ * it — or, while one is running, the button that stops it.
+ *
+ * The four settings are right far more often than they are changed, so they
+ * are one line (`runSummary`) that opens into the pickers when clicked.
  */
 
 export type ComposerSubmitKind = 'dispatch' | 'queue' | 'send';
@@ -35,6 +38,8 @@ export interface TurnControlsProps {
   idle: boolean;
   /** The mic, which sits just before the send button. */
   dictation?: React.ReactNode;
+  /** Given while a turn is running: the one place it is stopped from. */
+  onStop?: () => void;
 }
 
 export const TurnControls: React.FC<TurnControlsProps> = ({
@@ -52,8 +57,10 @@ export const TurnControls: React.FC<TurnControlsProps> = ({
   submitTooltip,
   submitting,
   idle,
-  dictation
+  dictation,
+  onStop
 }) => {
+  const [open, setOpen] = useState(false);
   // The agents and thinking levels on offer belong to the model in this very
   // row, not to whatever the board defaults to.
   const options = useModelOptions(model);
@@ -66,12 +73,31 @@ export const TurnControls: React.FC<TurnControlsProps> = ({
       : listedModels;
   const agentOptions = (options.known ? options.agents : agents).map((a) => ({ value: a.name, label: a.name }));
   const permission = PERMISSION_MODES.find((m) => m.value === permissionMode);
+  const summary = runSummary({
+    model,
+    modelName: models.find((m) => m.id === model)?.name,
+    agent,
+    thinkingLevel,
+    permissionMode
+  });
 
   return (
     <Group justify="space-between" align="center" gap="xs" wrap="nowrap">
       {/* How the turn runs on the left, where the eye leaves the text; the
           button that runs it on the right, where the hand goes. */}
       <Group gap={4} wrap="wrap" className="min-w-0 flex-1">
+        <button
+          type="button"
+          className="run-summary"
+          aria-expanded={open}
+          aria-label={`Run settings: ${summary}`}
+          onClick={() => setOpen((prev) => !prev)}
+        >
+          {!open && <span className="truncate">{summary}</span>}
+          {open && <span>Run settings</span>}
+          <ChevronDown className={`w-3 h-3 shrink-0 transition-transform ${open ? 'rotate-180' : ''}`} />
+        </button>
+        {open && (<>
         <InlineSelect
           label="Model"
           icon={<Cpu className="w-3.5 h-3.5" />}
@@ -102,9 +128,18 @@ export const TurnControls: React.FC<TurnControlsProps> = ({
           onChange={(val) => onPermissionModeChange(val as PermissionMode)}
           title={permission?.description}
         />
+        </>)}
       </Group>
       <Group gap={6} wrap="nowrap" className="shrink-0">
         {dictation}
+        {onStop && (
+          <Tooltip label="Stop this turn — the session is kept" withArrow>
+            <button type="button" className="composer-stop" onClick={onStop}>
+              <Square className="w-3 h-3 fill-current" />
+              Stop
+            </button>
+          </Tooltip>
+        )}
         <Tooltip
           label={submitTooltip || (submitKind === 'queue' ? 'Queue (⌘Enter)' : 'Send (⌘Enter)')}
           withArrow

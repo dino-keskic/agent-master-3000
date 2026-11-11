@@ -1,0 +1,160 @@
+/*
+ * The "Needs you" strip. Rows share one panel so the strip reads as a single
+ * list, and wrap into as many columns as fit: two prompts sit side by side on
+ * a wide board rather than pushing the columns down twice.
+ */
+.needs-you {
+  margin-bottom: 18px;
+}
+
+.needs-you-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 8px 4px;
+  color: rgb(var(--c-ink-2));
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.needs-you-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: var(--wait);
+  color: var(--wait-ink);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.needs-you-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 420px), 1fr));
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.needs-you-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  padding: 8px 10px 8px 4px;
+  border: 1px solid var(--hairline);
+  border-radius: 14px;
+  background: var(--s3);
+  box-shadow: var(--card-sh);
+}
+
+.needs-you-item.is-wait {
+  border-color: var(--wait-bd);
+  background: var(--wait-bg);
+}
+
+.needs-you-item.is-err {
+  border-color: var(--err-bd);
+}
+
+.needs-you-body {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  padding: 2px 0 2px 8px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.needs-you-icon {
+  color: rgb(var(--c-ink-3));
+}
+
+.is-wait .needs-you-icon {
+  color: var(--wait-fg);
+}
+
+.is-err .needs-you-icon {
+  color: var(--err-fg);
+}
+
+.needs-you-task {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+  color: rgb(var(--c-ink));
+  font-size: 13.5px;
+  font-weight: 600;
+}
+
+.needs-you-project {
+  flex-shrink: 0;
+  color: rgb(var(--c-ink-3));
+  font-size: 12px;
+  font-weight: 400;
+}
+
+.needs-you-detail {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
+  margin-top: 1px;
+  color: rgb(var(--c-ink-2));
+  font-size: 12.5px;
+}
+
+.needs-you-kind {
+  flex-shrink: 0;
+  color: rgb(var(--c-ink-3));
+}
+
+.needs-you-actions {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 6px;
+}
+
+.needs-you-dismiss {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: rgb(var(--c-ink-3));
+  cursor: pointer;
+}
+
+.needs-you-dismiss:hover {
+  background: var(--s3h);
+  color: rgb(var(--c-ink));
+}
+
+/* The filters left nothing to show: say so once, above the empty columns. */
+.board-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin-bottom: 14px;
+  padding: 10px 14px;
+  border-radius: 14px;
+  border: 1px dashed rgb(var(--c-line));
+  color: rgb(var(--c-ink-3));
+  font-size: 12.5px;
+}

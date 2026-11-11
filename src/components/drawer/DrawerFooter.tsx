@@ -25,6 +25,8 @@ import { DrawerActions } from './drawerActions';
 
 interface DrawerFooterProps {
   task: BoardTask;
+  /** The manager: no column to move it to and nothing to run. */
+  conversationOnly?: boolean;
   sessionId?: string;
   /** Prompts sent from here that the server has not put in the queue yet. */
   queuingPrompts: PendingPrompt[];
@@ -45,6 +47,7 @@ interface DrawerFooterProps {
 
 export const DrawerFooter: React.FC<DrawerFooterProps> = ({
   task,
+  conversationOnly = false,
   sessionId,
   queuingPrompts,
   view,
@@ -73,22 +76,20 @@ export const DrawerFooter: React.FC<DrawerFooterProps> = ({
   return (
   <Paper px={16} py={14} radius={0} className="bg-surface border-t border-line shrink-0 overflow-visible relative">
     <Stack gap="xs">
-      <DrawerFooterControls
+      {!conversationOnly && <DrawerFooterControls
         columns={columns}
         columnId={task.columnId}
         runState={view.runState}
         busy={view.busy}
         isSubagentView={view.isSubagentView}
         hasSession={!!sessionId}
-        otherBusyCount={view.otherBusyCount}
         folderGone={folderGone}
         runLabel={runButtonLabel(columns.find((c) => c.id === task.columnId), task)}
         isCompacting={isCompacting}
         onMoveColumn={(columnId) => void onMoveTask(task.id, columnId)}
         onCompact={actions.compact}
-        onStop={actions.stop}
         onRun={() => void onRunTask(task.id)}
-      />
+      />}
 
       <QueuedTurns
         turns={queuedForSession(task, sessionId)}
@@ -112,7 +113,9 @@ export const DrawerFooter: React.FC<DrawerFooterProps> = ({
             ? 'Subagent transcripts are read-only'
             : view.isSideSession
               ? `Follow-up in ${shortSessionLabel(view.viewed?.title)}…`
-              : 'Follow-up to continue this session…'
+              : conversationOnly
+                ? 'Ask about the board…'
+                : 'Reply, or give the next instruction…'
         }
         models={models}
         agents={agents}
@@ -134,6 +137,7 @@ export const DrawerFooter: React.FC<DrawerFooterProps> = ({
               : 'Send (⌘Enter)'
         }
         slashCommands={changelogSlashCommands(task.changelogComments)}
+        onStop={view.busy && !view.isSubagentView ? actions.stop : undefined}
       />
     </Stack>
   </Paper>

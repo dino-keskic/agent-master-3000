@@ -19,7 +19,13 @@ interface ColumnPanelProps {
   onClearColumn: (columnId: string) => void | Promise<void>;
   onStopTask: (taskId: string) => void | Promise<void>;
   onRunTask: (taskId: string) => void | Promise<void>;
-  onFocusPromptInput: () => void;
+  /** Opens the new-task sheet, from the empty first column. */
+  onNewTask: () => void;
+  /** What a new task would run with, so cards only name what differs. */
+  defaultModel?: string;
+  defaultAgent?: string;
+  /** Where the keyboard walk is, when it is in this column. */
+  focusedTaskId?: string;
 }
 
 export const ColumnPanel: React.FC<ColumnPanelProps> = ({
@@ -33,7 +39,10 @@ export const ColumnPanel: React.FC<ColumnPanelProps> = ({
   onClearColumn,
   onStopTask,
   onRunTask,
-  onFocusPromptInput
+  onNewTask,
+  defaultModel,
+  defaultAgent,
+  focusedTaskId
 }) => {
   const isHovered = drag.overColumnId === column.id;
 
@@ -42,7 +51,7 @@ export const ColumnPanel: React.FC<ColumnPanelProps> = ({
       onDragOver={(e) => drag.onColumnDragOver(e, column.id)}
       onDragLeave={() => drag.onColumnDragLeave(column.id)}
       onDrop={(e) => drag.onColumnDrop(e, column.id)}
-      className={`glass-panel rounded-[22px] p-4 flex flex-col border ${
+      className={`glass-panel rounded-[20px] p-3 flex flex-col border ${
         isHovered ? 'border-line-strong' : ''
       } transition-all duration-150 min-w-0`}
     >
@@ -51,12 +60,12 @@ export const ColumnPanel: React.FC<ColumnPanelProps> = ({
         taskCount={tasks.length}
         runningCount={tasks.filter((t) => t.runState === 'running').length}
         isInbox={isInbox}
-        onFocusPromptInput={onFocusPromptInput}
+        onNewTask={onNewTask}
         onClearColumn={onClearColumn}
       />
 
       <ScrollArea className="flex-1 pr-1">
-        <div className="flex flex-col gap-4 min-h-full">
+        <div className="flex flex-col gap-2.5 min-h-full">
           {tasks.map((task) => (
             <div
               key={task.id}
@@ -69,6 +78,9 @@ export const ColumnPanel: React.FC<ColumnPanelProps> = ({
                 task={task}
                 column={column}
                 change={changes[task.id]}
+                defaultModel={defaultModel}
+                defaultAgent={defaultAgent}
+                focused={task.id === focusedTaskId}
                 onSelect={onSelectTask}
                 onArchive={onArchiveTask}
                 onStop={onStopTask}
@@ -83,8 +95,8 @@ export const ColumnPanel: React.FC<ColumnPanelProps> = ({
                 No tasks in {column.title}
               </span>
               {isInbox && (
-                <button type="button" className="hdr-btn h-6 px-2 text-[12px]" onClick={onFocusPromptInput}>
-                  + Type Prompt Above
+                <button type="button" className="hdr-btn h-7 px-2.5 text-[12px]" onClick={onNewTask}>
+                  + New task
                 </button>
               )}
             </div>

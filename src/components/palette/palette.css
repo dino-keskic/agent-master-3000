@@ -155,29 +155,6 @@
   line-height: 1;
 }
 
-/* The header's way into the palette: reads as a search field, acts as a button. */
-.search-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  height: 32px;
-  min-width: 220px;
-  padding: 0 8px 0 12px;
-  border: 1px solid var(--hairline);
-  border-radius: 999px;
-  background: var(--s3);
-  box-shadow: var(--card-sh);
-  color: rgb(var(--c-ink-3));
-  font-family: inherit;
-  font-size: 13px;
-  cursor: pointer;
-}
-
-.search-pill:hover {
-  background: var(--s3h);
-  color: rgb(var(--c-ink-2));
-}
-
 @keyframes paletteFade {
   from {
     opacity: 0;

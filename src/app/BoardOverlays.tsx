@@ -9,6 +9,9 @@ import { OpenTasks } from './useOpenTasks';
 import { TaskActions } from './useTaskActions';
 import { ColumnEditorModal } from '../components/columns/ColumnEditorModal';
 import { NotificationPanel } from '../components/notifications/NotificationPanel';
+import { DesktopAlerts } from '../components/notifications/DesktopAlerts';
+import { desktopAlertWarning } from '../../shared/notifications/delivery';
+import { resolveNotificationSettings } from '../../shared/notifications/settings';
 import { SessionImportModal } from '../components/import/SessionImportModal';
 import { SpendPanel } from '../components/spend/SpendPanel';
 import { TaskWorkspace } from '../components/split/TaskWorkspace';
@@ -52,6 +55,7 @@ export const BoardOverlays: React.FC<BoardOverlaysProps> = ({
   onTaskArrived
 }) => {
   const { settings, projects, models, agents } = board;
+  const alertSettings = resolveNotificationSettings(settings.notifications);
 
   return (
     <>
@@ -79,17 +83,17 @@ export const BoardOverlays: React.FC<BoardOverlaysProps> = ({
         tasks={board.tasks}
         columns={settings.columns}
         inbox={notifications.inbox}
-        permission={notifications.permission}
-        settings={settings}
-        onUpdateSettings={boardSettings.updateSettings}
+        alertsHint={desktopAlertWarning(notifications.alertState)}
+        onOpenAlertSettings={() => {
+          notifications.closePanel();
+          overlays.settings.open();
+        }}
         onOpenSession={notifications.openSession}
         onRespond={actions.respond}
         onMarkRead={notifications.markRead}
         onMarkAllRead={notifications.markAllRead}
         onDismiss={notifications.dismiss}
         onClear={notifications.clear}
-        onEnableDesktop={notifications.enableDesktop}
-        onTestDesktop={notifications.testDesktop}
       />
 
       <SpendPanel
@@ -108,7 +112,22 @@ export const BoardOverlays: React.FC<BoardOverlaysProps> = ({
         onRestore={actions.restoreTask}
       />
 
-      <SettingsModal opened={overlays.settings.opened} onClose={overlays.settings.close} setup={setup} />
+      <SettingsModal
+        opened={overlays.settings.opened}
+        onClose={overlays.settings.close}
+        setup={setup}
+        alerts={
+          <DesktopAlerts
+            settings={alertSettings}
+            permission={notifications.permission}
+            onPatch={(partial) =>
+              void boardSettings.updateSettings({ notifications: { ...alertSettings, ...partial } })
+            }
+            onEnableDesktop={notifications.enableDesktop}
+            onTestDesktop={notifications.testDesktop}
+          />
+        }
+      />
 
       <ReviewNotesDrawer
         opened={overlays.comments.opened}

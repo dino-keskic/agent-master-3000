@@ -4,6 +4,7 @@ import {
   UNASSIGNED_PROJECT,
   filterTasksByProjects,
   projectFilterChips,
+  projectFilterLabel,
   pruneProjectFilter,
   toggleProjectFilter
 } from '../../../shared/board/projectFilter.js';
@@ -85,4 +86,10 @@ test('pruneProjectFilter drops ids no project answers to', () => {
   // Unchanged input is returned as-is so it does not churn React state.
   const clean = ['p1', 'p2'];
   assert.strictEqual(pruneProjectFilter(clean, projects), clean);
+});
+
+test('the switcher names what the board is narrowed to', () => {
+  assert.strictEqual(projectFilterLabel(projectFilterChips(tasks, projects, [])), 'All projects');
+  assert.strictEqual(projectFilterLabel([{ label: 'api', selected: true }, { label: 'web', selected: false }]), 'api');
+  assert.strictEqual(projectFilterLabel([{ label: 'api', selected: true }, { label: 'web', selected: true }]), '2 projects');
 });

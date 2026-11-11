@@ -25,7 +25,7 @@ export const AlertSettings: React.FC<AlertSettingsProps> = ({
   onPatch,
   onEnableDesktop
 }) => (
-  <Stack gap={8} p="sm" className="shrink-0 border-b border-line/50 bg-canvas/40">
+  <Stack gap={8}>
     {permission === 'unsupported' ? (
       <Text size="xs" c="dimmed" className="font-mono">
         This browser does not support desktop notifications.

@@ -87,3 +87,14 @@ export function pruneProjectFilter(selected: string[], projects: ProjectFolder[]
   const kept = selected.filter((id) => known.has(id));
   return kept.length === selected.length ? selected : kept;
 }
+
+/**
+ * What the top bar's switcher says the board is showing: "All projects", the
+ * one project picked, or how many.
+ */
+export function projectFilterLabel(chips: Pick<ProjectFilterChip, 'label' | 'selected'>[]): string {
+  const picked = chips.filter((chip) => chip.selected);
+  if (picked.length === 0) return 'All projects';
+  if (picked.length === 1) return picked[0]!.label;
+  return `${picked.length} projects`;
+}

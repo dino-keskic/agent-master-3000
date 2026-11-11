@@ -1,0 +1,135 @@
+/* The task list beside an open task. Rows borrow the card's tones. */
+.work-rail {
+  display: flex;
+  flex: 0 0 272px;
+  flex-direction: column;
+  min-height: 0;
+  border-right: 1px solid rgb(var(--c-line));
+  background: rgb(var(--c-surface));
+}
+
+.work-rail-back {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 60px;
+  padding: 0 16px;
+  border: 0;
+  border-bottom: 1px solid rgb(var(--c-line));
+  background: transparent;
+  color: rgb(var(--c-ink-2));
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.work-rail-back:hover {
+  color: rgb(var(--c-ink));
+  background: var(--s3h);
+}
+
+.work-rail-scroll {
+  flex: 1;
+  min-height: 0;
+  padding: 6px 8px 16px;
+  overflow-y: auto;
+}
+
+.work-rail-group {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 0;
+  padding: 12px 8px 5px;
+  color: rgb(var(--c-ink-3));
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.work-rail-group.is-needs {
+  color: var(--wait-fg);
+}
+
+.work-rail-group span {
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+}
+
+.work-rail-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  width: 100%;
+  padding: 7px 8px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
+.work-rail-row:hover,
+.work-rail-row.is-open {
+  background: var(--s3h);
+}
+
+.work-rail-row.is-focused {
+  background: var(--acc-bg);
+  box-shadow: inset 0 0 0 1px var(--acc-bd);
+}
+
+.work-rail-dot {
+  flex-shrink: 0;
+  width: 7px;
+  height: 7px;
+  margin-top: 6px;
+  border-radius: 999px;
+  background: rgb(var(--c-ink-4));
+}
+
+.work-rail-row.is-run .work-rail-dot {
+  background: var(--run);
+}
+
+.work-rail-row.is-wait .work-rail-dot {
+  background: var(--wait);
+}
+
+.work-rail-row.is-err .work-rail-dot {
+  background: var(--err);
+}
+
+.work-rail-row.is-done .work-rail-dot {
+  background: var(--ok);
+}
+
+.work-rail-title,
+.work-rail-status {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.work-rail-title {
+  color: rgb(var(--c-ink));
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+.work-rail-status {
+  color: rgb(var(--c-ink-3));
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.work-rail-row.is-wait .work-rail-status {
+  color: var(--wait-fg);
+}
+
+.work-rail-row.is-err .work-rail-status {
+  color: var(--err-fg);
+}

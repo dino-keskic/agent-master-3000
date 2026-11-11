@@ -108,7 +108,7 @@ export function desktopAlertState(
 export function desktopAlertWarning(state: DesktopAlertState): string | undefined {
   switch (state) {
     case 'needs-permission':
-      return 'Desktop alerts are on, but this browser has not allowed them for this address. Open Notifications to allow them.';
+      return 'Desktop alerts are on, but this browser has not allowed them for this address. Open Settings to allow them.';
     case 'blocked':
       return 'Desktop alerts are on, but this browser is blocking them for this address. Allow notifications in the site settings next to the address bar.';
     default:

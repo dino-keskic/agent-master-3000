@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ChevronUp, Square } from 'lucide-react';
+import { ChevronUp } from 'lucide-react';
 import { BoardTask, TaskLogItem } from '../../../shared/types';
 import { extractTodoPlan } from '../../../shared/agent/todoPlan';
 import { formatUsd } from '../../../shared/sessions/cost';
@@ -9,18 +9,16 @@ interface AgentPlanBannerProps {
   task: BoardTask;
   logs?: TaskLogItem[];
   running: boolean;
-  onStop: () => void | Promise<void>;
 }
 
 /**
- * Live "Working" status bar and agent plan indicator above the drawer footer.
- * Matches Agent Master 3000.dc.html (lines 706-724).
+ * The live "Working" bar above the composer, and the agent's plan when it has
+ * written one. It reports; stopping the turn is the composer's.
  */
 export const AgentPlanBanner: React.FC<AgentPlanBannerProps> = ({
   task,
   logs,
-  running,
-  onStop
+  running
 }) => {
   const [open, setOpen] = useState(false);
   const plan = extractTodoPlan(logs);
@@ -76,20 +74,6 @@ export const AgentPlanBanner: React.FC<AgentPlanBannerProps> = ({
           <span className="font-mono text-[12px] text-ink-3 shrink-0 tabular-nums">
             {costLabel}
           </span>
-        )}
-
-        {running && (
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              void onStop();
-            }}
-            className="inline-flex items-center gap-1.5 h-6 px-2.5 border-0 rounded-md bg-surface-2 text-ink-2 hover:text-err-fg text-xs font-medium cursor-pointer shrink-0 transition-colors"
-          >
-            <Square className="w-2.5 h-2.5 fill-current" />
-            Interrupt
-          </button>
         )}
 
         {plan && (

@@ -119,72 +119,6 @@
   transform: translateY(-1px);
 }
 
-.task-card {
-  overflow: hidden;
-}
-
-/* Left rail — the design's running/waiting/error cue. The wash on the card
-   is too quiet on paper without it. */
-.task-card::before {
-  content: '';
-  position: absolute;
-  left: 0;
-  top: 0;
-  bottom: 0;
-  width: 2px;
-  background: transparent;
-}
-
-.glass-card.task-card.is-running,
-.glass-card.task-card.is-running:hover {
-  border-color: var(--run-bd);
-  background: var(--run-bg);
-  box-shadow: 0 0 0 1px var(--run-bg), var(--card-sh);
-}
-
-.glass-card.task-card.is-running:hover {
-  border-color: var(--run);
-}
-
-.task-card.is-running::before {
-  background: var(--run);
-}
-
-.glass-card.task-card.is-waiting,
-.glass-card.task-card.is-waiting:hover {
-  border-color: var(--wait-bd);
-  background: var(--wait-bg);
-  box-shadow: 0 0 0 1px var(--wait-bg), var(--card-sh);
-}
-
-.glass-card.task-card.is-waiting:hover {
-  border-color: var(--wait);
-}
-
-.task-card.is-waiting::before {
-  background: var(--wait);
-}
-
-.glass-card.task-card.is-error,
-.glass-card.task-card.is-error:hover {
-  border-color: var(--err-bd);
-  background: var(--err-bg);
-}
-
-.task-card.is-error::before {
-  background: var(--err);
-}
-
-/* Every linked PR is merged and every linked ticket is done. Hover brings it
-   back so the card can still be read; it is finished, not gone. */
-.task-card.is-settled {
-  opacity: 0.55;
-}
-
-.task-card.is-settled:hover {
-  opacity: 1;
-}
-
 /*
  * Same ping the design uses. Tailwind's `animate-ping` is a sibling of the
  * global colour transition on `body *` and loses the first frames; this
@@ -259,20 +193,6 @@
   .pulse-ring {
     animation: none;
     opacity: 0;
-  }
-}
-
-.task-card-delete {
-  opacity: 0.45;
-}
-
-@media (hover: hover) {
-  .task-card-delete {
-    opacity: 0;
-  }
-  .task-card:hover .task-card-delete,
-  .task-card:focus-within .task-card-delete {
-    opacity: 1;
   }
 }
 
@@ -559,22 +479,6 @@
   line-height: 1.45;
 }
 
-.filter-bar {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 20px;
-}
-
-.filter-bar-label {
-  margin-right: 4px;
-  color: rgb(var(--c-ink-3));
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  font-weight: 500;
-}
-
 .filter-chip {
   appearance: none;
   -webkit-appearance: none;
@@ -628,13 +532,6 @@
   background: var(--acc-tile);
 }
 
-.filter-bar-rule {
-  width: 1px;
-  height: 18px;
-  margin: 0 4px;
-  background: rgb(var(--c-line));
-  flex-shrink: 0;
-}
 
 
 
@@ -1180,4 +1077,83 @@ pre.text-log-code {
 .mantine-Tooltip-tooltip {
   border-radius: 8px;
   font-size: 12px;
+}
+
+/*
+ * A folded run of tool calls in a transcript: one quiet line between two
+ * messages, so the conversation is what the eye lands on.
+ */
+.steps-block-head {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  max-width: 100%;
+  padding: 4px 10px 4px 6px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: rgb(var(--c-ink-3));
+  font-size: 12.5px;
+  line-height: 1.45;
+  text-align: left;
+  cursor: pointer;
+}
+
+.steps-block-head:hover,
+.steps-block.is-open .steps-block-head {
+  background: var(--s3h);
+  color: rgb(var(--c-ink));
+}
+
+.steps-block-body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 6px 0 2px 12px;
+  padding-left: 12px;
+  border-left: 1px solid rgb(var(--c-line));
+}
+
+/* The composer's settings, folded into the line that names them. */
+.run-summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  max-width: 100%;
+  height: 28px;
+  padding: 0 8px;
+  margin-left: -6px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: rgb(var(--c-ink-3));
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.run-summary:hover,
+.run-summary[aria-expanded='true'] {
+  background: var(--s3h);
+  color: rgb(var(--c-ink));
+}
+
+.composer-stop {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 12px;
+  border: 1px solid var(--run-bd);
+  border-radius: 8px;
+  background: var(--run-bg);
+  color: var(--run-fg);
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.composer-stop:hover {
+  border-color: var(--err-bd);
+  color: var(--err-fg);
 }

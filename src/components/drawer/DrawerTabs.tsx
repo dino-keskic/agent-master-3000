@@ -22,6 +22,8 @@ import { EditorOption } from '../../api';
 
 interface DrawerTabsProps {
   task: BoardTask;
+  /** The manager has nothing to diff and no tools of its own to list. */
+  conversationOnly?: boolean;
   /** The session on screen, which may be a side session or a subagent. */
   sessionId?: string;
   view: ViewedSession;
@@ -42,6 +44,7 @@ interface DrawerTabsProps {
 
 export const DrawerTabs: React.FC<DrawerTabsProps> = ({
   task,
+  conversationOnly = false,
   sessionId,
   view,
   logs,
@@ -61,17 +64,17 @@ export const DrawerTabs: React.FC<DrawerTabsProps> = ({
 
   return (
     <Tabs
-      value={tab}
+      value={conversationOnly ? 'session' : tab}
       onChange={(value) => onTabChange(value || 'session')}
       className="flex-1 flex flex-col min-h-0"
       classNames={{ panel: 'flex-1 flex flex-col min-h-0', tab: 'drawer-tab' }}
     >
-      <DrawerTabList
+      {!conversationOnly && <DrawerTabList
         sessionCount={view.sessions.length}
         sessionLabel={sessionTabLabel(view)}
         changedFiles={changedFiles}
         openCommentCount={openChangelogComments(task.changelogComments).length}
-      />
+      />}
 
       <Tabs.Panel value="session">
         <SessionBanners view={view} primarySessionId={task.sessionId} onSelectSession={actions.selectSession} />
@@ -81,6 +84,7 @@ export const DrawerTabs: React.FC<DrawerTabsProps> = ({
           logs={logs}
           pending={pendingPrompts}
           loading={awaitingTranscript}
+          emptyHint={conversationOnly ? 'Ask the manager what needs you, or what changed since you last looked.' : undefined}
           runState={view.runState}
           cwd={viewedCwd}
           taskId={task.id}

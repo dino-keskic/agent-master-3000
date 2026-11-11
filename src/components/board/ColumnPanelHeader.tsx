@@ -10,9 +10,9 @@ interface ColumnPanelHeaderProps {
   column: BoardColumn;
   taskCount: number;
   runningCount: number;
-  /** The first column is where a typed prompt lands, so only it offers the shortcut. */
+  /** The first column is where a new task lands, so only it offers the shortcut. */
   isInbox: boolean;
-  onFocusPromptInput: () => void;
+  onNewTask: () => void;
   onClearColumn: (columnId: string) => void | Promise<void>;
 }
 
@@ -21,7 +21,7 @@ export const ColumnPanelHeader: React.FC<ColumnPanelHeaderProps> = ({
   taskCount,
   runningCount,
   isInbox,
-  onFocusPromptInput,
+  onNewTask,
   onClearColumn
 }) => {
   const clear = () => {
@@ -37,7 +37,7 @@ export const ColumnPanelHeader: React.FC<ColumnPanelHeaderProps> = ({
   };
 
   return (
-    <Group justify="space-between" align="center" pb={12} mb={14} className="border-b border-hairline">
+    <Group justify="space-between" align="center" pb={10} mb={10} className="border-b border-hairline">
       <Group gap="xs">
         {runningCount > 0 ? (
           <span className="relative flex h-2 w-2 shrink-0" aria-label={`${runningCount} running`}>
@@ -61,9 +61,9 @@ export const ColumnPanelHeader: React.FC<ColumnPanelHeaderProps> = ({
 
       <Group gap={4} wrap="nowrap">
         {isInbox && (
-          <button type="button" className="hdr-btn h-6 px-2 text-[12px]" onClick={onFocusPromptInput}>
+          <button type="button" className="hdr-btn h-6 px-2 text-[12px]" onClick={onNewTask}>
             <Plus className="w-3.5 h-3.5" />
-            Prompt
+            New
           </button>
         )}
         <Menu shadow="md" position="bottom-end" withinPortal>

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo } from 'react';
 import { Drawer } from '@mantine/core';
 import { useMediaQuery } from '@mantine/hooks';
 import { X } from 'lucide-react';
@@ -6,18 +6,21 @@ import { OpenTasks } from '../../app/useOpenTasks';
 import { TaskActions } from '../../app/useTaskActions';
 import { OpenCodeAgent, OpenCodeModel } from '../../../shared/sessions/types';
 import { BoardColumn, BoardTask, ProjectFolder } from '../../../shared/types';
+import { withoutManager } from '../../../shared/manager/identity';
 import { TaskChangeSummary, changedFileCount } from '../../../shared/git/changeSummary';
 import { SessionStateDot } from '../session/SessionStateDot';
 import { TaskPanel } from '../drawer/TaskPanel';
+import { WorkRail } from './WorkRail';
 
 /**
- * Where open tasks are read and worked on: one panel, or up to three side by
- * side.
+ * Where open tasks are read and worked on: the board folded into a list on the
+ * left, and one panel — or up to three side by side — filling the rest.
  *
- * One task looks exactly like the drawer always did. A second one makes the
- * workspace full width with equal columns. On a narrow screen there is no room
- * for columns, so the panels become tabs and only the focused one is shown.
- * What a panel holds is `TaskPanel`; which tasks are open is `useOpenTasks`.
+ * Opening a task is a change of view, not a sheet over the board: the list
+ * (`WorkRail`) keeps every other task one click away. On a narrow screen there
+ * is no room for the list or for columns, so the panels become tabs and only
+ * the focused one is shown. What a panel holds is `TaskPanel`; which tasks are
+ * open is `useOpenTasks`.
  */
 
 interface TaskWorkspaceProps {
@@ -33,37 +36,10 @@ interface TaskWorkspaceProps {
   onApplyTask: (task: BoardTask) => void;
 }
 
-const EXPANDED_KEY = 'agentMasterDrawerExpanded';
-
 const WORKSPACE_STYLES = {
   content: { backgroundColor: 'var(--glass-pane)', color: 'rgb(var(--c-ink))' },
   body: { padding: 0, height: '100vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }
 } as const;
-
-/**
- * Reviewing a long transcript or a wide diff wants more than the default panel,
- * and the preference should outlive the workspace being closed.
- */
-function useExpandedPreference(): [boolean, () => void] {
-  const [expanded, setExpanded] = useState(() => {
-    try {
-      return window.localStorage.getItem(EXPANDED_KEY) === '1';
-    } catch {
-      return false;
-    }
-  });
-  const toggle = () => {
-    setExpanded((prev) => {
-      try {
-        window.localStorage.setItem(EXPANDED_KEY, prev ? '0' : '1');
-      } catch {
-        // A private window: the preference just lasts for this page.
-      }
-      return !prev;
-    });
-  };
-  return [expanded, toggle];
-}
 
 export const TaskWorkspace: React.FC<TaskWorkspaceProps> = ({
   open,
@@ -76,7 +52,8 @@ export const TaskWorkspace: React.FC<TaskWorkspaceProps> = ({
   changes,
   onApplyTask
 }) => {
-  const [expanded, toggleExpanded] = useExpandedPreference();
+  // The manager is opened from its own button, never from the list.
+  const listed = useMemo(() => withoutManager(boardTasks), [boardTasks]);
   const narrow = useMediaQuery('(max-width: 899px)') ?? false;
   const panes = open.tasks;
   const split = panes.length > 1;
@@ -90,10 +67,13 @@ export const TaskWorkspace: React.FC<TaskWorkspaceProps> = ({
       opened={panes.length > 0}
       onClose={open.closeAll}
       position="right"
-      size={split || expanded ? '100%' : 'min(1180px, 94vw)'}
+      size="100%"
       withCloseButton={false}
       // Escape closes the panel it was pressed in, not the whole workspace.
       closeOnEscape={false}
+      // The whole window changes from board to task: a slide across all of it
+      // reads as a page being dragged in, so it cross-fades instead.
+      transitionProps={{ transition: 'fade', duration: 120 }}
       styles={WORKSPACE_STYLES}
     >
       {tabbed && (
@@ -101,6 +81,16 @@ export const TaskWorkspace: React.FC<TaskWorkspaceProps> = ({
       )}
 
       <div className="flex-1 flex min-h-0 min-w-0">
+        {!narrow && (
+          <WorkRail
+            tasks={listed}
+            columns={columns}
+            openTaskIds={open.openTaskIds}
+            focusedId={focused?.id}
+            onSelect={open.select}
+            onBack={open.closeAll}
+          />
+        )}
         {panes.map((task, index) => (
           <div
             key={task.id}
@@ -117,8 +107,6 @@ export const TaskWorkspace: React.FC<TaskWorkspaceProps> = ({
               openTaskIds={open.openTaskIds}
               split={split}
               focused={task === focused}
-              expanded={expanded}
-              onToggleExpanded={toggleExpanded}
               onFocus={open.focus}
               onOpenBeside={open.openBeside}
               onClose={open.close}

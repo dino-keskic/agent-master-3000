@@ -1,0 +1,173 @@
+/*
+ * The three-line card. Colour is spent only on the two states that want the
+ * operator — waiting and broken; a running card gets a live dot and nothing
+ * else, and everything at rest is plain.
+ */
+.task-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 11px 13px 10px;
+  border-radius: 14px;
+  overflow: hidden;
+  cursor: pointer;
+}
+
+.task-card-title {
+  display: -webkit-box;
+  margin: 0;
+  overflow: hidden;
+  color: rgb(var(--c-ink));
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.35;
+  letter-spacing: -0.005em;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.task-card-status {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  margin: 0;
+  color: rgb(var(--c-ink-2));
+  font-size: 12.5px;
+  line-height: 1.4;
+}
+
+.task-card-dot {
+  flex-shrink: 0;
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: rgb(var(--c-ink-4));
+}
+
+.is-run .task-card-dot {
+  background: var(--run);
+  animation: cardPulse 1.6s ease-in-out infinite;
+}
+
+.is-wait .task-card-dot {
+  background: var(--wait);
+}
+
+.is-err .task-card-dot {
+  background: var(--err);
+}
+
+.is-done .task-card-dot {
+  background: var(--ok);
+}
+
+.is-wait .task-card-status {
+  color: var(--wait-fg);
+  font-weight: 500;
+}
+
+.is-err .task-card-status {
+  color: var(--err-fg);
+}
+
+.glass-card.task-card.is-wait,
+.glass-card.task-card.is-wait:hover {
+  border-color: var(--wait-bd);
+  background: var(--wait-bg);
+}
+
+.glass-card.task-card.is-err,
+.glass-card.task-card.is-err:hover {
+  border-color: var(--err-bd);
+}
+
+.task-card-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 3px 8px;
+  min-width: 0;
+  color: rgb(var(--c-ink-3));
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.task-card-facts {
+  margin-left: auto;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* Every linked PR is merged and every linked ticket is done. Hover brings it
+   back so the card can still be read; it is finished, not gone. */
+.task-card.is-settled {
+  opacity: 0.55;
+}
+
+.task-card.is-settled:hover {
+  opacity: 1;
+}
+
+.task-card-actions {
+  position: absolute;
+  top: 7px;
+  right: 7px;
+  z-index: 2;
+  display: flex;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--hairline);
+  border-radius: 999px;
+  background: var(--s4);
+  box-shadow: var(--card-sh);
+  opacity: 0;
+  transition: opacity 0.12s;
+}
+
+.task-card:hover .task-card-actions,
+.task-card:focus-within .task-card-actions {
+  opacity: 1;
+}
+
+@media (hover: none) {
+  .task-card-actions {
+    opacity: 1;
+  }
+}
+
+.task-card-act {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: rgb(var(--c-ink-2));
+  cursor: pointer;
+}
+
+.task-card-act:hover {
+  background: var(--s3h);
+  color: rgb(var(--c-ink));
+}
+
+@keyframes cardPulse {
+  50% {
+    opacity: 0.35;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .is-run .task-card-dot {
+    animation: none;
+  }
+}
+
+/* Where j / k has walked to. */
+.task-card.is-focused {
+  box-shadow: 0 0 0 2px var(--acc-bd), var(--card-sh);
+}

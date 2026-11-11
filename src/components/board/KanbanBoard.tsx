@@ -15,7 +15,13 @@ interface KanbanBoardProps {
   onClearColumn: (columnId: string) => void | Promise<void>;
   onStopTask: (taskId: string) => void | Promise<void>;
   onRunTask: (taskId: string) => void | Promise<void>;
-  onFocusPromptInput: () => void;
+  /** Opens the new-task sheet, from the empty first column. */
+  onNewTask: () => void;
+  /** What a new task would run with, so cards only name what differs. */
+  defaultModel?: string;
+  defaultAgent?: string;
+  /** The card the keyboard walk is on. */
+  focusedTaskId?: string;
 }
 
 /**
@@ -35,7 +41,10 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
   onClearColumn,
   onStopTask,
   onRunTask,
-  onFocusPromptInput,
+  onNewTask,
+  defaultModel,
+  defaultAgent,
+  focusedTaskId,
   changes
 }) => {
   const drag = useCardDrag(onMoveTask);
@@ -44,7 +53,7 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
 
   return (
     <div
-      className="grid auto-rows-fr gap-5 min-h-[calc(100vh-280px)] pb-10 overflow-x-auto"
+      className="grid auto-rows-fr gap-4 min-h-[calc(100vh-120px)] pb-6 overflow-x-auto"
       style={{ gridTemplateColumns: `repeat(${Math.max(columns.length, 1)}, minmax(280px, 1fr))` }}
     >
       {columns.map((column) => (
@@ -60,7 +69,10 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
           onClearColumn={onClearColumn}
           onStopTask={onStopTask}
           onRunTask={onRunTask}
-          onFocusPromptInput={onFocusPromptInput}
+          onNewTask={onNewTask}
+          defaultModel={defaultModel}
+          defaultAgent={defaultAgent}
+          focusedTaskId={focusedTaskId}
         />
       ))}
     </div>

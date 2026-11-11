@@ -6,7 +6,7 @@ import { notifySuccess, reportError } from '../../app/notify';
 import { WorktreeTarget, useWorktreeTarget } from './useWorktreeTarget';
 
 /**
- * The task being typed in the header, up to the moment it lands on the board.
+ * The task being typed in the new-task sheet, up to the moment it lands on the board.
  *
  * It carries the board's defaults — model, agent, thinking level, permission
  * mode — because a task created here has no column of its own to read them
@@ -27,13 +27,14 @@ export interface NewTaskDraft {
    * Create the task. `composed` is the prompt the composer built — what was
    * typed plus any ticket blocks it fetched. The card's title and description
    * stay with the typed text; only the turn itself carries the attached context.
-   * `images` ride along with the task's first turn.
+   * `images` ride along with the task's first turn. Resolves true once the
+   * task exists, so the sheet knows it can close.
    */
-  submit: (composed: string, images?: PromptImage[]) => Promise<void>;
+  submit: (composed: string, images?: PromptImage[]) => Promise<boolean>;
   /**
    * Create a task from a line of text typed somewhere else — the command
-   * palette — with the same defaults and the same target as the header's own.
-   * What is being typed in the header is left alone.
+   * palette — with the same defaults and the same target as the sheet's own.
+   * What is being typed in the sheet is left alone.
    */
   create: (text: string) => Promise<void>;
 }
@@ -95,14 +96,16 @@ export function useNewTaskDraft(
     firstColumnTitle: firstColumn?.title,
 
     async submit(composed, images) {
-      if ((!prompt.trim() && !images?.length) || isSubmitting) return;
+      if ((!prompt.trim() && !images?.length) || isSubmitting) return false;
 
       setIsSubmitting(true);
       try {
         await createFrom(prompt.trim(), composed, images);
         setPrompt('');
+        return true;
       } catch (err) {
         reportError('Could not create task', err);
+        return false;
       } finally {
         setIsSubmitting(false);
       }

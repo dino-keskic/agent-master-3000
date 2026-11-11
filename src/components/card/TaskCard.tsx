@@ -1,26 +1,31 @@
 import React from 'react';
-import { Group } from '@mantine/core';
-import { Folder, TriangleAlert } from 'lucide-react';
+import { Tooltip } from '@mantine/core';
+import { Archive, Folder, Play, Square } from 'lucide-react';
 import { BoardColumn, BoardTask } from '../../../shared/types';
-import { TaskChangeSummary } from '../../../shared/git/changeSummary';
-import { previewLines } from '../../../shared/sessions/list';
-import { taskCardSummary } from '../../../shared/task/card';
+import {
+  TaskChangeSummary,
+  changeDetailLabel,
+  changeScopeLabel,
+  formatChangeDigest,
+  summarizeChanges
+} from '../../../shared/git/changeSummary';
+import { cardRunBadges, cardStatusLine, taskCardSummary } from '../../../shared/task/card';
 import { linkSettlement, settlementLabel } from '../../../shared/trackers/linkStatus';
 import { taskHref } from '../../../shared/ids';
 import { trackerLinks } from '../../../shared/task/links';
-import { Type } from '../ui';
-import { InlineMarkdown } from '../stream/Markdown';
-import { CardAction } from './CardAction';
-import { CardHeader } from './CardHeader';
-import { ChangeSummaryRow } from './ChangeSummaryRow';
-import { RunProgress } from './RunProgress';
 import { TrackerLinks } from './TrackerLinks';
+import './card.css';
 
 interface TaskCardProps {
   task: BoardTask;
   column?: BoardColumn;
   /** The computed change summary, once the board's batched fetch lands. */
   change?: TaskChangeSummary;
+  /** What a new task would run with; a card names its own only when it differs. */
+  defaultModel?: string;
+  defaultAgent?: string;
+  /** The keyboard walk is on this card. */
+  focused?: boolean;
   onSelect: (task: BoardTask) => void;
   onArchive: (taskId: string) => void;
   onStop: (taskId: string) => void;
@@ -28,109 +33,124 @@ interface TaskCardProps {
 }
 
 /**
+ * A task, in three lines: what it is, what it is doing, where it lives.
+ *
+ * The middle line is the one decision (`cardStatusLine`): the question it is
+ * asking, the tool it is running, the diff it left. Only a card that is
+ * waiting or broken is coloured, and Run / Stop / Archive appear on hover, so
+ * a column at rest is a list of titles rather than a wall of chips and buttons.
+ *
  * Memoised: a board update pushes a fresh snapshot for one task, and without
- * this every other card re-renders with it — Mantine paper, tooltips, icons and
- * all — several times a second for the whole of a running turn. The handler
- * props are held stable in `App` so the comparison is worth making.
+ * this every other card re-renders with it several times a second for the
+ * whole of a running turn. The handler props are held stable in `App` so the
+ * comparison is worth making.
  */
-export const TaskCard: React.FC<TaskCardProps> = React.memo(({ task, column, change, onSelect, onArchive, onStop, onRun }) => {
-  const summary = taskCardSummary(task, column);
-  const lines = previewLines(task);
-  const preview = summary.waitingDetail || lines.agent || lines.user;
-  const stateClass = summary.waiting
-    ? 'is-waiting'
-    : summary.running
-      ? 'is-running'
-      : summary.hasError
-        ? 'is-error'
-        : '';
-  // A turn still in flight wins over a merged PR: the card is working, not done.
-  const settledLabel = summary.waiting || summary.running ? undefined : settlementLabel(linkSettlement(task.links));
+export const TaskCard: React.FC<TaskCardProps> = React.memo(
+  ({ task, column, change, defaultModel, defaultAgent, focused, onSelect, onArchive, onStop, onRun }) => {
+    const summary = taskCardSummary(task, column);
+    // A turn still in flight wins over a merged PR: the card is working, not done.
+    const settledLabel = summary.waiting || summary.running ? undefined : settlementLabel(linkSettlement(task.links));
+    const digest = change ? summarizeChanges(change) : undefined;
+    const status = cardStatusLine(task, summary, {
+      settledLabel,
+      changeText: digest && digest.files > 0 ? formatChangeDigest(digest) : undefined
+    });
+    const statusTitle =
+      status.tone === 'quiet' && change && digest && digest.files > 0
+        ? [changeScopeLabel(change), changeDetailLabel(digest)].filter(Boolean).join(' · ')
+        : status.text;
 
-  return (
-    <article
-      className={`glass-card task-card rounded-2xl p-4 cursor-pointer relative group flex flex-col gap-3 ${
-        summary.folderGone ? 'opacity-60' : settledLabel ? 'is-settled' : ''
-      } ${stateClass}`}
-    >
-      {/* The card is one big link, so a middle click or ⌘-click opens the task
-          in a tab like anything else on the web. It is not draggable: the
-          overlay covers the card, so a native link drag would start here and
-          the board would drag a URL chip instead of the card itself. */}
-      <a
-        href={taskHref(task.id)}
-        draggable={false}
-        className="absolute inset-0 z-[1] rounded-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-        aria-label={summary.openLabel}
-        onClick={(e) => {
-          if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
-          e.preventDefault();
-          onSelect(task);
-        }}
-      />
+    const meta = [
+      ...cardRunBadges(task, { model: defaultModel, agent: defaultAgent }),
+      summary.queuedCount > 0 && status.tone !== 'quiet' ? `${summary.queuedCount} queued` : '',
+      summary.openCommentsCount > 0 ? `${summary.openCommentsCount} ${summary.openCommentsCount === 1 ? 'note' : 'notes'}` : '',
+      ...summary.meta
+    ].filter(Boolean);
 
-      <CardHeader
-        taskId={task.id}
-        summary={summary}
-        model={task.model}
-        agent={task.agent}
-        thinkingLevel={task.thinkingLevel}
-        onArchive={onArchive}
-      />
+    const swallow = (e: React.MouseEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+    };
 
-      <Type as="h3" role="title" className="m-0 line-clamp-2">{task.title}</Type>
+    return (
+      <article
+        data-task-id={task.id}
+        className={`glass-card task-card is-${status.tone} ${focused ? 'is-focused' : ''} ${summary.folderGone ? 'opacity-60' : settledLabel ? 'is-settled' : ''}`}
+      >
+        {/* The card is one big link, so a middle click or ⌘-click opens the task
+            in a tab like anything else on the web. It is not draggable: the
+            overlay covers the card, so a native link drag would start here and
+            the board would drag a URL chip instead of the card itself. */}
+        <a
+          href={taskHref(task.id)}
+          draggable={false}
+          className="absolute inset-0 z-[1] rounded-[14px] focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+          aria-label={summary.openLabel}
+          onClick={(e) => {
+            if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
+            e.preventDefault();
+            onSelect(task);
+          }}
+        />
 
-      <TrackerLinks links={trackerLinks(task.links)} />
+        <h3 className="task-card-title">{task.title}</h3>
 
-      {summary.currentTool ? (
-        <RunProgress tool={summary.currentTool} nextPrompt={summary.nextPrompt} />
-      ) : (
-        preview && (
-          <Type role="copy" className="line-clamp-2">
-            <InlineMarkdown text={preview} />
-          </Type>
-        )
-      )}
+        <p className="task-card-status" title={statusTitle}>
+          <span className="task-card-dot" aria-hidden />
+          <span className="truncate">{status.text}</span>
+        </p>
 
-      {change && <ChangeSummaryRow summary={change} />}
-
-      <Group justify="space-between" align="center" wrap="nowrap" gap="xs" className="pt-0.5">
-        {/* The project gets a line of its own: across a board of several
-            repos it is what you scan for, and sharing a line with the numbers
-            meant it was the first thing cut. */}
-        <div className="min-w-0 flex-1 flex flex-col gap-0.5">
+        <div className="task-card-meta">
           {summary.place && (
             <span
-              className={`inline-flex items-center gap-1 min-w-0 text-[12px] font-medium ${
-                summary.folderGone ? 'text-err-fg' : 'text-ink-2'
-              }`}
+              className={`inline-flex items-center gap-1 min-w-0 ${summary.folderGone ? 'text-err-fg' : ''}`}
               title={summary.folderGone ? `Folder gone: ${task.cwd || summary.place}` : task.cwd || summary.place}
             >
-              <Folder className="w-3 h-3 shrink-0 text-ink-4" />
+              <Folder className="w-3 h-3 shrink-0 opacity-60" />
               <span className="truncate">{summary.place}</span>
-              {/* An icon, not words: the name is what must survive a narrow
-                  column, and the tooltip says what is wrong. */}
-              {summary.folderGone && summary.place !== 'folder gone' && (
-                <TriangleAlert className="w-3 h-3 shrink-0" aria-label="folder gone" />
-              )}
             </span>
           )}
-          <Type role="meta" className="truncate min-w-0">
-            {settledLabel && <span>{settledLabel}</span>}
-            {settledLabel && summary.meta.length > 0 && <span className="text-ink-4"> · </span>}
-            {summary.meta.map((part, i) => (
-              <React.Fragment key={`${part}-${i}`}>
-                {i > 0 && <span className="text-ink-4"> · </span>}
-                <Type role="meta" as="span" tone={part === summary.cost ? 'muted' : 'faint'}>{part}</Type>
-              </React.Fragment>
-            ))}
-          </Type>
+          <TrackerLinks links={trackerLinks(task.links)} />
+          <span className="task-card-facts">{meta.join(' · ')}</span>
         </div>
 
-        <CardAction task={task} summary={summary} onSelect={onSelect} onStop={onStop} onRun={onRun} />
-      </Group>
-    </article>
-  );
-});
+        {/* Hover actions sit above the card's link and swallow the click, so
+            pressing one does not also open the task. */}
+        <div className="task-card-actions" onClick={swallow}>
+          {summary.running ? (
+            <Tooltip label="Stop" withArrow>
+              <button type="button" className="task-card-act" aria-label={`Stop ${task.id}`} onClick={() => onStop(task.id)}>
+                <Square className="w-3 h-3 fill-current" />
+              </button>
+            </Tooltip>
+          ) : (
+            !summary.waiting &&
+            !summary.folderGone && (
+              <Tooltip label={summary.runLabel} withArrow>
+                <button type="button" className="task-card-act" aria-label={`${summary.runLabel} ${task.id}`} onClick={() => onRun(task.id)}>
+                  <Play className="w-3 h-3 fill-current" />
+                </button>
+              </Tooltip>
+            )
+          )}
+          <Tooltip label="Archive" withArrow>
+            <button
+              type="button"
+              className="task-card-act"
+              aria-label={`Archive ${task.id}`}
+              onClick={() => {
+                if (window.confirm(`Archive ${task.id}? It leaves the board and keeps everything — restore it from the archive.`)) {
+                  onArchive(task.id);
+                }
+              }}
+            >
+              <Archive className="w-3.5 h-3.5" />
+            </button>
+          </Tooltip>
+        </div>
+      </article>
+    );
+  }
+);
 
 TaskCard.displayName = 'TaskCard';

@@ -1,10 +1,8 @@
 import React, { useMemo, useState } from 'react';
 import { Badge, Drawer, Group, SegmentedControl, Stack, Text } from '@mantine/core';
-import { BoardColumn, BoardTask, GlobalSettings, NotificationSettings, PermissionAnswer } from '../../../shared/types';
-import { resolveNotificationSettings } from '../../../shared/notifications/settings';
+import { BoardColumn, BoardTask, PermissionAnswer } from '../../../shared/types';
 import { BoardNotification, unreadCount } from '../../../shared/notifications/inbox';
 import { listBackgroundTasks } from '../../../shared/agent/backgroundTasks';
-import { DesktopPermission, NotificationDelivery } from '../../../shared/notifications/delivery';
 import { BackgroundPane } from './BackgroundPane';
 import { InboxPane } from './InboxPane';
 
@@ -16,18 +14,15 @@ interface NotificationPanelProps {
   tasks: BoardTask[];
   columns: BoardColumn[];
   inbox: BoardNotification[];
-  /** This browser's answer, kept live by the notifications hook. */
-  permission: DesktopPermission;
-  settings: GlobalSettings;
-  onUpdateSettings: (patch: Partial<GlobalSettings>) => void | Promise<void>;
+  /** Why desktop alerts are not arriving, when they are not. */
+  alertsHint?: string;
+  onOpenAlertSettings: () => void;
   onOpenSession: (taskId: string, sessionId?: string) => void;
   onRespond: (taskId: string, answer: PermissionAnswer) => void | Promise<void>;
   onMarkRead: (id: string) => void;
   onMarkAllRead: () => void;
   onDismiss: (id: string) => void;
   onClear: () => void;
-  onEnableDesktop: () => Promise<NotificationDelivery>;
-  onTestDesktop: () => Promise<NotificationDelivery>;
 }
 
 const DRAWER_STYLES = {
@@ -40,8 +35,8 @@ const DRAWER_STYLES = {
  * Replaces the old sessions list. The inbox is what happened while you looked
  * away; background is what is still running. Clicking a row opens that session.
  *
- * The two rows and the alert settings are in `notifications/`; what is here is
- * the drawer, the tabs, and what each click means.
+ * The two rows are in `notifications/`; what is here is the drawer, the tabs,
+ * and what each click means. The alert settings are in Settings.
  */
 export const NotificationPanel: React.FC<NotificationPanelProps> = ({
   opened,
@@ -49,29 +44,21 @@ export const NotificationPanel: React.FC<NotificationPanelProps> = ({
   tasks,
   columns,
   inbox,
-  permission,
-  settings,
-  onUpdateSettings,
+  alertsHint,
+  onOpenAlertSettings,
   onOpenSession,
   onRespond,
   onMarkRead,
   onMarkAllRead,
   onDismiss,
-  onClear,
-  onEnableDesktop,
-  onTestDesktop
+  onClear
 }) => {
   const [tab, setTab] = useState<PanelTab>('inbox');
-  const notificationSettings = resolveNotificationSettings(settings.notifications);
 
   const unread = unreadCount(inbox);
   const background = useMemo(() => listBackgroundTasks(tasks), [tasks]);
 
   const columnTitle = (columnId: string) => columns.find((c) => c.id === columnId)?.title || columnId;
-
-  const patchNotifications = (partial: Partial<NotificationSettings>) => {
-    void onUpdateSettings({ notifications: { ...notificationSettings, ...partial } });
-  };
 
   /** Acting on a row is having read it, whichever control was clicked. */
   const openItem = (item: BoardNotification) => {
@@ -129,12 +116,9 @@ export const NotificationPanel: React.FC<NotificationPanelProps> = ({
           inbox={inbox}
           tasks={tasks}
           unread={unread}
-          settings={notificationSettings}
-          permission={permission}
+          alertsHint={alertsHint}
           columnTitle={columnTitle}
-          onPatchSettings={patchNotifications}
-          onEnableDesktop={onEnableDesktop}
-          onTestDesktop={onTestDesktop}
+          onOpenAlertSettings={onOpenAlertSettings}
           onMarkAllRead={onMarkAllRead}
           onClear={onClear}
           onOpen={openItem}

@@ -1,12 +1,13 @@
-import React, { useCallback, useMemo, useRef } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { useMantineColorScheme } from '@mantine/core';
 import { BoardTask } from '../../shared/types';
-import { listBackgroundTasks } from '../../shared/agent/backgroundTasks';
 import { activityCounts, boardSessionActivity } from '../../shared/task/sessions';
 import { collectBoardComments, countBoardComments } from '../../shared/review/boardComments';
 import { desktopAlertWarning } from '../../shared/notifications/delivery';
+import { attentionItems } from '../../shared/attention/attention';
 import { setupSeverity } from '../../shared/setup/report';
 import { useBoardData } from './useBoardData';
+import { useBoardKeys } from './useBoardKeys';
 import { useBoardNotifications } from './notifications/useBoardNotifications';
 import { useBoardOverlays } from './useBoardOverlays';
 import { useBoardSettings } from './useBoardSettings';
@@ -24,7 +25,8 @@ import { usePalette } from '../components/palette/usePalette';
 import { KanbanBoard } from '../components/board/KanbanBoard';
 import { BoardLoadingScreen } from '../components/loading/BoardLoadingScreen';
 import { useBoardLoadState } from '../components/loading/useBoardLoadState';
-import { ProjectFilterBar } from '../components/header/ProjectFilterBar';
+import { NewTaskSheet } from '../components/header/NewTaskSheet';
+import { NeedsYouStrip } from '../components/attention/NeedsYouStrip';
 import { WelcomeScreen } from '../components/onboarding/WelcomeScreen';
 import { ConfigStaleNotice } from '../components/setup/ConfigStaleNotice';
 import { useSetup } from '../components/setup/useSetup';
@@ -70,7 +72,7 @@ export const App: React.FC = () => {
     openTaskIds: selection.openTaskIds
   });
 
-  // A task typed into the header is what you are about to watch, so it opens
+  // A task you just wrote is what you are about to watch, so it opens
   // as soon as the server has made it.
   const { createTask } = actions;
   const { select } = selection;
@@ -81,17 +83,38 @@ export const App: React.FC = () => {
     [createTask, select]
   );
 
-  // One draft for both ways in: the header's composer, and a line typed into
-  // the palette, which lands with the same defaults in the same place.
+  // One draft for both ways in: the new-task sheet, and a line typed into the
+  // palette, which lands with the same defaults in the same place.
   const draft = useNewTaskDraft(settings, projects, createAndOpenTask);
   const palette = usePalette();
   const { toggleColorScheme } = useMantineColorScheme();
 
-  const promptInputRef = useRef<HTMLTextAreaElement | null>(null);
+  const [newTaskOpen, setNewTaskOpen] = useState(false);
+  const openNewTask = useCallback(() => setNewTaskOpen(true), []);
+
+  // A panel over the board owns the keyboard, and so does the manager's chat,
+  // which is open but is not one of the tasks the walk moves through.
+  const openTaskId = selection.focusedId ?? selection.openTaskIds[0];
+  const focusedTaskId = useBoardKeys({
+    tasks: view.visibleTasks,
+    listed: tasks,
+    columns: settings.columns,
+    openTaskId,
+    blocked:
+      palette.opened ||
+      newTaskOpen ||
+      notifications.isPanelOpen ||
+      Object.values(overlays).some((overlay) => overlay.opened) ||
+      (!!openTaskId && !tasks.some((task) => task.id === openTaskId)),
+    onOpen: selection.select,
+    onNewTask: openNewTask
+  });
+
+  // The manager has a button of its own, so what it wants is not listed here.
+  const attention = useMemo(() => attentionItems(tasks, notifications.inbox), [tasks, notifications.inbox]);
   const load = useBoardLoadState(board);
   const onboarding = useOnboarding(board.hasLoaded, projects, tasks, settings.selectedProjectId);
 
-  const backgroundTaskCount = useMemo(() => listBackgroundTasks(tasks).length, [tasks]);
   const openCommentsCount = useMemo(() => {
     return countBoardComments(collectBoardComments(tasks)).open;
   }, [tasks]);
@@ -144,49 +167,60 @@ export const App: React.FC = () => {
   return (
     <div className="min-h-screen text-ink flex flex-col font-sans">
       <Header
-        settings={settings}
-        projects={projects}
-        models={models}
-        agents={agents}
         connection={load.phase}
-        onUpdateSettings={boardSettings.updateSettings}
-        onPickProjectFolder={boardSettings.pickProjectFolder}
-        onOpenSessionImport={overlays.sessionImport.open}
-        onOpenColumnEditor={overlays.columnEditor.open}
+        chips={filter.chips}
+        taskCount={tasks.length}
+        onToggleProject={filter.toggle}
+        onClearProjects={filter.clear}
+        updatedToday={view.updatedToday}
+        changedFiles={view.changedFiles}
+        onToggleUpdatedToday={view.toggleUpdatedToday}
+        onToggleChangedFiles={view.toggleChangedFiles}
+        onOpenPalette={palette.open}
+        onNewTask={openNewTask}
+        attentionCount={attention.length}
+        desktopAlertWarning={desktopAlertWarning(notifications.alertState)}
+        unreadNotificationCount={notifications.unread}
         onOpenNotifications={notifications.openPanel}
-        onOpenSpend={overlays.spend.open}
-        onOpenArchive={overlays.archive.open}
-        onOpenSettings={overlays.settings.open}
         managerState={manager.state}
         onOpenManager={manager.open}
-        setupSeverity={setup.report ? setupSeverity(setup.report.locations) : 'ok'}
-        onOpenComments={overlays.comments.open}
-        openCommentsCount={openCommentsCount}
         weekSpend={board.spend?.week.cost}
         spendReady={board.spend != null}
-        unreadNotificationCount={notifications.unread}
-        awaitingSessionCount={sessionCounts.awaiting}
-        backgroundTaskCount={backgroundTaskCount}
-        desktopAlertWarning={desktopAlertWarning(notifications.alertState)}
-        onDeleteProject={boardSettings.deleteProject}
-        draft={draft}
-        onOpenPalette={palette.open}
-        promptInputRef={promptInputRef}
+        onOpenSpend={overlays.spend.open}
+        openCommentsCount={openCommentsCount}
+        setupSeverity={setup.report ? setupSeverity(setup.report.locations) : 'ok'}
+        onOpenComments={overlays.comments.open}
+        onOpenColumnEditor={overlays.columnEditor.open}
+        onOpenArchive={overlays.archive.open}
+        onOpenSessionImport={overlays.sessionImport.open}
+        onOpenSettings={overlays.settings.open}
       />
 
-      <main className="flex-1 max-w-[2200px] w-full mx-auto p-7" id="board">
+      <main className="flex-1 max-w-[2200px] w-full mx-auto px-5 pt-5" id="board">
         {board.configStale && <ConfigStaleNotice onRestarted={() => void board.refresh()} />}
-        <ProjectFilterBar
-          chips={filter.chips}
-          total={tasks.length}
-          filtered={filter.isFiltered}
-          onToggle={filter.toggle}
-          onClear={filter.clear}
-          updatedToday={view.updatedToday}
-          changedFiles={view.changedFiles}
-          onToggleUpdatedToday={view.toggleUpdatedToday}
-          onToggleChangedFiles={view.toggleChangedFiles}
+        <NeedsYouStrip
+          items={attention}
+          onOpen={notifications.openSession}
+          onRespond={actions.respond}
+          onDismiss={notifications.dismiss}
         />
+
+        {tasks.length > 0 && view.visibleTasks.length === 0 && (
+          <div className="board-empty" role="status">
+            <span>None of the {tasks.length} tasks on the board match the filters.</span>
+            <button
+              type="button"
+              className="hdr-btn h-7 px-2.5 text-[12px]"
+              onClick={() => {
+                filter.clear();
+                if (view.updatedToday.selected) view.toggleUpdatedToday();
+                if (view.changedFiles.selected) view.toggleChangedFiles();
+              }}
+            >
+              Show everything
+            </button>
+          </div>
+        )}
 
         <KanbanBoard
           tasks={view.visibleTasks}
@@ -198,7 +232,10 @@ export const App: React.FC = () => {
           onClearColumn={actions.clearColumn}
           onStopTask={actions.stopTask}
           onRunTask={actions.runTask}
-          onFocusPromptInput={() => promptInputRef.current?.focus()}
+          onNewTask={openNewTask}
+          defaultModel={settings.defaultModel}
+          defaultAgent={settings.defaultAgent}
+          focusedTaskId={focusedTaskId}
         />
       </main>
 
@@ -214,7 +251,7 @@ export const App: React.FC = () => {
           onOpenTask={selection.select}
           onOpenTaskBeside={selection.openBeside}
           onCreateTask={(text) => void draft.create(text)}
-          onNewTask={() => promptInputRef.current?.focus()}
+          onNewTask={openNewTask}
           onOpenManager={() => void manager.open()}
           onOpenSpend={overlays.spend.open}
           onOpenNotifications={notifications.openPanel}
@@ -226,6 +263,19 @@ export const App: React.FC = () => {
           onToggleTheme={toggleColorScheme}
         />
       )}
+
+      <NewTaskSheet
+        opened={newTaskOpen}
+        onClose={() => setNewTaskOpen(false)}
+        settings={settings}
+        projects={projects}
+        models={models}
+        agents={agents}
+        draft={draft}
+        onUpdateSettings={boardSettings.updateSettings}
+        onPickProjectFolder={boardSettings.pickProjectFolder}
+        onDeleteProject={boardSettings.deleteProject}
+      />
 
       <BoardOverlays
         board={board}

@@ -51,6 +51,8 @@ interface ComposerProps {
   slashCommands?: SlashCommand[];
   /** The folder `@` files and `/` project commands are read from. */
   cwd?: string;
+  /** Given while the session is running a turn: shows Stop beside Send. */
+  onStop?: () => void;
 }
 
 /**
@@ -84,7 +86,8 @@ export const Composer: React.FC<ComposerProps> = ({
   submitTooltip,
   mentionPlacement = 'above',
   slashCommands,
-  cwd
+  cwd,
+  onStop
 }) => {
   const field = usePromptField(value, onChange, textareaRef);
   const menu = useComposerMenu(value, field.cursor, cwd, slashCommands);
@@ -242,6 +245,7 @@ export const Composer: React.FC<ComposerProps> = ({
             submitTooltip={submitTooltip}
             submitting={submitting}
             idle={idle}
+            onStop={onStop}
             dictation={<MicButton onText={dictate} disabled={disabled} />}
           />
         </Stack>

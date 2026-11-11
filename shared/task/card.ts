@@ -169,3 +169,62 @@ function waitingDetailOf(task: BoardTask): string | undefined {
   if (summary) return `Wants to run: ${summary}`;
   return `Wants to run ${request.toolCall.name}`;
 }
+
+/** What colour, if any, the card's status line carries. */
+export type CardStatusTone = 'wait' | 'run' | 'err' | 'done' | 'quiet';
+
+export interface CardStatusLine {
+  tone: CardStatusTone;
+  text: string;
+}
+
+/** What a card may know beyond the task itself. */
+export interface CardStatusContext {
+  /** "+50 −13 · 4 files", once the board's change read has landed. */
+  changeText?: string;
+  /** "Merged", when every linked PR and ticket is finished. */
+  settledLabel?: string;
+}
+
+/**
+ * The card's one status line — the single most useful thing to know about the
+ * task right now. Ranked: what it is asking you, what it is doing, what broke,
+ * then what it left behind. Only the first three are coloured, so a board at
+ * rest is quiet and the card that needs you is the one that stands out.
+ */
+export function cardStatusLine(
+  task: Pick<BoardTask, 'error' | 'sessionId'>,
+  summary: TaskCardSummary,
+  context: CardStatusContext = {}
+): CardStatusLine {
+  if (summary.waiting) return { tone: 'wait', text: summary.waitingDetail || summary.statusLabel || 'Waiting for you' };
+  if (summary.running) {
+    const doing = summary.currentTool?.title || 'Working';
+    const step = summary.currentTool?.stepBadge;
+    return { tone: 'run', text: step ? `${doing} · ${step}` : doing };
+  }
+  if (summary.hasError) {
+    const first = task.error?.trim().split('\n')[0]?.trim();
+    return { tone: 'err', text: first || 'The last turn failed' };
+  }
+  if (summary.folderGone) return { tone: 'err', text: 'Folder is gone' };
+  if (context.settledLabel) return { tone: 'done', text: context.settledLabel };
+  if (context.changeText) return { tone: 'quiet', text: context.changeText };
+  if (summary.queuedCount > 0) return { tone: 'quiet', text: `${summary.queuedCount} queued` };
+  return { tone: 'quiet', text: task.sessionId ? 'Idle' : 'Not started' };
+}
+
+/**
+ * The model and agent, only when they are not what the board would have used
+ * anyway. On a board where every task runs the same model, a model chip on
+ * every card is twenty copies of one fact.
+ */
+export function cardRunBadges(
+  task: Pick<BoardTask, 'model' | 'agent'>,
+  defaults: { model?: string; agent?: string }
+): string[] {
+  const badges: string[] = [];
+  if (task.model && defaults.model && task.model !== defaults.model) badges.push(formatBadgeName(task.model).toLowerCase());
+  if (task.agent && defaults.agent && task.agent !== defaults.agent) badges.push(task.agent);
+  return badges;
+}

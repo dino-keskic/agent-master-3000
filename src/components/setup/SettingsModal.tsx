@@ -8,18 +8,21 @@ import { RestartNotice } from './RestartNotice';
 import { Setup } from './useSetup';
 
 /**
- * The board's settings: where its data lives, where OpenCode and its files
- * are, and anything else OpenCode needs in its environment. All of it is
- * saved to the setup file named at the bottom, which is plain JSON.
+ * The board's settings: when it may interrupt you, where its data lives, where
+ * OpenCode and its files are, and anything else OpenCode needs in its
+ * environment. The locations and environment are saved to the setup file named
+ * at the bottom, which is plain JSON; the alerts are saved with the board.
  */
 
 interface SettingsModalProps {
   opened: boolean;
   onClose: () => void;
   setup: Setup;
+  /** The desktop-alert section, which is wired to the inbox rather than the setup. */
+  alerts?: React.ReactNode;
 }
 
-export const SettingsModal: React.FC<SettingsModalProps> = ({ opened, onClose, setup }) => {
+export const SettingsModal: React.FC<SettingsModalProps> = ({ opened, onClose, setup, alerts }) => {
   const { report, error } = setup;
 
   return (
@@ -40,6 +43,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ opened, onClose, s
       }}
     >
       <div className="flex flex-col gap-5 p-5">
+        {alerts && (
+          <section className="flex flex-col gap-2">
+            <SectionTitle>Desktop alerts</SectionTitle>
+            {alerts}
+          </section>
+        )}
         {error && <p className="m-0 text-log-ui text-err-fg">Could not read the setup: {error}</p>}
         {!report && !error && <p className="m-0 text-log-ui text-ink-4">Looking…</p>}
         {report && (

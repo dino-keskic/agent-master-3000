@@ -1,21 +1,19 @@
 import React from 'react';
 import { Group, TextInput, Tooltip } from '@mantine/core';
-import { Check, ExternalLink, Maximize2, Minimize2, Pencil, X } from 'lucide-react';
+import { Check, ExternalLink, Pencil, X } from 'lucide-react';
 import { taskHref } from '../../../shared/ids';
 
 interface DrawerTitleBarProps {
-  taskId: string;
+  /** Left out for the manager, which is not a card and has no id worth showing. */
+  taskId?: string;
   title: string;
   editing: boolean;
   draftTitle: string;
-  /** Left out in a split view, where the workspace is always full width. */
-  expanded?: boolean;
   onDraftTitleChange: (value: string) => void;
   onStartEditing: () => void;
   onCancelEditing: () => void;
   onSaveTitle: () => void;
-  onToggleExpanded?: () => void;
-  /** Panel controls the split view adds: open beside, the sidebar toggle. */
+  /** Panel controls: open beside, the details toggle. */
   controls?: React.ReactNode;
   onClose: () => void;
   closeLabel: string;
@@ -27,21 +25,21 @@ export const DrawerTitleBar: React.FC<DrawerTitleBarProps> = ({
   title,
   editing,
   draftTitle,
-  expanded,
   onDraftTitleChange,
   onStartEditing,
   onCancelEditing,
   onSaveTitle,
-  onToggleExpanded,
   controls,
   onClose,
   closeLabel
 }) => (
   <Group gap="xs" wrap="nowrap" className="w-full min-w-0">
-    <span className="inline-flex items-center gap-1.5 shrink-0 rounded-full border border-line px-2.5 py-[3px] font-mono text-[12px] text-ink-2">
-      <span className="w-1.5 h-1.5 rounded-full bg-ink-4" />
-      {taskId}
-    </span>
+    {taskId && (
+      <span className="inline-flex items-center gap-1.5 shrink-0 rounded-full border border-line px-2.5 py-[3px] font-mono text-[12px] text-ink-2">
+        <span className="w-1.5 h-1.5 rounded-full bg-ink-4" />
+        {taskId}
+      </span>
+    )}
 
     {editing ? (
       <Group gap={4} wrap="nowrap" className="flex-1 min-w-0">
@@ -85,28 +83,18 @@ export const DrawerTitleBar: React.FC<DrawerTitleBarProps> = ({
         </Tooltip>
       )}
       {controls}
-      {onToggleExpanded && (
-        <Tooltip label={expanded ? 'Collapse panel' : 'Expand panel'} withArrow>
+      {taskId && (
+        <Tooltip label="Open this task in a new tab" withArrow>
           <button
             type="button"
             className="icon-btn"
-            aria-label={expanded ? 'Collapse panel' : 'Expand panel'}
-            onClick={onToggleExpanded}
+            aria-label="Open in a new tab"
+            onClick={() => window.open(taskHref(taskId), '_blank', 'noopener')}
           >
-            {expanded ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
+            <ExternalLink className="w-3.5 h-3.5" />
           </button>
         </Tooltip>
       )}
-      <Tooltip label="Open this task in a new tab" withArrow>
-        <button
-          type="button"
-          className="icon-btn"
-          aria-label="Open in a new tab"
-          onClick={() => window.open(taskHref(taskId), '_blank', 'noopener')}
-        >
-          <ExternalLink className="w-3.5 h-3.5" />
-        </button>
-      </Tooltip>
       <Tooltip label={closeLabel} withArrow>
         <button type="button" className="icon-btn" aria-label={closeLabel} onClick={onClose}>
           <X className="w-3.5 h-3.5" />

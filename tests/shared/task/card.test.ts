@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert';
-import { taskCardSummary } from '../../../shared/task/card.js';
+import { cardRunBadges, cardStatusLine, taskCardSummary } from '../../../shared/task/card.js';
 import { link, permission, question, task } from '../../fixtures/boardTasks.js';
 
 /** The card has one line for status and one strip for everything else. */
@@ -192,4 +192,32 @@ test('extracts todowrite plan onto running card tool', () => {
   assert.strictEqual(summary.currentTool?.stepBadge, '2/3');
   assert.strictEqual(summary.currentTool?.progressPercent, 33);
   assert.strictEqual(summary.currentTool?.command, 'yarn test');
+});
+
+test('the status line is the most urgent true thing, and only urgency is coloured', () => {
+  const line = (t: ReturnType<typeof task>, context = {}) => cardStatusLine(t, taskCardSummary(t), context);
+
+  assert.deepStrictEqual(line(task({ runState: 'awaiting_input', pendingRequest: question })), {
+    tone: 'wait',
+    text: 'Which branch should I use?'
+  });
+  assert.deepStrictEqual(line(task({ runState: 'running' })), { tone: 'run', text: 'Working' });
+  assert.deepStrictEqual(line(task({ error: 'boom\nmore' })), { tone: 'err', text: 'boom' });
+  assert.deepStrictEqual(line(task({ sessionId: 's' }), { settledLabel: 'Merged', changeText: '+1 −1 · 1 file' }), {
+    tone: 'done',
+    text: 'Merged'
+  });
+  assert.deepStrictEqual(line(task({ sessionId: 's' }), { changeText: '+1 −1 · 1 file' }), {
+    tone: 'quiet',
+    text: '+1 −1 · 1 file'
+  });
+  assert.deepStrictEqual(line(task({ sessionId: 's' })), { tone: 'quiet', text: 'Idle' });
+  assert.deepStrictEqual(line(task()), { tone: 'quiet', text: 'Not started' });
+});
+
+test('model and agent are named only when they differ from the board default', () => {
+  const defaults = { model: 'anthropic/claude', agent: 'build' };
+  assert.deepStrictEqual(cardRunBadges(task(), defaults), []);
+  assert.deepStrictEqual(cardRunBadges(task({ model: 'openai/gpt-luna', agent: 'plan' }), defaults), ['gpt-luna', 'plan']);
+  assert.deepStrictEqual(cardRunBadges(task({ model: 'openai/gpt-luna' }), {}), []);
 });

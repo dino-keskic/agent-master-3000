@@ -23,6 +23,8 @@ import { EditorOption } from '../../api';
 
 interface DrawerMainPaneProps {
   task: BoardTask;
+  /** The manager: a conversation only — no column, no Changes or Tools. */
+  conversationOnly?: boolean;
   sessionId?: string;
   view: ViewedSession;
   /** The transcript on screen (`drawerTranscript`). */
@@ -50,6 +52,7 @@ interface DrawerMainPaneProps {
 
 export const DrawerMainPane: React.FC<DrawerMainPaneProps> = ({
   task,
+  conversationOnly = false,
   sessionId,
   view,
   logs,
@@ -81,6 +84,7 @@ export const DrawerMainPane: React.FC<DrawerMainPaneProps> = ({
 
     <DrawerTabs
       task={task}
+      conversationOnly={conversationOnly}
       sessionId={sessionId}
       view={view}
       logs={logs}
@@ -112,11 +116,11 @@ export const DrawerMainPane: React.FC<DrawerMainPaneProps> = ({
       task={task}
       logs={logs}
       running={view.busy || task.runState === 'running'}
-      onStop={actions.stop}
     />
 
     <DrawerFooter
       task={task}
+      conversationOnly={conversationOnly}
       sessionId={sessionId}
       queuingPrompts={queuingPrompts}
       view={view}

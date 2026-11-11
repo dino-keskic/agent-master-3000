@@ -1,6 +1,6 @@
 import React from 'react';
 import { Group, Select, Tooltip } from '@mantine/core';
-import { Play, Shrink, Square } from 'lucide-react';
+import { Play, Shrink } from 'lucide-react';
 import { BoardColumn, TaskRunState } from '../../../shared/types';
 import { Button, Type } from '../ui';
 
@@ -13,13 +13,11 @@ interface DrawerFooterControlsProps {
   isSubagentView: boolean;
   /** Whether the view has a session at all — a fresh task has none. */
   hasSession: boolean;
-  otherBusyCount: number;
   folderGone: boolean;
   runLabel: string;
   isCompacting: boolean;
   onMoveColumn: (columnId: string) => void;
   onCompact: () => void;
-  onStop: () => void;
   onRun: () => void;
 }
 
@@ -40,9 +38,8 @@ function statusLabel(runState: TaskRunState): string {
 
 /**
  * The row above the composer: which column the task sits in, what the session
- * on screen is doing, and the actions for that session. Everything here acts on
- * the viewed session rather than the task — stopping the fork you are reading
- * must not kill the main conversation.
+ * on screen is doing, and what can be done to it while it is at rest. Stopping
+ * a running turn is the composer's, beside Send — one button, in one place.
  */
 export const DrawerFooterControls: React.FC<DrawerFooterControlsProps> = ({
   columns,
@@ -51,13 +48,11 @@ export const DrawerFooterControls: React.FC<DrawerFooterControlsProps> = ({
   busy,
   isSubagentView,
   hasSession,
-  otherBusyCount,
   folderGone,
   runLabel,
   isCompacting,
   onMoveColumn,
   onCompact,
-  onStop,
   onRun
 }) => (
   <Group justify="space-between" align="center">
@@ -94,21 +89,7 @@ export const DrawerFooterControls: React.FC<DrawerFooterControlsProps> = ({
         </Button>
       </Tooltip>
 
-      {isSubagentView ? null : busy ? (
-        <Tooltip
-          label={otherBusyCount > 0 ? 'Stops only the session you are looking at' : 'Stop this turn — the session is kept'}
-          withArrow
-        >
-          <Button
-            size="xs"
-            variant="run"
-            leftSection={<Square className="w-3.5 h-3.5 fill-current" />}
-            onClick={onStop}
-          >
-            Stop
-          </Button>
-        </Tooltip>
-      ) : (
+      {isSubagentView || busy ? null : (
         <Tooltip label={folderGone ? 'Folder is gone — this worktree was deleted' : undefined} disabled={!folderGone} withArrow>
           <Button
             size="xs"

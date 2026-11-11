@@ -9,6 +9,7 @@ import { MoveWorkModal } from '../worktree/MoveWorkModal';
 import { SplitPicker } from '../split/SplitPicker';
 import { useDrawerData } from './useDrawerData';
 import { useDrawerState } from './useDrawerState';
+import { useStoredFlag } from './useStoredFlag';
 import { drawerActions } from './drawerActions';
 import { usePendingPrompts } from './usePendingPrompts';
 import { OpenCodeAgent, OpenCodeModel } from '../../../shared/sessions/types';
@@ -18,6 +19,8 @@ import { sessionCwd, taskSessionViews } from '../../../shared/task/sessions';
 import { resolveViewedSession, transcriptPending } from '../../../shared/task/viewedSession';
 import { blankSessionPending, drawerTranscript } from '../../../shared/task/drawerTranscript';
 import { queuedForSession } from '../../../shared/turns/queue';
+import { isManagerTask } from '../../../shared/manager/identity';
+import { managerTranscript } from '../../../shared/manager/transcript';
 
 interface TaskPanelProps {
   task: BoardTask;
@@ -30,8 +33,6 @@ interface TaskPanelProps {
   /** Whether other panels share the workspace, and whether this one has the focus. */
   split: boolean;
   focused: boolean;
-  expanded: boolean;
-  onToggleExpanded: () => void;
   onFocus: (taskId: string) => void;
   onOpenBeside: (taskId: string, anchorId: string) => void;
   onClose: (taskId: string) => void;
@@ -77,8 +78,6 @@ export const TaskPanel: React.FC<TaskPanelProps> = ({
   openTaskIds,
   split,
   focused,
-  expanded,
-  onToggleExpanded,
   onFocus,
   onOpenBeside,
   onClose,
@@ -105,16 +104,19 @@ export const TaskPanel: React.FC<TaskPanelProps> = ({
     sessionId,
     task.runState === 'running'
   );
-  // Beside other panels the sidebar would leave the transcript a sliver, so it
-  // waits behind a toggle; alone, it is always there as it always was.
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-  const showSidebar = !split || sidebarOpen;
+  // The details are about the task, not the conversation, so they wait behind
+  // a toggle and the transcript gets the width. The choice is remembered.
+  const [sidebarOpen, toggleSidebar] = useStoredFlag('agentMasterTaskDetails');
 
   const view = resolveViewedSession(task, sessionId, subagents);
   const viewedCwd = sessionCwd(task, view.viewed);
   const fetchedLogs = sessionId ? sideSessionLogs[sessionId] : undefined;
   const startingBlank = blankSessionPending(task, state.blankStart);
-  const logs = drawerTranscript(task, sessionId, fetchedLogs, state.blankStart);
+  // The manager is a conversation about the board, not a card on it: no
+  // column, no diff, and its briefing is not something the user said.
+  const manager = isManagerTask(task);
+  const transcript = drawerTranscript(task, sessionId, fetchedLogs, state.blankStart);
+  const logs = manager ? managerTranscript(transcript) : transcript;
   const pending = usePendingPrompts({
     sessionId,
     logs,
@@ -176,39 +178,35 @@ export const TaskPanel: React.FC<TaskPanelProps> = ({
         className={`border-t-2 ${split && focused ? 'border-t-accent' : 'border-t-transparent'}`}
       >
         <DrawerTitleBar
-          taskId={task.id}
+          taskId={manager ? undefined : task.id}
           title={task.title}
           editing={state.isEditingTitle}
           draftTitle={state.editedTitle}
-          expanded={split ? undefined : expanded}
           onDraftTitleChange={state.setEditedTitle}
           onStartEditing={() => state.setIsEditingTitle(true)}
           onCancelEditing={() => state.setIsEditingTitle(false)}
           onSaveTitle={handleSaveTitle}
-          onToggleExpanded={split ? undefined : onToggleExpanded}
           onClose={() => onClose(task.id)}
-          closeLabel={split ? 'Close this panel' : 'Close'}
+          closeLabel={split ? 'Close this panel' : 'Back to the board'}
           controls={
             <>
-              <SplitPicker
+              {!manager && <SplitPicker
                 tasks={boardTasks}
                 openTaskIds={openTaskIds}
                 atCap={openTaskIds.length >= MAX_PANES}
                 onPick={(id) => onOpenBeside(id, task.id)}
-              />
-              {split && (
-                <Tooltip label={sidebarOpen ? 'Hide task details' : 'Show task details'} withArrow>
-                  <button
-                    type="button"
-                    className={`icon-btn${sidebarOpen ? ' is-on' : ''}`}
-                    aria-label={sidebarOpen ? 'Hide task details' : 'Show task details'}
-                    aria-pressed={sidebarOpen}
-                    onClick={() => setSidebarOpen((open) => !open)}
-                  >
-                    <PanelRight className="w-3.5 h-3.5" />
-                  </button>
-                </Tooltip>
-              )}
+              />}
+              <Tooltip label={sidebarOpen ? 'Hide task details' : 'Show task details'} withArrow>
+                <button
+                  type="button"
+                  className={`icon-btn${sidebarOpen ? ' is-on' : ''}`}
+                  aria-label={sidebarOpen ? 'Hide task details' : 'Show task details'}
+                  aria-pressed={sidebarOpen}
+                  onClick={toggleSidebar}
+                >
+                  <PanelRight className="w-3.5 h-3.5" />
+                </button>
+              </Tooltip>
             </>
           }
         />
@@ -217,6 +215,7 @@ export const TaskPanel: React.FC<TaskPanelProps> = ({
       <div className="flex-1 flex min-h-0 min-w-0 overflow-hidden w-full">
         <DrawerMainPane
           task={task}
+          conversationOnly={manager}
           sessionId={sessionId}
           view={view}
           logs={logs}
@@ -239,7 +238,7 @@ export const TaskPanel: React.FC<TaskPanelProps> = ({
           onUpdateTask={onUpdateTask}
         />
 
-        {showSidebar && (
+        {sidebarOpen && (
           <TaskSidebar
             task={task}
             activeSessionId={sessionId}
