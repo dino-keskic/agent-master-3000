@@ -194,6 +194,7 @@ export class TurnOrchestrator {
         kind: 'btw',
         origin: 'fork',
         forkedFrom: options.forkedFrom,
+        forkedAtLabel: options.forkedAtLabel,
         costAtFork: options.costAtFork,
         chosen: options.chosen,
         prompt,
@@ -236,6 +237,11 @@ export class TurnOrchestrator {
       return acpManager.isSessionTurnInFlight(sessionId) || this.turns.isStarting(turnKey(taskId, sessionId));
     }
     return acpManager.isTurnInFlight(taskId) || this.turns.isStarting(turnKey(taskId));
+  }
+
+  /** Move any queued turns from an overflowed session onto its recovered copy. */
+  rekeySession(taskId: string, fromSessionId: string, toSessionId: string): void {
+    this.turns.rekey(turnKey(taskId, fromSessionId), turnKey(taskId, toSessionId), toSessionId);
   }
 
   /**

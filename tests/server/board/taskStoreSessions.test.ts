@@ -440,3 +440,35 @@ test('relinking a session keeps the pick it was started with', () => {
   const link = store.getTask(task.id)!.sessions?.find((entry) => entry.sessionId === 'ses_kept');
   assert.strictEqual(link?.chosen?.model, 'opencode/gpt-6-astra');
 });
+
+test('setSessionRunState tracks turn timing and preserves lastPromptStartedAt across awaiting_input', () => {
+  const task = store.createTask({ title: 'Turn timing', prompt: 'go' });
+  store.updateTask(task.id, { sessionId: 'ses_time' });
+  store.linkSession(task.id, {
+    sessionId: 'ses_time',
+    title: 'Main',
+    kind: 'main',
+    origin: 'initial',
+    primary: true
+  });
+
+  store.setSessionRunState(task.id, 'ses_time', 'running');
+  const linkRunning = store.getTask(task.id)!.sessions![0]!;
+  assert.ok(linkRunning.lastPromptStartedAt);
+  assert.ok(linkRunning.activeTurnStartedAt);
+  assert.strictEqual(linkRunning.lastTurnDurationMs, undefined);
+
+  const originalStart = linkRunning.lastPromptStartedAt - 5_000;
+  linkRunning.lastPromptStartedAt = originalStart;
+  linkRunning.activeTurnStartedAt = originalStart;
+
+  // Blocking on user approval must not wipe the prompt start timestamp when resuming.
+  store.setSessionPendingRequest(task.id, 'ses_time', ask('req-time'));
+  store.setSessionPendingRequest(task.id, 'ses_time', undefined);
+  assert.strictEqual(store.getTask(task.id)!.sessions![0]!.lastPromptStartedAt, originalStart);
+
+  store.setSessionRunState(task.id, 'ses_time', 'idle');
+  const finished = store.getTask(task.id)!.sessions![0]!;
+  assert.strictEqual(finished.activeTurnStartedAt, undefined);
+  assert.ok((finished.lastTurnDurationMs ?? 0) >= 5_000);
+});

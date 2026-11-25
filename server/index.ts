@@ -5,7 +5,12 @@ import http from 'http';
 import { WebSocketServer } from 'ws';
 import { registerAcpEvents } from './turns/acpEvents.js';
 import { CLIENT_DIR, IS_BUNDLED, listenAddress } from './app/appPaths.js';
-import { setConfigStampSource, setToolPolicySource } from './acp/transport.js';
+import {
+  setAgentToolPolicySource,
+  setConfigStampSource,
+  setSkillPolicySource,
+  setToolPolicySource
+} from './acp/transport.js';
 import { currentConfigStamp, setBoardConfigSource } from './setup/configLayers.js';
 import { BoardPoller } from './board/poller.js';
 import { serveClient } from './http/clientStatic.js';
@@ -16,6 +21,7 @@ import { OpenCodeSync } from './opencode/sync.js';
 import { rememberProjects } from './opencode/hydrate.js';
 import { Presenter } from './live/presenter.js';
 import { BoardPublisher } from './live/publisher.js';
+import { RemoteAccessController } from './http/remoteAccess.js';
 import { verifySocketClient, warnIfExposed } from './http/requestGuard.js';
 import { registerRoutes } from './routes/index.js';
 import { installShutdown } from './app/shutdown.js';
@@ -34,6 +40,8 @@ import { TurnRegistry } from './turns/registry.js';
 
 // The agent process is created lazily, and it reads the tool policy at spawn.
 setToolPolicySource(() => taskStore.getSettings().toolPolicy || {});
+setAgentToolPolicySource(() => taskStore.getSettings().agentToolPolicy || {});
+setSkillPolicySource(() => taskStore.getSettings().skillPolicy || {});
 // Which projects' OpenCode config the board reads models in and watches for edits.
 setBoardConfigSource(() => {
   const { projects, defaultCwd, toolPolicy } = taskStore.getSettings();
@@ -66,17 +74,28 @@ const orchestrator = new TurnOrchestrator(turns, publisher);
 const sync = new OpenCodeSync(turns, publisher);
 const poller = new BoardPoller(hub, sync);
 
+const { port: PORT, host: HOST } = listenAddress();
+const remoteAccess = new RemoteAccessController({
+  app,
+  hub,
+  mainPort: PORT,
+  clientDir: CLIENT_DIR,
+  isBundled: IS_BUNDLED
+});
+
 hub.listen(wss);
-installShutdown(server, wss);
-registerAcpEvents(publisher, orchestrator);
-registerRoutes(app, { publisher, orchestrator, turns, sync });
-// The built app serves its own client; in dev that is Vite's job.
-if (IS_BUNDLED && !serveClient(app, CLIENT_DIR)) {
+installShutdown(server, wss, () => remoteAccess.disable());
+registerAcpEvents(publisher, orchestrator, poller);
+registerRoutes(app, { publisher, orchestrator, turns, sync, remoteAccess });
+// The built app serves its own client; in dev Vite proxies only `/api` and
+// `/ws`, so mounting a built `dist/` when present is harmless locally and
+// lets the optional LAN listener serve the UI too.
+const clientMounted = serveClient(app, CLIENT_DIR);
+if (IS_BUNDLED && !clientMounted) {
   console.warn(`[Agent Master 3000] No built client in ${CLIENT_DIR} — serving the API only`);
 }
 useErrorHandler(app);
 
-const { port: PORT, host: HOST } = listenAddress();
 server.listen(PORT, HOST, () => {
   console.log(`[Agent Master 3000] Listening on http://${HOST}:${PORT}`);
   warnIfExposed();

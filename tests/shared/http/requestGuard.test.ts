@@ -7,6 +7,8 @@ import {
   cookieValue,
   isAllowedOrigin,
   isLoopbackBind,
+  isLoopbackRemoteAddress,
+  isRequestSecure,
   localBoardUrl,
   normalizeHostname,
   sameSecret,
@@ -160,17 +162,25 @@ test('a token link hands its token over and leaves the address bar', () => {
 test('the token cookie never rides along on another site\'s request', () => {
   assert.equal(tokenCookie('a b', false), 'agent_master_token=a%20b; Path=/; Max-Age=31536000; SameSite=Strict');
   assert.match(tokenCookie('x', true), /; Secure$/);
+  assert.equal(
+    tokenCookie('x', true, true),
+    'agent_master_token=x; Path=/; Max-Age=31536000; SameSite=Strict; HttpOnly; Secure'
+  );
+  assert.equal(
+    tokenCookie('x', false, true),
+    'agent_master_token=x; Path=/; Max-Age=31536000; SameSite=Strict; HttpOnly'
+  );
 });
 
 test('a correct token link is answered with the cookie and the same page without it', () => {
   const config = { ...LOCAL, token: 'secret' };
   const link = { host: 'localhost:3737', method: 'GET', secure: false };
   assert.deepEqual(tokenLinkHandoff({ ...link, url: '/?token=secret&task=TASK-1,TASK-2' }, config), {
-    cookie: tokenCookie('secret', false),
+    cookie: tokenCookie('secret', false, true),
     location: '/?task=TASK-1,TASK-2'
   });
   assert.equal(tokenLinkHandoff({ ...link, url: '/?token=secret' }, config)?.location, '/');
-  assert.match(tokenLinkHandoff({ ...link, url: '/?token=secret', secure: true }, config)?.cookie ?? '', /; Secure$/);
+  assert.match(tokenLinkHandoff({ ...link, url: '/?token=secret', secure: true }, config)?.cookie ?? '', /; HttpOnly; Secure$/);
 });
 
 test('anything but a correct, same-site GET token link falls through to the guard', () => {
@@ -182,4 +192,55 @@ test('anything but a correct, same-site GET token link falls through to the guar
   assert.equal(tokenLinkHandoff({ ...link, host: 'evil.example' }, config), undefined);
   assert.equal(tokenLinkHandoff({ ...link, fetchSite: 'cross-site' }, config), undefined);
   assert.equal(tokenLinkHandoff(link, LOCAL), undefined);
+});
+
+test('isLoopbackRemoteAddress and isRequestSecure trust X-Forwarded-Proto only from trusted loopback proxies', () => {
+  assert.equal(isLoopbackRemoteAddress('127.0.0.1'), true);
+  assert.equal(isLoopbackRemoteAddress('::1'), true);
+  assert.equal(isLoopbackRemoteAddress('::ffff:127.0.0.1'), true);
+  assert.equal(isLoopbackRemoteAddress('127.0.1.5'), true);
+  assert.equal(isLoopbackRemoteAddress('192.168.1.5'), false);
+  assert.equal(isLoopbackRemoteAddress('100.64.0.5'), false);
+  assert.equal(isLoopbackRemoteAddress(undefined), false);
+
+  assert.equal(
+    isRequestSecure({ reqSecure: true, trustLoopbackProxy: false, remoteAddress: '192.168.1.5' }),
+    true
+  );
+  assert.equal(
+    isRequestSecure({
+      reqSecure: false,
+      trustLoopbackProxy: true,
+      remoteAddress: '::ffff:127.0.0.1',
+      forwardedProto: 'https'
+    }),
+    true
+  );
+  assert.equal(
+    isRequestSecure({
+      reqSecure: false,
+      trustLoopbackProxy: true,
+      remoteAddress: '::1',
+      forwardedProto: 'HTTPS, http'
+    }),
+    true
+  );
+  assert.equal(
+    isRequestSecure({
+      reqSecure: false,
+      trustLoopbackProxy: true,
+      remoteAddress: '100.64.0.5',
+      forwardedProto: 'https'
+    }),
+    false
+  );
+  assert.equal(
+    isRequestSecure({
+      reqSecure: false,
+      trustLoopbackProxy: false,
+      remoteAddress: '127.0.0.1',
+      forwardedProto: 'https'
+    }),
+    false
+  );
 });

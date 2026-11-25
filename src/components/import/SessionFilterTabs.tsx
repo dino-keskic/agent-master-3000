@@ -1,17 +1,18 @@
 import React from 'react';
-import { Badge, Checkbox, Group, SegmentedControl, Text } from '@mantine/core';
+import { Checkbox } from '@mantine/core';
 import { FileDiff, GitBranch, Layers } from 'lucide-react';
 import { SessionFilterTab, SessionTabCounts } from '../../../shared/sessions/import';
+import { SegmentedControl } from '../ui';
 
 const TABS: { value: SessionFilterTab; label: string; icon?: React.ReactNode }[] = [
-  { value: 'all', label: 'All', icon: <Layers className="w-3.5 h-3.5" /> },
+  { value: 'all', label: 'All', icon: <Layers className="w-3 h-3" /> },
   {
     value: 'live',
     label: 'Live & Recent',
-    icon: <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+    icon: <span className="w-2 h-2 rounded-full bg-run animate-pulse inline-block" />
   },
-  { value: 'worktrees', label: 'Worktrees', icon: <GitBranch className="w-3.5 h-3.5" /> },
-  { value: 'diff', label: 'With Changes', icon: <FileDiff className="w-3.5 h-3.5" /> },
+  { value: 'worktrees', label: 'Worktrees', icon: <GitBranch className="w-3 h-3" /> },
+  { value: 'diff', label: 'With Changes', icon: <FileDiff className="w-3 h-3" /> },
   { value: 'unimported', label: 'Unimported' },
   { value: 'imported', label: 'On Board' }
 ];
@@ -26,7 +27,7 @@ interface SessionFilterTabsProps {
   onShowUntitledChange: (value: boolean) => void;
   showRemoved: boolean;
   onShowRemovedChange: (value: boolean) => void;
-};
+}
 
 /** Which slice of the session list to show, and what to let back into it. */
 export const SessionFilterTabs: React.FC<SessionFilterTabsProps> = ({
@@ -39,42 +40,33 @@ export const SessionFilterTabs: React.FC<SessionFilterTabsProps> = ({
   showRemoved,
   onShowRemovedChange
 }) => (
-  <Group justify="space-between" align="center" wrap="wrap" gap="xs">
-    <SegmentedControl
+  <div className="flex items-center justify-between gap-2 flex-wrap">
+    <SegmentedControl<SessionFilterTab>
       size="xs"
       value={tab}
-      onChange={(val) => onTabChange(val as SessionFilterTab)}
-      data={TABS.map(({ value, label, icon }) => ({
+      onChange={onTabChange}
+      className="flex-wrap"
+      options={TABS.map(({ value, label, icon }) => ({
         value,
-        label: (
-          <Group gap={6} wrap="nowrap">
-            {icon}
-            <span>{label}</span>
-            <Badge size="xs" color="gray" variant="light" circle className="font-mono">
-              {counts[value]}
-            </Badge>
-          </Group>
-        )
+        label,
+        icon,
+        count: counts[value]
       }))}
-      styles={{
-        root: { backgroundColor: 'rgb(var(--c-surface-2))', borderColor: 'rgb(var(--c-line))' },
-        label: { padding: '4px 10px' }
-      }}
     />
 
-    <Group gap="md">
+    <div className="flex items-center gap-4">
       <Checkbox
         size="xs"
-        label={<Text size="xs" c="dimmed">Include Empty ({untitledCount})</Text>}
+        label={<span className="text-[12px] text-ink-3">Include empty ({untitledCount})</span>}
         checked={showUntitled}
         onChange={(e) => onShowUntitledChange(e.currentTarget.checked)}
       />
       <Checkbox
         size="xs"
-        label={<Text size="xs" c="dimmed">Include Removed Worktrees</Text>}
+        label={<span className="text-[12px] text-ink-3">Include removed worktrees</span>}
         checked={showRemoved}
         onChange={(e) => onShowRemovedChange(e.currentTarget.checked)}
       />
-    </Group>
-  </Group>
+    </div>
+  </div>
 );

@@ -45,13 +45,14 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
   ref
 ) {
   const isDisabled = disabled || loading;
+  const hasLabel = children !== undefined && children !== null && children !== false;
 
   return (
     <button
       ref={ref}
       type={type}
       disabled={isDisabled}
-      className={`inline-flex items-center select-none cursor-pointer transition-colors duration-150 disabled:opacity-45 disabled:cursor-not-allowed ${VARIANT_CLASSES[variant]} ${SIZE_CLASSES[size]} ${className}`}
+      className={`inline-flex items-center justify-center select-none cursor-pointer transition-colors duration-150 disabled:opacity-45 disabled:cursor-not-allowed ${VARIANT_CLASSES[variant]} ${SIZE_CLASSES[size]} ${className}`}
       {...rest}
     >
       {loading ? (
@@ -59,7 +60,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
       ) : (
         leftSection && <span className="shrink-0 flex items-center">{leftSection}</span>
       )}
-      {children && <span className="truncate">{children}</span>}
+      {hasLabel && <span className="truncate">{children}</span>}
       {!loading && rightSection && <span className="shrink-0 flex items-center">{rightSection}</span>}
     </button>
   );

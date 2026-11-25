@@ -1,4 +1,5 @@
 import { Express } from 'express';
+import { registerAgentRoutes } from './agents.js';
 import { registerAttachmentRoutes } from './attachments.js';
 import { registerBoardRoutes } from './board.js';
 import { registerCommentRoutes } from './comments.js';
@@ -8,10 +9,12 @@ import { registerManagerRoutes } from './manager.js';
 import { registerMentionRoutes } from './mentions.js';
 import { registerProjectMoveRoutes } from './projectMove.js';
 import { registerProjectRoutes } from './projects.js';
+import { registerRemoteAccessRoutes } from './remoteAccess.js';
 import { registerRespondRoutes } from './respond.js';
 import { registerSessionImportRoutes } from './sessionImport.js';
 import { registerSessionRoutes } from './sessions.js';
 import { registerSetupRoutes } from './setup.js';
+import { registerSkillRoutes } from './skills.js';
 import { registerSpendRoutes } from './spend.js';
 import { registerSpeechRoutes } from './speech.js';
 import { registerTaskMoveRoutes } from './taskMove.js';
@@ -45,7 +48,10 @@ export function registerRoutes(app: Express, ctx: RouteContext): void {
   registerManagerRoutes(app, ctx);
   registerMentionRoutes(app);
   registerToolRoutes(app, ctx);
+  registerAgentRoutes(app, ctx);
+  registerSkillRoutes(app, ctx);
   registerSpendRoutes(app);
   registerSpeechRoutes(app);
   registerAttachmentRoutes(app);
+  registerRemoteAccessRoutes(app, ctx);
 }

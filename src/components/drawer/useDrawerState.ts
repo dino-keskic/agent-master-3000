@@ -2,10 +2,11 @@ import { useEffect, useState } from 'react';
 import { BoardTask } from '../../../shared/types';
 import { SessionStartMode } from '../session/sessionMode';
 import { BlankSessionStart, blankSessionPending } from '../../../shared/task/drawerTranscript';
+import { ForkAnchor } from '../../../shared/transcript/forkPoint';
 
 /**
  * What the drawer holds about the task on screen: which session, which tab,
- * what is half-typed, and what is mid-flight.
+ * what is half-typed, an optional fork cut-point, and what is mid-flight.
  *
  * All of it is per-panel and none of it is worth persisting. How wide the
  * workspace is belongs to the workspace, not to any one task.
@@ -27,6 +28,12 @@ export interface DrawerState {
   setIsCompacting: (busy: boolean) => void;
   sessionModalMode: SessionStartMode | null;
   setSessionModalMode: (mode: SessionStartMode | null) => void;
+  /** Session to copy when the fork modal was opened from a specific sidebar row. */
+  forkSourceSessionId: string | undefined;
+  setForkSourceSessionId: (sessionId: string | undefined) => void;
+  /** Selected transcript turn when branching from mid-session via the composer. */
+  forkAnchor: ForkAnchor | null;
+  setForkAnchor: (anchor: ForkAnchor | null) => void;
   /**
    * What the move dialog is moving: a session id, `null` for the task itself,
    * and undefined while it is closed.
@@ -57,6 +64,8 @@ export function useDrawerState(
   const [tab, setTab] = useState<string>('session');
   const [isCompacting, setIsCompacting] = useState(false);
   const [sessionModalMode, setSessionModalMode] = useState<SessionStartMode | null>(null);
+  const [forkSourceSessionId, setForkSourceSessionId] = useState<string | undefined>(undefined);
+  const [forkAnchor, setForkAnchor] = useState<ForkAnchor | null>(null);
   const [moving, setMoving] = useState<string | null | undefined>(undefined);
   const [activeSessionId, setActiveSessionId] = useState<string | undefined>(undefined);
   const [blankStart, setBlankStart] = useState<BlankSessionStart | undefined>(undefined);
@@ -68,10 +77,12 @@ export function useDrawerState(
     setSyncedTaskId(task.id);
     setEditedTitle(task.title);
     setIsEditingTitle(false);
-    // The previous task's session must not survive into this one.
+    // The previous task's session and fork anchor must not survive into this one.
     setActiveSessionId(undefined);
     setBlankStart(undefined);
     setMoving(undefined);
+    setForkAnchor(null);
+    setForkSourceSessionId(undefined);
   } else if (task && !isEditingTitle && editedTitle !== task.title) {
     setEditedTitle(task.title);
   }
@@ -85,6 +96,7 @@ export function useDrawerState(
     if (!focusSessionId) return;
     setActiveSessionId(focusSessionId);
     setBlankStart(undefined);
+    setForkAnchor(null);
     setTab('session');
     onFocusHandled?.();
   }, [focusSessionId, onFocusHandled]);
@@ -104,18 +116,24 @@ export function useDrawerState(
     setIsCompacting,
     sessionModalMode,
     setSessionModalMode,
+    forkSourceSessionId,
+    setForkSourceSessionId,
+    forkAnchor,
+    setForkAnchor,
     moving,
     setMoving,
     activeSessionId,
     viewSession: (sessionId) => {
       setActiveSessionId(sessionId);
       setBlankStart(undefined);
+      setForkAnchor(null);
       setTab('session');
     },
     blankStart,
     startBlank: () => {
       setActiveSessionId(undefined);
       setBlankStart({ fromSessionId: task?.sessionId });
+      setForkAnchor(null);
       setTab('session');
     },
     cancelBlank: () => setBlankStart(undefined)

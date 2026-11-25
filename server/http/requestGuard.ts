@@ -6,6 +6,7 @@ import {
   GuardVerdict,
   isAllowedOrigin,
   isLoopbackBind,
+  isRequestSecure,
   RequestGuardConfig,
   tokenLinkHandoff
 } from '../../shared/http/requestGuard.js';
@@ -27,6 +28,25 @@ export const guardConfig: RequestGuardConfig = {
   token: BOARD_TOKEN
 };
 
+/**
+ * Extra hosts and a mandatory token applied only to connections arriving on
+ * the optional LAN listener, keeping loopback traffic untouched.
+ */
+export interface RemoteGuardOverlay {
+  hosts: string[];
+  token: string;
+  isRemoteSocket: (socket: unknown) => boolean;
+  /** True when a loopback HTTPS proxy such as `tailscale serve` forwards traffic to the remote listener. */
+  trustLoopbackProxy?: boolean;
+}
+
+let remoteOverlay: RemoteGuardOverlay | null = null;
+
+/** Installs or clears the LAN listener's guard overlay. */
+export function setRemoteAccessGuard(overlay: RemoteGuardOverlay | null): void {
+  remoteOverlay = overlay;
+}
+
 /** The token the board's own MCP server presents, when there is one. */
 export function boardToken(): string | undefined {
   return guardConfig.token;
@@ -46,8 +66,18 @@ function guardInput(req: IncomingMessage) {
   };
 }
 
+function effectiveConfig(req: IncomingMessage): RequestGuardConfig {
+  if (remoteOverlay?.isRemoteSocket(req.socket)) {
+    return {
+      hosts: [...guardConfig.hosts, ...remoteOverlay.hosts],
+      token: remoteOverlay.token
+    };
+  }
+  return guardConfig;
+}
+
 function verdictFor(req: IncomingMessage): GuardVerdict {
-  return checkRequest(guardInput(req), guardConfig);
+  return checkRequest(guardInput(req), effectiveConfig(req));
 }
 
 /**
@@ -55,9 +85,17 @@ function verdictFor(req: IncomingMessage): GuardVerdict {
  * and anything else `checkRequest` refuses is answered as JSON.
  */
 export function requestGuard(req: Request, res: Response, next: NextFunction): void {
+  const config = effectiveConfig(req);
+  const isRemote = !!remoteOverlay?.isRemoteSocket(req.socket);
+  const secure = isRequestSecure({
+    reqSecure: req.secure,
+    trustLoopbackProxy: isRemote && !!remoteOverlay?.trustLoopbackProxy,
+    remoteAddress: req.socket?.remoteAddress,
+    forwardedProto: header(req.headers['x-forwarded-proto'])
+  });
   const handoff = tokenLinkHandoff(
-    { ...guardInput(req), method: req.method, url: req.originalUrl, secure: req.secure },
-    guardConfig
+    { ...guardInput(req), method: req.method, url: req.originalUrl, secure },
+    config
   );
   if (handoff) {
     res.setHeader('Set-Cookie', handoff.cookie);
@@ -72,7 +110,8 @@ export function requestGuard(req: Request, res: Response, next: NextFunction): v
 
 /** CORS for the origins the guard lets through — never `*`. */
 export function corsOrigin(origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void): void {
-  if (!origin || isAllowedOrigin(origin, guardConfig.hosts)) return callback(null, true);
+  const hosts = remoteOverlay ? [...guardConfig.hosts, ...remoteOverlay.hosts] : guardConfig.hosts;
+  if (!origin || isAllowedOrigin(origin, hosts)) return callback(null, true);
   callback(new Error('Blocked by CORS: Agent Master 3000 only accepts its own origins'));
 }
 

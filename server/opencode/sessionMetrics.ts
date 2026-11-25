@@ -1,6 +1,7 @@
 import { DatabaseSync } from 'node:sqlite';
 import { readDbIsV2 } from './db.js';
 import { contextTokensFromUsage } from '../../shared/sessions/cost.js';
+import { SessionRunDuration, TurnTimingRow, accumulateRunDuration } from '../../shared/sessions/duration.js';
 import { turnAttributionFromMessage } from '../../shared/turns/attribution.js';
 
 /** How far back to walk past empty-token trailing assistant messages. */
@@ -139,6 +140,76 @@ export function sessionTreeExtras(
     }
   } catch (e) {
     console.warn('[OpenCode DB] session tree totals failed:', e);
+  }
+  return map;
+}
+
+/**
+ * Active agent execution time per session and last-prompt completion time
+ * (excluding inherited messages copied into a fork before `s.time_created`).
+ */
+export function sessionRunDurations(
+  db: DatabaseSync,
+  ids: string[]
+): Map<string, SessionRunDuration> {
+  const map = new Map<string, SessionRunDuration>();
+  const unique = [...new Set(ids.filter(Boolean))];
+  if (unique.length === 0) return map;
+  try {
+    const placeholders = unique.map(() => '?').join(', ');
+    const query = readDbIsV2()
+      ? `SELECT m.session_id AS id,
+                m.type AS role,
+                m.time_created AS row_created,
+                m.time_updated AS row_updated,
+                CAST(json_extract(m.data, '$.time.created') AS INTEGER) AS t_created,
+                CAST(json_extract(m.data, '$.time.completed') AS INTEGER) AS t_completed
+         FROM main.session_message m
+         JOIN session s ON s.id = m.session_id
+         WHERE m.session_id IN (${placeholders})
+           AND m.type IN ('user', 'assistant')
+           AND m.time_created >= s.time_created
+         ORDER BY m.session_id, m.seq`
+      : `SELECT m.session_id AS id,
+                json_extract(m.data, '$.role') AS role,
+                m.time_created AS row_created,
+                m.time_updated AS row_updated,
+                CAST(json_extract(m.data, '$.time.created') AS INTEGER) AS t_created,
+                CAST(json_extract(m.data, '$.time.completed') AS INTEGER) AS t_completed
+         FROM message m
+         JOIN session s ON s.id = m.session_id
+         WHERE m.session_id IN (${placeholders})
+           AND json_extract(m.data, '$.role') IN ('user', 'assistant')
+           AND m.time_created >= s.time_created
+         ORDER BY m.session_id, m.time_created, m.id`;
+
+    const rows = db.prepare(query).all(...unique) as {
+      id: string;
+      role: string | null;
+      row_created: number;
+      row_updated: number;
+      t_created: number | null;
+      t_completed: number | null;
+    }[];
+
+    const grouped = new Map<string, TurnTimingRow[]>();
+    for (const row of rows) {
+      const entry: TurnTimingRow = {
+        role: row.role === 'user' ? 'user' : 'assistant',
+        rowCreated: Number(row.row_created) || 0,
+        rowUpdated: Number(row.row_updated) || 0,
+        timeCreated: row.t_created != null ? Number(row.t_created) : null,
+        timeCompleted: row.t_completed != null ? Number(row.t_completed) : null
+      };
+      const list = grouped.get(row.id);
+      if (list) list.push(entry);
+      else grouped.set(row.id, [entry]);
+    }
+    for (const [id, turns] of grouped) {
+      map.set(id, accumulateRunDuration(turns));
+    }
+  } catch (e) {
+    console.warn('[OpenCode DB] session run durations failed:', e);
   }
   return map;
 }

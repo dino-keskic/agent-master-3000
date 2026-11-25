@@ -1,15 +1,17 @@
 import React, { useMemo } from 'react';
-import { Stack, Text } from '@mantine/core';
+import { AlertTriangle, RefreshCw, Wrench } from 'lucide-react';
 import {
   McpServerInfo,
   SessionTool,
   SessionToolInventory,
+  ToolStatusFilter,
   filterServers,
   filterTools,
   groupToolsBySource,
   pluginRule,
   pluginSections
 } from '../../../shared/agent/tools';
+import { Banner, Button, EmptyState } from '../ui';
 import { BuiltinGroup, EmptyServerGroup, PluginGroup, QuietPluginsGroup, ServerGroup } from './ToolGroup';
 
 /**
@@ -23,13 +25,22 @@ import { BuiltinGroup, EmptyServerGroup, PluginGroup, QuietPluginsGroup, ServerG
 interface ToolsListProps {
   inventory: SessionToolInventory;
   filter: string;
+  status: ToolStatusFilter;
   busy: boolean;
   /** A rule, not a tool: `name` for one, `server_*` for a whole server, `plugin:<id>` for a plugin. */
   onSave: (rule: string, enabled: boolean | null) => void;
+  onRetry: () => void;
 }
 
-export const ToolsList: React.FC<ToolsListProps> = ({ inventory, filter, busy, onSave }) => {
-  const matching = useMemo(() => filterTools(inventory.tools, filter), [inventory.tools, filter]);
+export const ToolsList: React.FC<ToolsListProps> = ({
+  inventory,
+  filter,
+  status,
+  busy,
+  onSave,
+  onRetry
+}) => {
+  const matching = useMemo(() => filterTools(inventory.tools, filter, status), [inventory.tools, filter, status]);
   const grouped = useMemo(() => groupToolsBySource(matching), [matching]);
   const serverInfo = useMemo(() => {
     const byName = new Map<string, McpServerInfo>();
@@ -37,14 +48,21 @@ export const ToolsList: React.FC<ToolsListProps> = ({ inventory, filter, busy, o
     return byName;
   }, [inventory.servers]);
   const plugins = useMemo(
-    () => pluginSections(inventory.plugins, grouped.byPlugin, filter),
-    [inventory.plugins, grouped.byPlugin, filter]
+    () => (status === 'all' ? pluginSections(inventory.plugins, grouped.byPlugin, filter) : {
+      sections: grouped.byPlugin.map((g) => ({
+        plugin: g.plugin ? inventory.plugins?.find((p) => p.id === g.plugin) : undefined,
+        tools: g.tools
+      })),
+      quiet: []
+    }),
+    [inventory.plugins, grouped.byPlugin, filter, status]
   );
-  const filtered = filter.trim() !== '';
+  const filtered = filter.trim() !== '' || status !== 'all';
   const emptyServers = filterServers(
     inventory.servers,
     grouped.byServer.map((group) => group.server),
-    filter
+    filter,
+    status
   );
 
   const rowProps = {
@@ -54,24 +72,32 @@ export const ToolsList: React.FC<ToolsListProps> = ({ inventory, filter, busy, o
   };
 
   return (
-    <Stack gap={0} p="xs" className="pb-24">
-      <Text size="xs" c="dimmed" px="xs" pb="xs">
+    <div className="flex flex-col p-3.5 pb-24">
+      <p className="m-0 mb-3 px-0.5 text-[12px] leading-relaxed text-ink-3">
         What this session&apos;s agent can call, as OpenCode resolves it for{' '}
         <span className="font-mono text-ink-2">{inventory.cwd}</span>, grouped by where each tool
-        comes from. MCP tools carry the name the model sees them by. A switch here applies to every
-        session the board runs, and takes the tool — or the whole plugin — out of the agent&apos;s
-        list rather than refusing it after the fact.
-      </Text>
+        comes from. A switch here applies to every session the board runs, and takes the tool — or
+        the whole plugin — out of the agent&apos;s list rather than refusing it after the fact.
+      </p>
 
       {inventory.error && (
-        <Text size="sm" c="dimmed" ta="center" py="xl">
+        <Banner
+          tone="err"
+          icon={<AlertTriangle className="w-4 h-4" />}
+          actions={
+            <Button size="xs" variant="secondary" leftSection={<RefreshCw className="w-3 h-3" />} onClick={onRetry}>
+              Retry
+            </Button>
+          }
+          className="mb-3"
+        >
           Could not read the tool list from OpenCode: {inventory.error}
-        </Text>
+        </Banner>
       )}
       {inventory.warnings.map((warning) => (
-        <Text key={warning} size="xs" c="yellow" px="xs" pb="xs">
+        <Banner key={warning} tone="wait" icon={<AlertTriangle className="w-3.5 h-3.5" />} className="mb-2.5">
           {warning}
-        </Text>
+        </Banner>
       ))}
 
       {grouped.builtin.length > 0 && <BuiltinGroup tools={grouped.builtin} filtered={filtered} {...rowProps} />}
@@ -83,7 +109,6 @@ export const ToolsList: React.FC<ToolsListProps> = ({ inventory, filter, busy, o
           tools={section.tools}
           filtered={filtered}
           switchable={!!inventory.pluginSwitches}
-          // On is dropping the board's entry: it can only stop a plugin loading, never add one.
           onTogglePlugin={(enabled) => section.plugin && onSave(pluginRule(section.plugin.id), enabled ? null : false)}
           {...rowProps}
         />
@@ -115,11 +140,29 @@ export const ToolsList: React.FC<ToolsListProps> = ({ inventory, filter, busy, o
         <EmptyServerGroup key={server.name} server={server} />
       ))}
 
-      {!inventory.error && matching.length === 0 && (
-        <Text size="sm" c="dimmed" ta="center" py="xl">
-          {filter.trim() ? 'No tool matches that filter.' : 'OpenCode reported no tools for this folder.'}
-        </Text>
+      {!inventory.error && matching.length === 0 && emptyServers.length === 0 && plugins.quiet.length === 0 && (
+        <EmptyState
+          icon={<Wrench className="w-4 h-4" />}
+          title={
+            filter.trim()
+              ? 'No matching tools'
+              : status === 'off'
+                ? 'No disabled tools'
+                : status === 'on'
+                  ? 'No enabled tools'
+                  : 'No tools reported'
+          }
+          description={
+            filter.trim()
+              ? `No tool matches "${filter}"${status !== 'all' ? ` (${status})` : ''}.`
+              : status === 'off'
+                ? 'Every tool in this session is currently enabled.'
+                : status === 'on'
+                  ? 'All tools in this session are switched off.'
+                  : 'OpenCode reported no tools for this folder.'
+          }
+        />
       )}
-    </Stack>
+    </div>
   );
 };

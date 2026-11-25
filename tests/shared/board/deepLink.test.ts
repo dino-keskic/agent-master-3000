@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert';
-import { hrefWithTasks, taskIdsFromSearch } from '../../../shared/board/deepLink.js';
+import { hrefWithTasks, sessionIdFromSearch, taskIdsFromSearch } from '../../../shared/board/deepLink.js';
 
 test('the ?task= deep link', async (t) => {
   await t.test('reads the task out of a query string', () => {
@@ -43,6 +43,24 @@ test('the ?task= deep link', async (t) => {
   await t.test('says nothing to do when the URL already agrees', () => {
     assert.equal(hrefWithTasks('http://localhost:3999/?task=TASK-7', ['TASK-7']), null);
     assert.equal(hrefWithTasks('http://localhost:3999/?task=TASK-7,TASK-8', ['TASK-7', 'TASK-8']), null);
+    assert.equal(hrefWithTasks('http://localhost:3999/?task=TASK-7&session=ses_1', ['TASK-7']), null);
     assert.equal(hrefWithTasks('http://localhost:3999/', []), null);
+  });
+
+  await t.test('reads the optional ?session= param and drops stale ones when tasks change', () => {
+    assert.equal(sessionIdFromSearch('?task=TASK-7&session=ses_abc'), 'ses_abc');
+    assert.equal(sessionIdFromSearch('?session=  ses_trimmed  '), 'ses_trimmed');
+    assert.equal(sessionIdFromSearch('?task=TASK-7'), undefined);
+    assert.equal(sessionIdFromSearch('?session='), undefined);
+    assert.equal(sessionIdFromSearch(''), undefined);
+
+    assert.equal(
+      hrefWithTasks('http://localhost:3999/?task=TASK-7&session=ses_abc', ['TASK-8']),
+      'http://localhost:3999/?task=TASK-8'
+    );
+    assert.equal(
+      hrefWithTasks('http://localhost:3999/?task=TASK-7&session=ses_abc', []),
+      'http://localhost:3999/'
+    );
   });
 });

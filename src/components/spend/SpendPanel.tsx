@@ -1,6 +1,6 @@
 import React from 'react';
-import { ActionIcon, Drawer, Loader, ScrollArea, Tooltip } from '@mantine/core';
-import { RefreshCw } from 'lucide-react';
+import { Drawer, Loader, ScrollArea, Tooltip } from '@mantine/core';
+import { Coins, RefreshCw } from 'lucide-react';
 import { SpendSummary } from '../../../shared/spend/types';
 import { SpendTiles } from './SpendTiles';
 import { SpendAverageTabs } from './SpendAverageTabs';
@@ -11,16 +11,6 @@ import { SpendSkeleton, SpendUnavailable } from './SpendPlaceholder';
 
 /**
  * What the board is costing.
- *
- * Every card carries a dollar figure and none of them answer the question those
- * figures raise. This is the arrangement of the answer — the tiles, what a day
- * and a week average, the month by day, the three rankings, the sessions that
- * ran the bill up — and nothing else: the sums live in `shared/spend/` and
- * each region in `spend/`.
- *
- * Matches Agent Master 3000.dc.html, the Costs screen (lines 1304-1457). It is a wide
- * screen there and a right-hand drawer here, so the four tiles and the three
- * breakdowns collapse to one column rather than being cut down.
  */
 
 interface SpendPanelProps {
@@ -53,23 +43,20 @@ export const SpendPanel: React.FC<SpendPanelProps> = ({ opened, onClose, summary
     opened={opened}
     onClose={onClose}
     position="right"
-    // The design is a full screen; a drawer this wide is the most of it that
-    // fits without taking the board away behind it.
     size="min(1180px, 96vw)"
     title={
       <div className="flex min-w-0 flex-wrap items-center gap-2">
-        <span className="text-sm font-semibold text-ink">Spend</span>
-        <span className="text-[13px] text-ink-3">
+        <Coins className="w-4 h-4 text-accent" />
+        <span className="text-[14px] font-semibold text-ink">Spend</span>
+        <span className="text-[12px] text-ink-3">
           Assistant turns — cache reads and writes are included.
         </span>
-        {/* The read is half a second; the spinner rides beside the heading so a
-            refresh never blanks the figures already on screen. */}
         {loading && <Loader size="xs" color="gray" />}
       </div>
     }
     styles={{
       content: { backgroundColor: 'var(--glass-pane)', color: 'rgb(var(--c-ink))' },
-      header: { backgroundColor: 'rgb(var(--c-surface-3))', borderBottom: '1px solid rgb(var(--c-line) / 0.7)' },
+      header: { backgroundColor: 'rgb(var(--c-surface))', borderBottom: '1px solid rgb(var(--c-line))' },
       body: { padding: 0, height: 'calc(100vh - 60px)', display: 'flex', flexDirection: 'column' }
     }}
   >
@@ -95,9 +82,14 @@ export const SpendPanel: React.FC<SpendPanelProps> = ({ opened, onClose, summary
             {summary ? `read ${new Date(summary.generatedAt).toLocaleTimeString()}` : 'not read yet'}
           </span>
           <Tooltip label="Re-read from OpenCode" withArrow>
-            <ActionIcon variant="subtle" color="gray" size="sm" onClick={onRefresh} aria-label="Refresh spend">
+            <button
+              type="button"
+              className="icon-btn"
+              onClick={onRefresh}
+              aria-label="Refresh spend"
+            >
               <RefreshCw className="h-3.5 w-3.5" />
-            </ActionIcon>
+            </button>
           </Tooltip>
         </div>
       </div>

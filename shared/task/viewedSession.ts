@@ -111,3 +111,13 @@ export function sessionTabLabel(view: ViewedSession): string {
   if (view.isSideSession) return `Session · ${sessionOriginLabel(view.viewed || { kind: 'btw' })}`;
   return 'Session';
 }
+
+/**
+ * Whether to show the "Back to current session" strip above the transcript.
+ * Live forks are active sessions of their own — sending from the composer
+ * talks straight to them — so only archived earlier runs need a banner
+ * nudging the user back to the current session.
+ */
+export function shouldShowReturnBanner(view: ViewedSession): boolean {
+  return view.isSideSession && !view.isSubagentView && !!view.viewed?.archivedAt;
+}

@@ -1,5 +1,6 @@
 import { BoardTask, TaskLogItem, TaskSessionLink } from '../../shared/types.js';
 import { isSessionBusy, listTaskSessions, liveTaskSessions, sessionRunState } from '../../shared/task/sessions.js';
+import { awaitsSessionTitle } from '../../shared/task/sessionTitles.js';
 import { acpManager } from '../acp/client.js';
 import { cachedOpenCodeSession, refreshCachedSessionsOffThread } from './hydrate.js';
 import { BOARD_STARTED_AT } from './liveTurns.js';
@@ -207,6 +208,28 @@ export class OpenCodeSync {
       if (taskId && taskStore.getTask(taskId)) dirtyTasks.add(taskId);
     }
     for (const taskId of dirtyTasks) this.publisher.refresh(taskId);
+  }
+
+  /**
+   * Pick up the names OpenCode has given sessions since the last tick. It
+   * writes them to its database without an ACP update, often just after the
+   * turn ends, when the spend refresh has already stopped reading the session.
+   */
+  async refreshPendingTitles(now = Date.now()): Promise<void> {
+    const pending = taskStore.getTasks().flatMap((task) =>
+      listTaskSessions(task)
+        .filter((link) => awaitsSessionTitle(task, link, now))
+        .map((link) => ({ taskId: task.id, sessionId: link.sessionId })));
+    if (pending.length === 0) return;
+
+    await refreshCachedSessionsOffThread(pending.map((item) => item.sessionId));
+    for (const { taskId, sessionId } of pending) {
+      const live = cachedOpenCodeSession(sessionId);
+      // The task may have gone while the read was out.
+      if (!live?.title || !taskStore.getTask(taskId)) continue;
+      const updated = taskStore.adoptSessionTitle(taskId, sessionId, live.title);
+      if (updated) this.publisher.updated(updated);
+    }
   }
 
   /**

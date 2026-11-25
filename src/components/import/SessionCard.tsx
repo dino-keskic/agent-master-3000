@@ -1,102 +1,91 @@
 import React from 'react';
-import { Badge, Button, Checkbox, Group, Paper, Stack, Text, Tooltip } from '@mantine/core';
+import { Checkbox, Tooltip } from '@mantine/core';
 import { Bot, Cpu, Download, Folder, GitBranch, Users } from 'lucide-react';
 import { AcpSessionSummary } from '../../../shared/sessions/types';
 import { formatTokenCount, isLiveSession } from '../../../shared/sessions/list';
 import { relativeTime, shortModelLabel, shortPath } from '../../../shared/format';
 import { SpendLabel } from '../spend/SpendLabel';
+import { Button, Chip, Surface } from '../ui';
 
 /** What the session is: live, changed, which project, which worktree. */
 const SessionTags: React.FC<{ session: AcpSessionSummary }> = ({ session }) => {
   const isGone = session.cwdExists === false;
   const isLive = isLiveSession(session) || !!session.cwdDirty;
   return (
-    <Group gap="xs" wrap="wrap" align="center">
-      <Text size="sm" fw={600} className="text-ink truncate max-w-[540px]" title={session.title}>
+    <div className="flex items-center gap-1.5 flex-wrap min-w-0">
+      <span className="text-[13.5px] font-semibold text-ink truncate max-w-[520px]" title={session.title}>
         {session.title}
-      </Text>
+      </span>
 
-      <Badge size="xs" color="gray" variant="dot" className="font-mono text-[11px] shrink-0">
+      <Chip className="font-mono text-ink-3 shrink-0">
         {session.sessionId.slice(0, 14)}
-      </Badge>
+      </Chip>
 
       {isLive && !session.importedAsTaskId && (
-        <Badge size="xs" color="teal" variant="light" className="font-mono shrink-0">
-          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block mr-1" />
+        <Chip tone="run" className="font-mono shrink-0">
+          <span className="w-1.5 h-1.5 rounded-full bg-run inline-block" />
           live
-        </Badge>
+        </Chip>
       )}
 
       {session.changeSummary && (
-        <Badge size="xs" color="gray" variant="light" className="font-mono shrink-0">
-          +{session.changeSummary.additions} -{session.changeSummary.deletions}
-        </Badge>
+        <Chip className="font-mono shrink-0">
+          <span className="text-add">+{session.changeSummary.additions}</span>
+          <span className="text-del">-{session.changeSummary.deletions}</span>
+        </Chip>
       )}
 
       {session.cwdDirty && (
-        <Badge size="xs" color="yellow" variant="light" className="font-mono shrink-0">
+        <Chip tone="wait" className="font-mono shrink-0">
           uncommitted
-        </Badge>
+        </Chip>
       )}
 
       {session.projectName && (
-        <Badge size="xs" color="gray" variant="light" className="font-mono shrink-0">
-          {session.projectName}
-        </Badge>
+        <Chip className="font-mono shrink-0">{session.projectName}</Chip>
       )}
 
       {session.isWorktree && session.worktreeLabel && (
-        <Badge
-          size="xs"
-          color={isGone ? 'gray' : 'accent'}
-          variant="light"
-          leftSection={<GitBranch className="w-3 h-3" />}
-          className="font-mono shrink-0"
-        >
+        <Chip tone={isGone ? 'err' : 'accent'} className="font-mono shrink-0">
+          <GitBranch className="w-3 h-3" />
           {isGone ? `gone · ${session.worktreeLabel}` : session.worktreeLabel}
-        </Badge>
+        </Chip>
       )}
-    </Group>
+    </div>
   );
 };
 
 /** Where it ran and what it cost: folder, model, agent, spend, size, age. */
 const SessionMeta: React.FC<{ session: AcpSessionSummary }> = ({ session }) => (
-  <Group gap="md" wrap="wrap" align="center" className="text-ink-2 text-xs">
-    <Group gap={4} wrap="nowrap" className="min-w-0 max-w-[280px]">
-      <Folder className="w-3.5 h-3.5 text-ink-3 shrink-0" />
+  <div className="flex items-center gap-3 flex-wrap text-[12px] font-mono text-ink-3">
+    <div className="flex items-center gap-1 min-w-0 max-w-[280px]">
+      <Folder className="w-3.5 h-3.5 text-ink-4 shrink-0" />
       <Tooltip label={session.cwd} withArrow>
-        <Text size="xs" c="dimmed" className="font-mono text-[12px] truncate">
-          {shortPath(session.cwd)}
-        </Text>
+        <span className="truncate">{shortPath(session.cwd)}</span>
       </Tooltip>
-    </Group>
+    </div>
 
     {session.model && (
-      <Group gap={4} wrap="nowrap">
-        <Cpu className="w-3 h-3 text-ink-3" />
-        <Text size="xs" c="dimmed" className="font-mono text-[12px]">
-          {shortModelLabel(session.model)}
-        </Text>
-      </Group>
+      <div className="flex items-center gap-1">
+        <Cpu className="w-3 h-3 text-ink-4" />
+        <span>{shortModelLabel(session.model)}</span>
+      </div>
     )}
 
     {session.agent && (
-      <Group gap={4} wrap="nowrap">
-        <Bot className="w-3 h-3 text-ink-3" />
-        <Text size="xs" c="dimmed" className="font-mono text-[12px]">
-          {session.agent}
-        </Text>
-      </Group>
+      <div className="flex items-center gap-1">
+        <Bot className="w-3 h-3 text-ink-4" />
+        <span>{session.agent}</span>
+      </div>
     )}
 
     {!!session.subagentCount && session.subagentCount > 0 && (
-      <Group gap={4} wrap="nowrap">
-        <Users className="w-3 h-3 text-accent" />
-        <Text size="xs" className="font-mono text-[12px] text-acc-fg">
+      <div className="flex items-center gap-1 text-acc-fg">
+        <Users className="w-3 h-3" />
+        <span>
           {session.subagentCount} subagent{session.subagentCount === 1 ? '' : 's'}
-        </Text>
-      </Group>
+        </span>
+      </div>
     )}
 
     <SpendLabel
@@ -107,17 +96,13 @@ const SessionMeta: React.FC<{ session: AcpSessionSummary }> = ({ session }) => (
     />
 
     {!!session.tokenCount && session.tokenCount > 0 && (
-      <Text size="xs" c="dimmed" className="font-mono text-[12px]">
-        {formatTokenCount(session.tokenCount)}
-      </Text>
+      <span>{formatTokenCount(session.tokenCount)}</span>
     )}
 
     <Tooltip label={`Updated ${new Date(session.updatedAt).toLocaleString()}`} withArrow>
-      <Text size="xs" c="dimmed" className="font-mono text-[12px] shrink-0">
-        · {relativeTime(session.updatedAt)}
-      </Text>
+      <span className="text-ink-4 shrink-0">· {relativeTime(session.updatedAt)}</span>
     </Tooltip>
-  </Group>
+  </div>
 );
 
 interface SessionCardProps {
@@ -140,54 +125,54 @@ export const SessionCard: React.FC<SessionCardProps> = ({
   onImport
 }) => {
   const alreadyImported = !!session.importedAsTaskId;
+  const selectable = !alreadyImported && !bulkActive;
 
   return (
-    <Paper
-      p="sm"
-      radius="md"
-      className={`bg-surface border transition-all duration-150 ${
+    <Surface
+      level="s1"
+      border={isSelected ? 'accent' : 'default'}
+      radius="lg"
+      interactive={selectable}
+      onClick={() => {
+        if (selectable) onToggle();
+      }}
+      className={`p-3 flex items-start justify-between gap-3 transition-colors ${
         isSelected
-          ? 'border-accent/70 bg-acc-bg'
+          ? 'bg-acc-bg/60'
           : alreadyImported
-            ? 'border-line/60 opacity-65'
-            : 'border-line/80 hover:border-line-strong hover:bg-surface-2'
+            ? 'opacity-65'
+            : ''
       }`}
     >
-      <Group justify="space-between" align="flex-start" wrap="nowrap" gap="md">
-        <Checkbox
-          size="xs"
-          className="mt-1 shrink-0"
-          checked={isSelected}
-          onChange={onToggle}
-          disabled={alreadyImported || bulkActive}
-        />
+      <Checkbox
+        size="xs"
+        className="mt-1 shrink-0 pointer-events-none"
+        checked={isSelected}
+        onChange={onToggle}
+        disabled={!selectable}
+      />
 
-        <Stack gap={6} className="min-w-0 flex-1">
-          <SessionTags session={session} />
-          <SessionMeta session={session} />
-        </Stack>
+      <div className="flex flex-col gap-1.5 min-w-0 flex-1">
+        <SessionTags session={session} />
+        <SessionMeta session={session} />
+      </div>
 
-        <div className="shrink-0 pt-0.5">
-          {alreadyImported ? (
-            <Badge size="sm" color="gray" variant="filled" className="font-mono font-bold">
-              {session.importedAsTaskId}
-            </Badge>
-          ) : (
-            <Button
-              size="xs"
-              variant="light"
-              color="accent"
-              loading={isBusy}
-              disabled={bulkActive || isBusy}
-              onClick={onImport}
-              leftSection={!isBusy ? <Download className="w-3.5 h-3.5" /> : undefined}
-              className="font-medium"
-            >
-              Import
-            </Button>
-          )}
-        </div>
-      </Group>
-    </Paper>
+      <div className="shrink-0 pt-0.5" onClick={(e) => e.stopPropagation()}>
+        {alreadyImported ? (
+          <Chip className="font-mono font-semibold">{session.importedAsTaskId}</Chip>
+        ) : (
+          <Button
+            size="xs"
+            variant="secondary"
+            loading={isBusy}
+            disabled={bulkActive || isBusy}
+            onClick={onImport}
+            leftSection={<Download className="w-3 h-3" />}
+          >
+            Import
+          </Button>
+        )}
+      </div>
+    </Surface>
   );
 };

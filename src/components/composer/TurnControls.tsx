@@ -36,6 +36,8 @@ export interface TurnControlsProps {
   submitting: boolean;
   /** Nothing to send: empty box, already sending, or the composer is off. */
   idle: boolean;
+  /** Optional compact session actions (Compact, Continue) placed beside Send. */
+  extraActions?: React.ReactNode;
   /** The mic, which sits just before the send button. */
   dictation?: React.ReactNode;
   /** Given while a turn is running: the one place it is stopped from. */
@@ -57,6 +59,7 @@ export const TurnControls: React.FC<TurnControlsProps> = ({
   submitTooltip,
   submitting,
   idle,
+  extraActions,
   dictation,
   onStop
 }) => {
@@ -85,7 +88,7 @@ export const TurnControls: React.FC<TurnControlsProps> = ({
     <Group justify="space-between" align="center" gap="xs" wrap="nowrap">
       {/* How the turn runs on the left, where the eye leaves the text; the
           button that runs it on the right, where the hand goes. */}
-      <Group gap={4} wrap="wrap" className="min-w-0 flex-1">
+      <Group gap={4} wrap="wrap" className="min-w-0 flex-1 overflow-hidden">
         <button
           type="button"
           className="run-summary"
@@ -130,7 +133,8 @@ export const TurnControls: React.FC<TurnControlsProps> = ({
         />
         </>)}
       </Group>
-      <Group gap={6} wrap="nowrap" className="shrink-0">
+      <Group gap={4} wrap="nowrap" className="shrink-0">
+        {extraActions}
         {dictation}
         {onStop && (
           <Tooltip label="Stop this turn — the session is kept" withArrow>
@@ -150,7 +154,7 @@ export const TurnControls: React.FC<TurnControlsProps> = ({
             aria-label={submitKind === 'queue' ? 'Queue' : 'Send'}
             // Nothing to send is a quiet grey, not a faded accent: the one blue
             // control in the composer should mean "this will go".
-            className="w-8 h-8 rounded-lg bg-accent text-white hover:brightness-105 active:scale-95 disabled:bg-surface-2 disabled:text-ink-4 disabled:border disabled:border-line disabled:shadow-none disabled:cursor-not-allowed disabled:hover:brightness-100 disabled:active:scale-100 flex items-center justify-center transition-all shadow-sm shrink-0"
+            className="w-9 h-9 sm:w-8 sm:h-8 rounded-lg bg-accent text-white hover:brightness-105 active:scale-95 disabled:bg-surface-2 disabled:text-ink-4 disabled:border disabled:border-line disabled:shadow-none disabled:cursor-not-allowed disabled:hover:brightness-100 disabled:active:scale-100 flex items-center justify-center transition-all shadow-sm shrink-0"
           >
             {submitting ? (
               <Loader2 className="w-4 h-4 animate-spin" />

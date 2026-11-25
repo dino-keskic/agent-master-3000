@@ -15,7 +15,9 @@ import http from 'node:http';
  *   each of several follow-ups has a reply of its own to look for;
  * - `e2e:slow:<marker>` gets the same reply, streamed over a few seconds, so
  *   the test can act while a turn is still running;
- * - anything else — OpenCode's own title request included — gets `REPLY`.
+ * - a request that offers no tools — OpenCode naming the session — gets
+ *   `STUB_TITLE`, so the test can tell a generated title from the prompt;
+ * - anything else gets `REPLY`.
  *
  * Plain `node:http`, no dependencies: it runs inside the test process, so the
  * test can also see exactly what OpenCode sent it.
@@ -24,6 +26,7 @@ import http from 'node:http';
 export const PROVIDER_ID = 'stub';
 export const MODEL_ID = 'e2e-model';
 export const REPLY = 'STUB-LLM-REPLY: hello from inside the sandbox';
+export const STUB_TITLE = 'Stub generated session title';
 export const TOOL_TRIGGER = 'e2e:run-tool';
 export const TOOL_OUTPUT = 'e2e-tool-output';
 export const TOOL_REPLY_PREFIX = 'STUB-LLM-AFTER-TOOL:';
@@ -78,6 +81,7 @@ export function decide(body: ChatRequest): Answer {
 
   const offered = (body.tools ?? []).map((tool) => tool.function?.name);
   const shell = SHELL_TOOLS.find((name) => offered.includes(name));
+  if (offered.length === 0) return { text: STUB_TITLE };
   const lastUser = [...messages].reverse().find((m) => m.role === 'user');
   // Only a request that offers tools is the turn itself; the title request
   // quotes the same prompt and must not answer for it.

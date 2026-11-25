@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ActionIcon, Anchor, Group, Stack, TextInput, Tooltip } from '@mantine/core';
+import { ActionIcon, Group, Stack, TextInput, Tooltip } from '@mantine/core';
 import {
   CircleDot,
   FileText,
@@ -16,10 +16,10 @@ import { BoardTask, TaskLink, TaskLinkKind } from '../../../shared/types';
 import { linkSettlement, linkStatusBadge, settlementLabel } from '../../../shared/trackers/linkStatus';
 import { classifyLink, linkKindLabel, normalizeLinkUrl, showRef, sortTaskLinks } from '../../../shared/task/links';
 import { collapseToRecent } from '../../../shared/task/showMore';
-import { Type } from '../ui';
 import { LinkStatusBadge } from '../card/LinkStatusBadge';
 import { api } from '../../api';
 import { reportError } from '../../app/notify';
+import { SectionLabel } from './SectionLabel';
 import { ShowMoreToggle } from './ShowMoreToggle';
 
 interface TaskLinksSectionProps {
@@ -44,32 +44,33 @@ const LinkRow: React.FC<{ link: TaskLink; onRemove: () => void }> = ({ link, onR
   const Icon = KIND_ICON[link.kind];
   const badge = linkStatusBadge(link);
   return (
-    <Group gap={6} wrap="nowrap" align="flex-start" className="group">
+    <div className="flex items-start gap-2 rounded-lg px-1.5 py-1 -mx-1.5 hover:bg-s3h transition-colors group">
       <Tooltip label={linkKindLabel(link.kind)} withArrow position="left">
-        <Icon className="w-3.5 h-3.5 shrink-0 mt-0.5 text-ink-3" />
+        <Icon className="w-3.5 h-3.5 shrink-0 mt-[3px] text-ink-3" />
       </Tooltip>
 
       <div className="min-w-0 flex-1">
-        <Group gap={8} wrap="nowrap" className="min-w-0">
+        <div className="flex items-center gap-1.5 min-w-0">
           <Tooltip label={link.url} withArrow position="left" multiline maw={360}>
-            <Anchor
+            <a
               href={link.url}
               target="_blank"
               rel="noreferrer noopener"
-              underline="never"
-              className="type-copy block truncate min-w-0 text-ink-2 hover:text-acc-fg"
+              className="block truncate min-w-0 text-[12.5px] font-medium leading-[1.4] text-ink-2 hover:text-link transition-colors no-underline"
             >
               {showRef(link) && (
-                <span className="font-mono text-ink-3">{link.ref} · </span>
+                <span className="inline-block mr-1.5 px-1 py-px rounded bg-s3 font-mono text-[10.5px] font-normal text-ink-3">
+                  {link.ref}
+                </span>
               )}
               {link.title}
-            </Anchor>
+            </a>
           </Tooltip>
           {/* Outside the link, so a long title truncates and the status stays. */}
-          {badge && <LinkStatusBadge badge={badge} className="text-[12px]" />}
-        </Group>
+          {badge && <LinkStatusBadge badge={badge} className="text-[11px]" />}
+        </div>
         {link.note && (
-          <Type role="meta" className="block truncate">{link.note}</Type>
+          <span className="block truncate text-[11.5px] leading-[1.4] text-ink-4 mt-0.5">{link.note}</span>
         )}
       </div>
 
@@ -85,7 +86,7 @@ const LinkRow: React.FC<{ link: TaskLink; onRemove: () => void }> = ({ link, onR
           <Trash2 className="w-3 h-3" />
         </ActionIcon>
       </Tooltip>
-    </Group>
+    </div>
   );
 };
 
@@ -138,12 +139,12 @@ export const TaskLinksSection: React.FC<TaskLinksSectionProps> = ({ task, onTask
   };
 
   return (
-    <Stack gap={8}>
+    <Stack gap={6} className="px-1">
       <Group justify="space-between" align="center" wrap="nowrap">
-        <span className="type-meta uppercase tracking-[0.06em] text-ink-3 font-medium">
+        <SectionLabel>
           Links{links.length > 0 ? ` (${links.length})` : ''}
           {finished ? ` · ${finished}` : ''}
-        </span>
+        </SectionLabel>
         <Tooltip label={adding ? 'Cancel' : 'Add a ticket, PR or page'} withArrow>
           <ActionIcon
             size="sm"
@@ -174,20 +175,20 @@ export const TaskLinksSection: React.FC<TaskLinksSectionProps> = ({ task, onTask
               if (e.key === 'Escape') closeAdd();
             }}
           />
-          <Type role="meta">
+          <span className="text-[11px] text-ink-4">
             {url.trim() && !normalized
               ? 'Not an http(s) URL'
               : preview
                 ? `${linkKindLabel(preview.kind)}${preview.ref ? ` · ${preview.ref}` : ''} — Enter to add`
                 : 'Enter to add, Esc to cancel'}
-          </Type>
+          </span>
         </Stack>
       )}
 
       {links.length === 0 && !adding && (
-        <Type role="copy" tone="faint">
-          No links yet. Tickets and PRs written into the prompt land here on their own.
-        </Type>
+        <span className="text-[12px] text-ink-4">
+          No links yet
+        </span>
       )}
 
       {shownLinks.map((link) => (

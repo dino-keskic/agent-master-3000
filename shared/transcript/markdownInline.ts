@@ -13,7 +13,8 @@ export type MdInline =
   | { kind: 'strong'; children: MdInline[] }
   | { kind: 'em'; children: MdInline[] }
   | { kind: 'strike'; children: MdInline[] }
-  | { kind: 'link'; href: string; children: MdInline[] };
+  | { kind: 'link'; href: string; children: MdInline[] }
+  | { kind: 'image'; src: string; alt: string };
 
 const AUTOLINK = /^(https?:\/\/|www\.)[^\s<>()[\]{}"']+/i;
 
@@ -39,12 +40,18 @@ function scanCode(source: string, i: number): Scan {
   return { node: { kind: 'code', text: source.slice(i + open.length, close).trim() }, next: close + open.length };
 }
 
-/** `[label](href)`, and the `![alt](src)` image spelling of it. */
+/** `[label](href)`, and the `![alt](src)` image/video spelling of it. */
 function scanLink(source: string, i: number): Scan {
   const isImage = source[i] === '!' && source[i + 1] === '[';
   if (source[i] !== '[' && !isImage) return null;
   const link = matchLink(source, isImage ? i + 1 : i);
   if (!link) return null;
+  if (isImage) {
+    return {
+      node: { kind: 'image', src: link.href, alt: link.label },
+      next: link.end
+    };
+  }
   return {
     node: {
       kind: 'link',

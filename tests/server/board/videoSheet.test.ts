@@ -12,6 +12,7 @@ import { findExecutable } from '../../../server/speech/modelServer.js';
 const scratch = fs.mkdtempSync(path.join(os.tmpdir(), 'video-sheet-test-'));
 process.env.BOARD_ATTACHMENTS_DIR = path.join(scratch, 'attachments');
 const { saveVideoSheet, VideoSheetError } = await import('../../../server/board/videoSheet.js');
+const { readAttachmentPath, resolveImages } = await import('../../../server/board/attachments.js');
 
 const ffmpeg = findExecutable('ffmpeg', process.env.FFMPEG_PATH);
 const skip = ffmpeg ? false : 'ffmpeg is not installed';
@@ -42,9 +43,23 @@ test('turns a clip into one stored JPEG contact sheet with a caption', { skip },
   assert.strictEqual(image.mimeType, 'image/jpeg');
   assert.strictEqual(image.name, 'demo.mp4');
   assert.ok(image.caption?.includes('10 frames'), image.caption ?? 'no caption');
+  assert.match(image.videoId || '', /\.mp4$/);
+  assert.strictEqual(image.videoMimeType, 'video/mp4');
 
   const stored = path.join(process.env.BOARD_ATTACHMENTS_DIR!, image.id);
   assert.strictEqual(fs.statSync(stored).size, image.size);
+  const storedVideo = path.join(process.env.BOARD_ATTACHMENTS_DIR!, image.videoId!);
+  assert.ok(fs.statSync(storedVideo).size > 0, 'original video is stored alongside the contact sheet');
+  assert.strictEqual(readAttachmentPath(image.videoId!)?.mimeType, 'video/mp4');
+
+  const resolved = resolveImages([
+    image,
+    { ...image, videoId: '../escape.mp4', videoMimeType: 'video/mp4' }
+  ]);
+  assert.strictEqual(resolved[0]?.videoId, image.videoId);
+  assert.strictEqual(resolved[0]?.videoMimeType, 'video/mp4');
+  assert.strictEqual(resolved[1]?.videoId, undefined);
+  assert.strictEqual(resolved[1]?.videoMimeType, undefined);
   // 10 frames of 4:3 tile best as 3 columns by 4 rows of 320x240 cells,
   // with 4px of padding between and around them.
   assert.deepStrictEqual(dimensions(stored), { width: 3 * 320 + 4 * 4, height: 4 * 240 + 5 * 4 });

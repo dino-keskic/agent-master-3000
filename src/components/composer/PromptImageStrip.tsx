@@ -1,6 +1,6 @@
 import React from 'react';
 import { Group, Loader, Text } from '@mantine/core';
-import { X } from 'lucide-react';
+import { Film, X } from 'lucide-react';
 import { PromptImage, imageUrl } from '../../../shared/composer/promptImages';
 
 /**
@@ -39,6 +39,14 @@ export const PromptImageStrip: React.FC<PromptImageStripProps> = ({
             title={image.caption ? `${image.name} — frames sampled from the video` : image.name}
           >
             <img src={imageUrl(image)} alt={image.name} className="w-full h-full object-cover" />
+            {image.videoId && (
+              <span
+                aria-label="Video"
+                className="absolute bottom-0.5 left-0.5 rounded bg-canvas/85 text-ink px-1 py-0.5 inline-flex items-center pointer-events-none"
+              >
+                <Film className="w-2.5 h-2.5" />
+              </span>
+            )}
             <button
               type="button"
               disabled={disabled}

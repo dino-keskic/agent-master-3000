@@ -11,9 +11,12 @@ import {
   imageRejection,
   imageUrl,
   isSupportedImageType,
+  isSupportedVideoExtension,
   parseImageDataUrl,
   promptBlocks,
-  sameImages
+  sameImages,
+  videoExtensionForName,
+  videoUrl
 } from '../../../shared/composer/promptImages.js';
 
 const image = (id: string): PromptImage => ({ id, name: `${id}.png`, mimeType: 'image/png', size: 10 });
@@ -32,8 +35,20 @@ test('names a stored file after what it holds', () => {
   assert.strictEqual(imageExtension('text/plain'), 'bin');
 });
 
-test('serves an image back from its own id', () => {
+test('serves an image back from its own id, and a video from videoId when present', () => {
   assert.strictEqual(imageUrl({ id: 'abc.png' }), '/api/attachments/abc.png');
+  assert.strictEqual(videoUrl({ videoId: 'clip.mp4' }), '/api/attachments/clip.mp4');
+  assert.strictEqual(videoUrl({}), undefined);
+});
+
+test('picks a safe stored video extension from a filename', () => {
+  assert.ok(isSupportedVideoExtension('mp4'));
+  assert.ok(isSupportedVideoExtension('MOV'));
+  assert.ok(!isSupportedVideoExtension('avi'));
+  assert.strictEqual(videoExtensionForName('flow.MOV'), 'mov');
+  assert.strictEqual(videoExtensionForName('capture.webm'), 'webm');
+  assert.strictEqual(videoExtensionForName('clip.avi'), 'mp4');
+  assert.strictEqual(videoExtensionForName('recording'), 'mp4');
 });
 
 test('explains a refused drop in a sentence naming the file', () => {

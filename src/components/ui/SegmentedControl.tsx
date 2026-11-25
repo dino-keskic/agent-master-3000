@@ -12,6 +12,7 @@ export interface SegmentedControlProps<T extends string = string> {
   onChange: (value: T) => void;
   options: SegmentOption<T>[];
   size?: 'sm' | 'xs';
+  fullWidth?: boolean;
   className?: string;
 }
 
@@ -20,13 +21,16 @@ export function SegmentedControl<T extends string = string>({
   onChange,
   options,
   size = 'sm',
+  fullWidth = false,
   className = ''
 }: SegmentedControlProps<T>) {
-  const heightClass = size === 'xs' ? 'h-6 text-[12px] px-2' : 'h-6 text-xs px-2.5';
+  const heightClass = size === 'xs' ? 'h-6 text-[11.5px] px-2 gap-1' : 'h-7 text-xs px-3 gap-1.5';
 
   return (
     <div
-      className={`inline-flex items-center gap-0.5 p-0.5 border border-line rounded-lg bg-surface-2 ${className}`}
+      className={`inline-flex items-center gap-0.5 p-0.5 border border-line rounded-lg bg-surface-2 ${
+        fullWidth ? 'w-full' : ''
+      } ${className}`}
       role="tablist"
     >
       {options.map((opt) => {
@@ -38,17 +42,19 @@ export function SegmentedControl<T extends string = string>({
             role="tab"
             aria-selected={isActive}
             onClick={() => onChange(opt.value)}
-            className={`inline-flex items-center gap-1.5 ${heightClass} rounded-md font-medium cursor-pointer transition-colors border-0 select-none ${
+            className={`inline-flex items-center justify-center ${heightClass} ${
+              fullWidth ? 'flex-1 min-w-0' : ''
+            } whitespace-nowrap rounded-md font-medium cursor-pointer transition-colors border-0 select-none ${
               isActive
                 ? 'bg-s4 text-ink shadow-card'
                 : 'bg-transparent text-ink-3 hover:text-ink-2'
             }`}
           >
-            {opt.icon && <span className="shrink-0">{opt.icon}</span>}
-            <span>{opt.label}</span>
+            {opt.icon && <span className="shrink-0 flex items-center">{opt.icon}</span>}
+            <span className="truncate">{opt.label}</span>
             {opt.count != null && (
               <span
-                className={`font-mono text-[11px] px-1 rounded-full ${
+                className={`font-mono text-[11px] px-1 rounded-full shrink-0 ${
                   isActive ? 'text-ink-3' : 'text-ink-4'
                 }`}
               >

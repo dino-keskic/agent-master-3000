@@ -26,6 +26,12 @@ function enrichSessionLinks(task: BoardTask, sessionsById: Map<string, AcpSessio
     if (!live) return link;
     const billed = billedSessionCost(link, live.cost, live.inheritedCost);
     const runsOn = recordedRunSettings(task, link, live);
+    // While a new turn just started locally before OpenCode flushes its rows,
+    // keep the live start timestamp rather than snapping back to the previous turn.
+    const livePromptLag =
+      link.runState === 'running' &&
+      !!link.lastPromptStartedAt &&
+      (!live.lastPromptStartedAt || live.lastPromptStartedAt < link.lastPromptStartedAt);
     return {
       ...link,
       title: !isPlaceholderSessionTitle(live.title) ? live.title : (link.title || live.title),
@@ -35,6 +41,10 @@ function enrichSessionLinks(task: BoardTask, sessionsById: Map<string, AcpSessio
       agent: runsOn.agent,
       contextTokens: live.contextTokens ?? link.contextTokens,
       contextLimit: live.contextLimit ?? link.contextLimit,
+      durationMs: live.durationMs ?? link.durationMs,
+      activeTurnStartedAt: livePromptLag ? link.activeTurnStartedAt : (live.activeTurnStartedAt ?? (link.runState === 'running' ? link.activeTurnStartedAt : undefined)),
+      lastPromptStartedAt: livePromptLag ? link.lastPromptStartedAt : (live.lastPromptStartedAt ?? link.lastPromptStartedAt),
+      lastTurnDurationMs: livePromptLag ? undefined : (live.lastTurnDurationMs ?? link.lastTurnDurationMs),
       updatedAt: Math.max(link.updatedAt || 0, Date.parse(live.updatedAt) || 0) || link.updatedAt
     };
   });
@@ -81,6 +91,10 @@ export function overlayLiveStatus(
     subagentCount: session?.subagentCount ?? task.subagentCount,
     contextTokens: session?.contextTokens ?? task.contextTokens,
     contextLimit: session?.contextLimit ?? modelInfo?.contextLimit ?? task.contextLimit,
+    durationMs: session?.durationMs ?? task.durationMs,
+    activeTurnStartedAt: session?.activeTurnStartedAt ?? task.activeTurnStartedAt,
+    lastPromptStartedAt: session?.lastPromptStartedAt ?? task.lastPromptStartedAt,
+    lastTurnDurationMs: session?.lastTurnDurationMs ?? task.lastTurnDurationMs,
     changeSummary: session?.changeSummary || task.changeSummary,
     cwdExists: probe ? probe.exists : task.cwdExists,
     cwdDirty: dirtyFiles.length > 0,

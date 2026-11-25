@@ -51,6 +51,8 @@ interface ComposerProps {
   slashCommands?: SlashCommand[];
   /** The folder `@` files and `/` project commands are read from. */
   cwd?: string;
+  /** Optional compact actions (Compact, Continue) shown in the bottom right bar. */
+  extraActions?: React.ReactNode;
   /** Given while the session is running a turn: shows Stop beside Send. */
   onStop?: () => void;
 }
@@ -87,6 +89,7 @@ export const Composer: React.FC<ComposerProps> = ({
   mentionPlacement = 'above',
   slashCommands,
   cwd,
+  extraActions,
   onStop
 }) => {
   const field = usePromptField(value, onChange, textareaRef);
@@ -152,10 +155,10 @@ export const Composer: React.FC<ComposerProps> = ({
       }}
     >
       <Paper
-        px={14}
-        pt={12}
-        pb={8}
-        radius={14}
+        px={12}
+        pt={10}
+        pb={6}
+        radius={12}
         onDragEnter={(e) => {
           if (dragHasFiles(e.dataTransfer.types)) setDragging(true);
         }}
@@ -245,6 +248,7 @@ export const Composer: React.FC<ComposerProps> = ({
             submitTooltip={submitTooltip}
             submitting={submitting}
             idle={idle}
+            extraActions={extraActions}
             onStop={onStop}
             dictation={<MicButton onText={dictate} disabled={disabled} />}
           />

@@ -59,7 +59,11 @@ export function isOpencodeAcp(bin: string, args: string[], opencodeBin: string):
   return path.basename(bin).startsWith('opencode') && args[0] === 'acp';
 }
 
-/** The file's contents: the same `tools` overlay the content would carry, or nothing. */
-export function policyDocument(policy: Record<string, boolean> | undefined): string {
-  return `${JSON.stringify(boardConfigOverlay(policy), null, 2)}\n`;
+/** The file's contents: the same `tools`, `agent`, and `permission` overlay the content would carry, or nothing. */
+export function policyDocument(
+  policy: Record<string, boolean> | undefined,
+  agentPolicy?: Record<string, Record<string, boolean>>,
+  skillPolicy?: Record<string, boolean>
+): string {
+  return `${JSON.stringify(boardConfigOverlay(policy, agentPolicy, skillPolicy), null, 2)}\n`;
 }

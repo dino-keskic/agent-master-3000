@@ -27,6 +27,10 @@ export interface PromptImage {
    * it looks like — a video's contact sheet says it is frames over time.
    */
   caption?: string;
+  /** Stored video filename on disk when this image is a video's contact sheet. */
+  videoId?: string;
+  /** MIME type of the stored video behind `videoId`. */
+  videoMimeType?: string;
 }
 
 /** A caption is client input on the way back in; past this it is not a caption. */
@@ -58,9 +62,35 @@ export function imageExtension(mimeType: string): string {
   return EXTENSIONS[mimeType.toLowerCase()] || 'bin';
 }
 
+/** Video extensions stored in the attachment store alongside their contact sheet. */
+export const VIDEO_ATTACHMENT_EXTENSIONS: Record<string, string> = {
+  mp4: 'video/mp4',
+  webm: 'video/webm',
+  mov: 'video/quicktime',
+  m4v: 'video/x-m4v',
+  ogv: 'video/ogg'
+};
+
+export function isSupportedVideoExtension(ext: string): boolean {
+  return ext.toLowerCase() in VIDEO_ATTACHMENT_EXTENSIONS;
+}
+
+/** The stored extension for a dropped video filename, defaulting to `mp4`. */
+export function videoExtensionForName(name: string): string {
+  const base = name.split(/[\\/]/).pop() || '';
+  const dot = base.lastIndexOf('.');
+  const ext = dot > 0 ? base.slice(dot + 1).toLowerCase() : '';
+  return isSupportedVideoExtension(ext) ? ext : 'mp4';
+}
+
 /** Where the browser reads a stored image back from. */
 export function imageUrl(image: Pick<PromptImage, 'id'>): string {
   return `/api/attachments/${encodeURIComponent(image.id)}`;
+}
+
+/** Where the browser streams a stored video attachment from, if one is attached. */
+export function videoUrl(image: Pick<PromptImage, 'videoId'>): string | undefined {
+  return image.videoId ? `/api/attachments/${encodeURIComponent(image.videoId)}` : undefined;
 }
 
 const tooMany = () => `A turn can carry ${MAX_IMAGES_PER_TURN} images; drop the extra ones into a follow-up.`;

@@ -173,14 +173,31 @@ interface CommandCache {
 
 const cache = new Map<string, CommandCache>();
 
-export function listAgentCommands(cwd?: string): { commands: SlashCommand[]; error?: string } {
+export function clearCommandsCache(): void {
+  cache.clear();
+}
+
+function filterDisabledSkills(
+  commands: SlashCommand[],
+  skillPolicy?: Record<string, boolean>
+): SlashCommand[] {
+  if (!skillPolicy) return commands;
+  return commands.filter((cmd) => !(cmd.kind === 'skill' && skillPolicy[cmd.label] === false));
+}
+
+export function listAgentCommands(
+  cwd?: string,
+  skillPolicy?: Record<string, boolean>
+): { commands: SlashCommand[]; error?: string } {
   const key = cwd || '';
   const hit = cache.get(key);
-  if (hit && Date.now() - hit.at < CACHE_TTL_MS) return { commands: hit.commands };
+  if (hit && Date.now() - hit.at < CACHE_TTL_MS) {
+    return { commands: filterDisabledSkills(hit.commands, skillPolicy) };
+  }
   try {
     const commands = sortSlashCommands(dedupeSlashCommands([...BUILTIN, ...scan(cwd)]));
     cache.set(key, { at: Date.now(), commands });
-    return { commands };
+    return { commands: filterDisabledSkills(commands, skillPolicy) };
   } catch (e) {
     return { commands: BUILTIN, error: errorMessage(e) || 'Could not read commands' };
   }

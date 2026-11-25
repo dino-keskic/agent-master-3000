@@ -6,6 +6,7 @@
  * which file that lives in. `http.ts` is how every call is made.
  */
 
+import { agentsApi } from './agents';
 import { boardApi } from './board';
 import { composerApi } from './composer';
 import { diffApi } from './diff';
@@ -13,9 +14,11 @@ import { editorsApi } from './editors';
 import { linksApi } from './links';
 import { managerApi } from './manager';
 import { projectsApi } from './projects';
+import { remoteAccessApi } from './remoteAccess';
 import { reviewApi } from './review';
 import { sessionsApi } from './sessions';
 import { setupApi } from './setup';
+import { skillsApi } from './skills';
 import { spendApi } from './spend';
 import { tasksApi } from './tasks';
 import { toolsApi } from './tools';
@@ -37,9 +40,12 @@ export const api = {
   ...sessionsApi,
   ...diffApi,
   ...toolsApi,
+  ...agentsApi,
+  ...skillsApi,
   ...reviewApi,
   ...linksApi,
   ...spendApi,
   ...editorsApi,
-  ...managerApi
+  ...managerApi,
+  ...remoteAccessApi
 };

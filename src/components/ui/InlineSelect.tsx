@@ -87,7 +87,7 @@ export function InlineSelect<T extends InlineOption>({
           title={title ?? `${label}: ${trigger.text}`}
           disabled={disabled}
           onClick={() => combobox.toggleDropdown()}
-          className="inline-flex items-center gap-1.5 h-7 max-w-full min-w-0 px-2 -mx-1 rounded-md text-[12px] leading-none font-medium cursor-pointer transition-colors hover:bg-ink/[0.06] data-[expanded]:bg-ink/[0.08] disabled:opacity-50 disabled:cursor-not-allowed"
+          className="inline-flex items-center gap-1.5 h-7 max-w-full min-w-0 px-2 rounded-lg text-[12px] leading-none font-medium cursor-pointer transition-colors hover:bg-s3h data-[expanded]:bg-s3h border border-transparent hover:border-hairline disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {icon && <span className="shrink-0 flex items-center text-ink-3">{icon}</span>}
           <span

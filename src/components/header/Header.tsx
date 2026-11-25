@@ -1,6 +1,6 @@
 import React from 'react';
 import { Tooltip } from '@mantine/core';
-import { BellOff, Bot, Plus, Search } from 'lucide-react';
+import { Bell, BellOff, Bot, Plus, Search, X } from 'lucide-react';
 import { TaskRunState } from '../../../shared/types';
 import { BoardLoadPhase, connectionLabel } from '../../../shared/board/load';
 import { ProjectFilterChip } from '../../../shared/board/projectFilter';
@@ -18,9 +18,7 @@ import './topbar.css';
  * The field is the way into everything — finding a task, running a command,
  * or writing a new one — so it sits in the middle and takes the width. Left of
  * it is what the board is showing; right of it is what wants you, the manager,
- * what the week has cost, and a menu for the rest. The composer that used to
- * live here is a sheet now (`NewTaskSheet`), which gave the columns back the
- * height of three rows.
+ * what the week has cost, and a menu for the rest.
  */
 
 interface HeaderProps {
@@ -60,6 +58,9 @@ interface HeaderProps {
   openCommentsCount: number;
   setupSeverity: Severity;
   onOpenComments: () => void;
+  onOpenTools: () => void;
+  onOpenAgents: () => void;
+  onOpenSkills: () => void;
   onOpenColumnEditor: () => void;
   onOpenArchive: () => void;
   onOpenSessionImport: () => void;
@@ -75,9 +76,19 @@ function managerTooltip(state: TaskRunState | undefined): string {
 }
 
 export const Header: React.FC<HeaderProps> = (props) => {
-  const { connection, managerState, attentionCount, desktopAlertWarning } = props;
+  const { connection, managerState, attentionCount, desktopAlertWarning, unreadNotificationCount } = props;
   const live = connection === 'ready';
   const managerAlert = managerState === 'awaiting_input' || managerState === 'error';
+  const narrowed =
+    props.chips.some((chip) => chip.selected) ||
+    props.updatedToday.selected ||
+    props.changedFiles.selected;
+
+  const clearAllFilters = () => {
+    props.onClearProjects();
+    if (props.updatedToday.selected) props.onToggleUpdatedToday();
+    if (props.changedFiles.selected) props.onToggleChangedFiles();
+  };
 
   return (
     <header className="glass-chrome topbar sticky top-3 z-40 mx-3 mt-3 rounded-[20px]">
@@ -98,27 +109,65 @@ export const Header: React.FC<HeaderProps> = (props) => {
           onToggleUpdatedToday={props.onToggleUpdatedToday}
           onToggleChangedFiles={props.onToggleChangedFiles}
         />
+        {narrowed && (
+          <Tooltip label="Clear active view filters" withArrow>
+            <button
+              type="button"
+              className="icon-btn w-7 h-7"
+              onClick={clearAllFilters}
+              aria-label="Clear active view filters"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </Tooltip>
+        )}
       </div>
 
       <div className="topbar-field">
-        <button type="button" className="omnibox" onClick={props.onOpenPalette} aria-label="Search the board, run a command, or describe a new task">
+        <button
+          type="button"
+          className="omnibox"
+          onClick={props.onOpenPalette}
+          aria-label="Search the board, run a command, or describe a new task"
+        >
           <Search className="w-4 h-4 shrink-0" />
-          <span className="truncate">Search, run a command, or describe a new task</span>
-          <span className="kbd ml-auto">⌘K</span>
+          <span className="truncate hidden sm:inline">Search, run a command, or describe a new task</span>
+          <span className="truncate sm:hidden">Search or new task…</span>
+          <span className="kbd ml-auto hidden sm:inline-flex">⌘K</span>
         </button>
         <Tooltip label="Write a new task with a project, worktree and attachments (N)" withArrow>
           <button type="button" className="omnibox-new" onClick={props.onNewTask} aria-label="New task">
-            <Plus className="w-4 h-4" />
+            <Plus className="w-4 h-4 shrink-0" />
+            <span className="topbar-wide">New</span>
+            <span className="kbd topbar-wide !bg-white/20 !border-white/25 !text-white">N</span>
           </button>
         </Tooltip>
       </div>
 
       <div className="topbar-side justify-end">
-        {(attentionCount > 0 || desktopAlertWarning) && (
+        {attentionCount > 0 || desktopAlertWarning ? (
           <Tooltip label={desktopAlertWarning || 'Waiting on you — listed above the columns'} withArrow>
             <button type="button" className="hdr-btn is-alert" onClick={props.onOpenNotifications}>
               {desktopAlertWarning && <BellOff className="w-3.5 h-3.5" />}
               {attentionLabel(attentionCount) || 'Alerts off'}
+            </button>
+          </Tooltip>
+        ) : unreadNotificationCount > 0 ? (
+          <Tooltip label={`${unreadNotificationCount} unread notification${unreadNotificationCount === 1 ? '' : 's'}`} withArrow>
+            <button type="button" className="hdr-btn" onClick={props.onOpenNotifications}>
+              <Bell className="w-3.5 h-3.5 text-acc-fg" />
+              <span className="bubble">{unreadNotificationCount}</span>
+            </button>
+          </Tooltip>
+        ) : (
+          <Tooltip label="Notifications & background runs" withArrow>
+            <button
+              type="button"
+              className="hdr-btn is-icon"
+              aria-label="Notifications"
+              onClick={props.onOpenNotifications}
+            >
+              <Bell className="w-3.5 h-3.5" />
             </button>
           </Tooltip>
         )}
@@ -126,7 +175,9 @@ export const Header: React.FC<HeaderProps> = (props) => {
           <button type="button" className={`hdr-btn${managerAlert ? ' is-alert' : ''}`} onClick={props.onOpenManager}>
             <Bot className="w-3.5 h-3.5" />
             <span className="topbar-wide">Manager</span>
-            {managerState === 'running' && <span className="w-1.5 h-1.5 rounded-full bg-run animate-pulse" aria-label="working" />}
+            {managerState === 'running' && (
+              <span className="w-1.5 h-1.5 rounded-full bg-run animate-pulse" aria-label="working" />
+            )}
           </button>
         </Tooltip>
         <Tooltip label="What the board has cost this week — open the spend report" withArrow>
@@ -140,6 +191,9 @@ export const Header: React.FC<HeaderProps> = (props) => {
           setupSeverity={props.setupSeverity}
           onOpenNotifications={props.onOpenNotifications}
           onOpenComments={props.onOpenComments}
+          onOpenTools={props.onOpenTools}
+          onOpenAgents={props.onOpenAgents}
+          onOpenSkills={props.onOpenSkills}
           onOpenColumnEditor={props.onOpenColumnEditor}
           onOpenArchive={props.onOpenArchive}
           onOpenSessionImport={props.onOpenSessionImport}

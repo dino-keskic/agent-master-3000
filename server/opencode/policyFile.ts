@@ -22,12 +22,30 @@ export function boardPolicyFile(): string {
 /**
  * Write the policy to the board's file, through a temp file and a rename so
  * OpenCode's watcher never reads half of it. A file that already says this is
- * left alone: every write is a reload in every OpenCode watching it.
+ * left alone: every write is a reload in every OpenCode watching it — unless
+ * `forceTouch` is set, which bumps the file's mtime so OpenCode 2's watcher
+ * reloads edited `.opencode/agents` and `.opencode/skills` files immediately.
  */
-export function writeBoardPolicyFile(policy: Record<string, boolean> | undefined, file = boardPolicyFile()): void {
-  const body = policyDocument(policy);
+export function writeBoardPolicyFile(
+  policy: Record<string, boolean> | undefined,
+  file = boardPolicyFile(),
+  agentPolicy?: Record<string, Record<string, boolean>>,
+  skillPolicy?: Record<string, boolean>,
+  options?: { forceTouch?: boolean }
+): void {
+  const body = policyDocument(policy, agentPolicy, skillPolicy);
   try {
-    if (fs.readFileSync(file, 'utf8') === body) return;
+    if (fs.readFileSync(file, 'utf8') === body) {
+      if (options?.forceTouch) {
+        try {
+          const now = new Date();
+          fs.utimesSync(file, now, now);
+        } catch {
+          // Best-effort nudge for OpenCode 2's watcher.
+        }
+      }
+      return;
+    }
   } catch {
     // Not there yet.
   }
@@ -45,12 +63,14 @@ export function writeBoardPolicyFile(policy: Record<string, boolean> | undefined
 export function livePolicyFile(
   bin: string,
   env: NodeJS.ProcessEnv,
-  policy: Record<string, boolean> | undefined
+  policy: Record<string, boolean> | undefined,
+  agentPolicy?: Record<string, Record<string, boolean>>,
+  skillPolicy?: Record<string, boolean>
 ): string | undefined {
   if (policyDelivery(opencodeVersion(bin, env), env) !== 'file') return undefined;
   const file = boardPolicyFile();
   try {
-    writeBoardPolicyFile(policy, file);
+    writeBoardPolicyFile(policy, file, agentPolicy, skillPolicy);
     return file;
   } catch (e) {
     console.warn(`[tools] Could not write ${file}; tool switches will need an agent restart:`, e);
@@ -63,7 +83,11 @@ export function agentPolicyFile(
   bin: string,
   args: string[],
   env: NodeJS.ProcessEnv,
-  policy: Record<string, boolean> | undefined
+  policy: Record<string, boolean> | undefined,
+  agentPolicy?: Record<string, Record<string, boolean>>,
+  skillPolicy?: Record<string, boolean>
 ): string | undefined {
-  return isOpencodeAcp(bin, args, opencodeBin()) ? livePolicyFile(bin, env, policy) : undefined;
+  return isOpencodeAcp(bin, args, opencodeBin())
+    ? livePolicyFile(bin, env, policy, agentPolicy, skillPolicy)
+    : undefined;
 }

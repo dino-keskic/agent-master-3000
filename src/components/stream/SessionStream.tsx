@@ -1,11 +1,10 @@
 import React, { useCallback, useEffect, useMemo, useRef } from 'react';
 import { Group, ScrollArea, Stack } from '@mantine/core';
-import { Terminal } from 'lucide-react';
 import { BoardTask, TaskLogItem } from '../../../shared/types';
 import { PendingPrompt, pendingAsLog, streamActivity } from '../../../shared/turns/pendingPrompts';
 import { TurnAttribution } from '../../../shared/turns/attribution';
+import { ForkMode, isNoiseLog } from '../../../shared/transcript/forkPoint';
 import { FileLinkProvider } from './FileLinks';
-import { JumpToMessage } from './JumpToMessage';
 import { foldSteps } from '../../../shared/transcript/steps';
 import { LogEntry } from './LogEntry';
 import { StepsBlock } from './StepsBlock';
@@ -13,8 +12,8 @@ import { useStreamViewport } from './useStreamViewport';
 
 /**
  * A session's transcript: the log, paginated, pinned to the bottom while it
- * runs. It reads as a conversation — the tool calls between two messages are
- * folded into one line each (`foldSteps`).
+ * runs. Routine lifecycle chatter is filtered out, and tool calls between two
+ * messages fold into one line each (`foldSteps`).
  */
 
 interface SessionStreamProps {
@@ -37,8 +36,14 @@ interface SessionStreamProps {
    * that called it, which is who its `user_say` turns actually came from.
    */
   callerLabel?: string;
+  /** Log id currently anchored for a mid-session fork. */
+  forkAnchorLogId?: string;
   /** Open the child session a subagent tool call handed its work to. */
   onOpenSubagent?: (sessionId: string) => void;
+  /** Start a fork anchored at a specific message in this stream. */
+  onForkLog?: (log: TaskLogItem, mode: ForkMode) => void;
+  /** Receives this stream's jump handler so the tab bar can jump directly into it. */
+  jumpRef?: React.MutableRefObject<((log: TaskLogItem) => void) | null>;
 }
 
 function entryIsStreaming(log: TaskLogItem, runState: BoardTask['runState'], isLast: boolean): boolean {
@@ -65,19 +70,37 @@ export const SessionStream: React.FC<SessionStreamProps> = ({
   loading,
   emptyHint,
   callerLabel,
-  onOpenSubagent
+  forkAnchorLogId,
+  onOpenSubagent,
+  onForkLog,
+  jumpRef
 }) => {
+  const cleanLogs = useMemo(() => logs.filter((log) => !isNoiseLog(log)), [logs]);
   // Sending is always a reason to look at the bottom, wherever the reader was.
-  const view = useStreamViewport(logs, pending[pending.length - 1]?.id);
+  const view = useStreamViewport(cleanLogs, pending[pending.length - 1]?.id);
   const pendingLogs = useMemo(() => pending.map(pendingAsLog), [pending]);
-  const activity = streamActivity(pending.length, runState, logs[logs.length - 1]);
-  const userMessages = useMemo(() => logs.filter((log) => log.type === 'user_say'), [logs]);
+  const activity = streamActivity(pending.length, runState, cleanLogs[cleanLogs.length - 1]);
   const blocks = useMemo(() => foldSteps(view.visible), [view.visible]);
 
+  const latestAgentId = useMemo(() => {
+    for (let i = cleanLogs.length - 1; i >= 0; i--) {
+      if (cleanLogs[i]!.type === 'agent_say') return cleanLogs[i]!.id;
+    }
+    return undefined;
+  }, [cleanLogs]);
+
+  // Expose the viewport's jump handler to the tab bar without extra renders.
+  useEffect(() => {
+    if (!jumpRef) return;
+    jumpRef.current = view.jumpToMessage;
+    return () => {
+      jumpRef.current = null;
+    };
+  }, [jumpRef, view.jumpToMessage]);
+
   /**
-   * The drawer builds a fresh opener on every render, and handing that straight
-   * to a memoised row re-renders every tool call in the transcript. Keep the
-   * identity stable and read the current handler through a ref.
+   * Keep callback identities stable across renders so memoised `LogEntry` rows
+   * do not re-render on every status tick.
    */
   const openSubagentRef = useRef(onOpenSubagent);
   useEffect(() => {
@@ -85,27 +108,21 @@ export const SessionStream: React.FC<SessionStreamProps> = ({
   }, [onOpenSubagent]);
   const openSubagent = useCallback((sessionId: string) => openSubagentRef.current?.(sessionId), []);
 
+  const forkLogRef = useRef(onForkLog);
+  useEffect(() => {
+    forkLogRef.current = onForkLog;
+  }, [onForkLog]);
+  const forkLog = useCallback((log: TaskLogItem, mode: ForkMode) => forkLogRef.current?.(log, mode), []);
+
   return (
     <FileLinkProvider cwd={cwd} taskId={taskId}>
       <ScrollArea
         viewportRef={view.viewportRef}
-        className="flex-1 p-3.5"
+        className="flex-1 px-2.5 sm:px-3.5 py-2 sm:py-2.5"
+        classNames={{ viewport: 'overflow-x-hidden' }}
         onScrollPositionChange={view.onScrollPositionChange}
       >
-        <Stack gap={10}>
-          <Group justify="space-between" className="pb-1 font-mono text-[12px] leading-[1.45] text-ink-3">
-            <Group gap={6}>
-              <Terminal className="w-3.5 h-3.5" />
-              <span>Session</span>
-            </Group>
-            <Group gap={10}>
-              {userMessages.length > 0 && (
-                <JumpToMessage messages={userMessages} onJump={view.jumpToMessage} />
-              )}
-              <span className="tabular-nums">{userMessages.length} {userMessages.length === 1 ? 'message' : 'messages'} · {logs.length} events</span>
-            </Group>
-          </Group>
-
+        <Stack gap={8} className="min-w-0">
           {view.hidden > 0 && (
             <button
               type="button"
@@ -121,10 +138,13 @@ export const SessionStream: React.FC<SessionStreamProps> = ({
               <LogEntry
                 key={view.keys[index] ?? log.id}
                 log={log}
-                isStreaming={entryIsStreaming(log, runState, view.start + index === logs.length - 1)}
+                isStreaming={entryIsStreaming(log, runState, view.start + index === cleanLogs.length - 1)}
+                isLatestAgent={log.id === latestAgentId}
+                isForkAnchor={!!forkAnchorLogId && forkAnchorLogId === log.id}
                 fallback={attribution}
                 callerLabel={callerLabel}
                 onOpenSubagent={onOpenSubagent ? openSubagent : undefined}
+                onForkLog={onForkLog ? forkLog : undefined}
               />
             );
             if (block.kind === 'entry') return entry(block.log, block.index);
@@ -156,7 +176,7 @@ export const SessionStream: React.FC<SessionStreamProps> = ({
             </Group>
           )}
 
-          {logs.length === 0 && pendingLogs.length === 0 && (
+          {cleanLogs.length === 0 && pendingLogs.length === 0 && (
             <div className="px-4 py-10 text-center text-[13px] leading-[1.5] text-ink-3">
               {loading ? 'Loading the conversation…' : emptyHint || 'Nothing here yet. Send a message below to start this task.'}
             </div>

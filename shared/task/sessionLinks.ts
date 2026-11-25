@@ -114,6 +114,7 @@ export function archiveLink(link: TaskSessionLink): void {
   link.archivedAt = Date.now();
   link.updatedAt = Date.now();
   link.runState = 'idle';
+  link.activeTurnStartedAt = undefined;
   link.pendingRequest = undefined;
 }
 
@@ -152,16 +153,45 @@ export function upsertSessionLink(task: BoardTask, link: TaskSessionLink): void 
 /** Records what one session is doing. False when it was already doing that. */
 export function setLinkRunState(task: BoardTask, sessionId: string, runState: TaskRunState): boolean {
   const link = ensureSessionLink(task, sessionId);
-  if (link.runState === runState) {
+  const previousState = link.runState;
+  if (previousState === runState) {
     recomputeRunState(task);
     return false;
   }
+  const now = Date.now();
   link.runState = runState;
-  link.updatedAt = Date.now();
-  if (runState === 'running') link.error = undefined;
+  link.updatedAt = now;
+  if (runState === 'running') {
+    const inheritedStart =
+      !previousState &&
+      sessionId === task.sessionId &&
+      task.runState === 'running' &&
+      task.lastPromptStartedAt
+        ? task.lastPromptStartedAt
+        : now;
+    link.error = undefined;
+    link.activeTurnStartedAt = inheritedStart;
+    if (previousState !== 'awaiting_input') {
+      link.lastPromptStartedAt = inheritedStart;
+      link.lastTurnDurationMs = undefined;
+    }
+  } else if (previousState === 'running') {
+    if (link.activeTurnStartedAt && now > link.activeTurnStartedAt) {
+      link.durationMs = (link.durationMs || 0) + (now - link.activeTurnStartedAt);
+    }
+    link.activeTurnStartedAt = undefined;
+    if (link.lastPromptStartedAt && now > link.lastPromptStartedAt) {
+      link.lastTurnDurationMs = now - link.lastPromptStartedAt;
+    }
+  }
   if (runState !== 'awaiting_input') link.pendingRequest = undefined;
   recomputeRunState(task);
-  task.updatedAt = Date.now();
+  if (sessionId === task.sessionId) {
+    task.activeTurnStartedAt = link.activeTurnStartedAt;
+    task.lastPromptStartedAt = link.lastPromptStartedAt;
+    task.lastTurnDurationMs = link.lastTurnDurationMs;
+  }
+  task.updatedAt = now;
   return true;
 }
 
@@ -230,6 +260,7 @@ export interface LinkedSessionInput {
   kind: TaskSessionKind;
   origin: SessionOrigin;
   forkedFrom?: string;
+  forkedAtLabel?: string;
   costAtFork?: number;
   prompt?: string;
   /**
@@ -273,7 +304,8 @@ export function applyLinkedSession(task: BoardTask, input: LinkedSessionInput): 
     title: input.title,
     kind: input.kind,
     origin: input.origin,
-    forkedFrom: input.forkedFrom,
+    forkedFrom: input.forkedFrom ?? existing?.forkedFrom,
+    forkedAtLabel: input.forkedAtLabel ?? existing?.forkedAtLabel,
     costAtFork: input.costAtFork ?? existing?.costAtFork,
     prompt: input.prompt ?? existing?.prompt,
     cwd: input.cwd ?? existing?.cwd,

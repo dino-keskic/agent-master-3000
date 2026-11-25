@@ -114,11 +114,38 @@ test('toolPolicySignature ignores key order but not content', () => {
   assert.equal(toolPolicySignature({ a: true, b: false }), toolPolicySignature({ b: false, a: true }));
   assert.notEqual(toolPolicySignature({ a: true }), toolPolicySignature({ a: false }));
   assert.equal(toolPolicySignature(undefined), toolPolicySignature({}));
+  // Backward-compatible when skillPolicy has no disabled skills.
+  assert.equal(toolPolicySignature({ bash: false }), toolPolicySignature({ bash: false }, undefined, {}));
+  assert.equal(
+    toolPolicySignature({ bash: false }),
+    toolPolicySignature({ bash: false }, undefined, { deploy: true })
+  );
+  // Changes when disabled skills change, regardless of key order.
+  assert.notEqual(
+    toolPolicySignature({ bash: false }),
+    toolPolicySignature({ bash: false }, undefined, { deploy: false })
+  );
+  assert.equal(
+    toolPolicySignature({}, undefined, { z: false, a: false }),
+    toolPolicySignature({}, undefined, { a: false, z: false })
+  );
+  assert.notEqual(
+    toolPolicySignature({}, undefined, { a: false }),
+    toolPolicySignature({}, undefined, { b: false })
+  );
 });
 
 test('boardConfigOverlay stays empty when nothing is overridden', () => {
   assert.deepEqual(boardConfigOverlay({}), {});
   assert.deepEqual(boardConfigOverlay({ bash: false }), { tools: { bash: false } });
+  assert.deepEqual(boardConfigOverlay({}, undefined, { deploy: true }), {});
+  assert.deepEqual(boardConfigOverlay({}, undefined, { z_skill: false, a_skill: false, kept: true }), {
+    permission: { skill: { a_skill: 'deny', z_skill: 'deny' } }
+  });
+  assert.deepEqual(Object.keys(boardConfigOverlay({}, undefined, { z_skill: false, a_skill: false }).permission!.skill), [
+    'a_skill',
+    'z_skill'
+  ]);
 });
 
 const toolLog = (name: string, sessionId?: string): TaskLogItem => ({
@@ -179,15 +206,19 @@ test('sortTools puts live tools first, then the most used', () => {
 
 test('the filter box searches what a tool is for, not only its name', () => {
   const tools = [
-    tool('bash', { description: 'Run a shell command' }),
-    tool('webfetch', { description: 'Read a URL' }),
-    tool('slack_search', { source: 'mcp', server: 'slack' })
+    tool('bash', { description: 'Run a shell command', enabled: true }),
+    tool('webfetch', { description: 'Read a URL', enabled: false }),
+    tool('slack_search', { source: 'mcp', server: 'slack', enabled: true })
   ];
   assert.deepEqual(filterTools(tools, '').length, 3, 'an empty filter matches everything');
   assert.deepEqual(filterTools(tools, '  ').length, 3, 'and so does whitespace');
   assert.deepEqual(filterTools(tools, 'SHELL').map((t) => t.name), ['bash'], 'case-insensitive, over descriptions');
   assert.deepEqual(filterTools(tools, 'sla').map((t) => t.name), ['slack_search']);
   assert.deepEqual(filterTools(tools, 'nothing').length, 0);
+  assert.deepEqual(filterTools(tools, '', 'on').map((t) => t.name), ['bash', 'slack_search']);
+  assert.deepEqual(filterTools(tools, '', 'off').map((t) => t.name), ['webfetch']);
+  assert.deepEqual(filterTools(tools, 'URL', 'on').length, 0);
+  assert.deepEqual(filterTools(tools, 'URL', 'off').map((t) => t.name), ['webfetch']);
 });
 
 test('a server is listed on its own only when no group already shows it', () => {
@@ -202,6 +233,8 @@ test('a server is listed on its own only when no group already shows it', () => 
     ['jira'],
     'the filter reaches a server with no tools to match on'
   );
+  assert.deepEqual(filterServers(servers, [], '', 'on'), []);
+  assert.deepEqual(filterServers(servers, [], '', 'off').map((s) => s.name), ['jira']);
 });
 
 test('groupToolsBySource splits built-ins from each server', () => {

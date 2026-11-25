@@ -1,8 +1,9 @@
 import React from 'react';
-import { Badge, Group, Loader, Paper, ScrollArea, Stack, Text } from '@mantine/core';
+import { Loader, ScrollArea } from '@mantine/core';
 import { AlertCircle, Calendar, History } from 'lucide-react';
 import { AcpSessionSummary } from '../../../shared/sessions/types';
 import { groupSessionsByWeek } from '../../../shared/sessions/list';
+import { Banner, EmptyState } from '../ui';
 import { SessionCard } from './SessionCard';
 
 interface SessionResultListProps {
@@ -46,67 +47,51 @@ export const SessionResultList: React.FC<SessionResultListProps> = ({
   );
 
   return (
-    <ScrollArea h={520} type="auto" className="bg-surface-3 rounded-xl border border-line/80 p-3">
+    <ScrollArea h={500} type="auto" className="bg-surface-3 rounded-xl border border-line p-3">
       {isLoading && (
-        <Group justify="center" py="xl" gap="sm">
+        <div className="flex items-center justify-center py-12 gap-2.5">
           <Loader size="sm" color="accent" />
-          <Text size="sm" c="dimmed" className="font-mono">
+          <span className="font-mono text-[12.5px] text-ink-3">
             Scanning OpenCode sessions…
-          </Text>
-        </Group>
+          </span>
+        </div>
       )}
 
       {error && !isLoading && (
-        <Paper p="md" className="border border-rose-800/60 bg-rose-950/40 rounded-lg">
-          <Group gap="sm">
-            <AlertCircle className="w-5 h-5 text-rose-400 shrink-0" />
-            <Stack gap={2}>
-              <Text size="sm" fw={600} className="text-rose-200">
-                Failed to retrieve sessions
-              </Text>
-              <Text size="xs" className="text-rose-300/80 font-mono">
-                {error}
-              </Text>
-            </Stack>
-          </Group>
-        </Paper>
+        <Banner tone="err" icon={<AlertCircle className="w-4 h-4" />} title="Failed to retrieve sessions">
+          <span className="font-mono">{error}</span>
+        </Banner>
       )}
 
       {!isLoading && !error && sessions.length === 0 && (
-        <Stack align="center" justify="center" py={60} gap="xs">
-          <Paper p="md" radius="xl" className="bg-surface-2 border border-line">
-            <History className="w-8 h-8 text-ink-3" />
-          </Paper>
-          <Text size="sm" fw={600} className="text-ink-2">
-            No sessions found
-          </Text>
-          <Text size="xs" c="dimmed" className="max-w-[360px] text-center font-mono">
-            {query
+        <EmptyState
+          icon={<History className="w-5 h-5" />}
+          title="No sessions found"
+          description={
+            query
               ? `No sessions matching "${query}" in this view.`
-              : 'Try selecting a different filter tab, choosing another project folder, or enabling "Include Empty".'}
-          </Text>
-        </Stack>
+              : 'Try selecting a different filter tab, choosing another project folder, or enabling "Include empty".'
+          }
+        />
       )}
 
       {!isLoading && !error && sessions.length > 0 && (
-        <Stack gap="xs">
+        <div className="flex flex-col gap-3">
           {grouped
             ? groupSessionsByWeek(sessions).map((group) => (
-              <Stack key={group.key} gap={6}>
-                <Group gap="xs" align="center" className="px-2 pt-2">
-                  <Calendar className="w-3.5 h-3.5 text-ink-3" />
-                  <Text size="xs" className="font-mono text-[12px] uppercase tracking-wider text-ink-2 font-semibold">
-                    {group.label}
-                  </Text>
-                  <Badge size="xs" color="gray" variant="light" className="font-mono">
-                    {group.sessions.length}
-                  </Badge>
-                </Group>
-                {group.sessions.map(card)}
-              </Stack>
-            ))
+                <div key={group.key} className="flex flex-col gap-1.5">
+                  <div className="flex items-center gap-2 px-1 pt-1">
+                    <Calendar className="w-3.5 h-3.5 text-ink-3" />
+                    <span className="font-mono text-[11px] uppercase tracking-wider text-ink-2 font-semibold">
+                      {group.label}
+                    </span>
+                    <span className="bubble is-muted">{group.sessions.length}</span>
+                  </div>
+                  {group.sessions.map(card)}
+                </div>
+              ))
             : sessions.map(card)}
-        </Stack>
+        </div>
       )}
     </ScrollArea>
   );

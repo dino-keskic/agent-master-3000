@@ -1,6 +1,6 @@
 import React from 'react';
 import { Tooltip } from '@mantine/core';
-import { Archive, Folder, Play, Square } from 'lucide-react';
+import { Archive, Folder, MessageSquare, Play, Square } from 'lucide-react';
 import { BoardColumn, BoardTask } from '../../../shared/types';
 import {
   TaskChangeSummary,
@@ -51,9 +51,10 @@ export const TaskCard: React.FC<TaskCardProps> = React.memo(
     // A turn still in flight wins over a merged PR: the card is working, not done.
     const settledLabel = summary.waiting || summary.running ? undefined : settlementLabel(linkSettlement(task.links));
     const digest = change ? summarizeChanges(change) : undefined;
+    const changeDigest = digest && digest.files > 0 ? formatChangeDigest(digest) : undefined;
     const status = cardStatusLine(task, summary, {
       settledLabel,
-      changeText: digest && digest.files > 0 ? formatChangeDigest(digest) : undefined
+      changeText: changeDigest
     });
     const statusTitle =
       status.tone === 'quiet' && change && digest && digest.files > 0
@@ -62,10 +63,9 @@ export const TaskCard: React.FC<TaskCardProps> = React.memo(
 
     const meta = [
       ...cardRunBadges(task, { model: defaultModel, agent: defaultAgent }),
-      summary.queuedCount > 0 && status.tone !== 'quiet' ? `${summary.queuedCount} queued` : '',
-      summary.openCommentsCount > 0 ? `${summary.openCommentsCount} ${summary.openCommentsCount === 1 ? 'note' : 'notes'}` : '',
       ...summary.meta
     ].filter(Boolean);
+    const hasDiffInStatus = changeDigest && status.text === changeDigest;
 
     const swallow = (e: React.MouseEvent) => {
       e.preventDefault();
@@ -93,12 +93,52 @@ export const TaskCard: React.FC<TaskCardProps> = React.memo(
           }}
         />
 
+        <div className="task-card-top">
+          <span className="task-card-id">{task.id}</span>
+          {summary.queuedCount > 0 && (
+            <span className="task-card-pill is-queue" title={`${summary.queuedCount} queued turn(s)`}>
+              +{summary.queuedCount} queued
+            </span>
+          )}
+          {summary.openCommentsCount > 0 && (
+            <span
+              className="task-card-pill is-note"
+              title={`${summary.openCommentsCount} open review note${summary.openCommentsCount === 1 ? '' : 's'}`}
+            >
+              <MessageSquare className="w-2.5 h-2.5 shrink-0" />
+              {summary.openCommentsCount}
+            </span>
+          )}
+          {changeDigest && !hasDiffInStatus && (
+            <span
+              className="task-card-pill font-mono"
+              title={[changeScopeLabel(change!), changeDetailLabel(digest!)].filter(Boolean).join(' · ')}
+            >
+              {changeDigest}
+            </span>
+          )}
+        </div>
+
         <h3 className="task-card-title">{task.title}</h3>
 
         <p className="task-card-status" title={statusTitle}>
           <span className="task-card-dot" aria-hidden />
           <span className="truncate">{status.text}</span>
+          {summary.currentTool?.stepBadge && (
+            <span className="ml-auto font-mono text-[10.5px] text-ink-3 shrink-0 tabular-nums">
+              {summary.currentTool.stepBadge}
+            </span>
+          )}
         </p>
+
+        {summary.running && summary.currentTool?.progressPercent != null && (
+          <div className="task-card-progress" aria-hidden>
+            <div
+              className="task-card-progress-fill"
+              style={{ width: `${Math.max(4, Math.min(100, summary.currentTool.progressPercent))}%` }}
+            />
+          </div>
+        )}
 
         <div className="task-card-meta">
           {summary.place && (

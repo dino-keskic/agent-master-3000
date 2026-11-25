@@ -1,17 +1,15 @@
 import React, { useState } from 'react';
+import { Popover } from '@mantine/core';
+import { BarChart3 } from 'lucide-react';
 import { TaskSpendBreakdown } from '../../../shared/spend/types';
 import { formatCompactCount, formatUsdExact } from '../../../shared/sessions/cost';
 import { defaultSpendGroup, SpendGroup, SpendRow, spendGroups, spendRows } from '../../../shared/spend/rows';
 import { SegmentedControl } from '../ui';
 
 /**
- * Where the task's money went, one split at a time: by stage, by model, by
- * agent. Three stacked lists made the sidebar a wall of small print; a switch
- * shows one, with a bar per row so the big spender is visible at a glance.
+ * Spend breakdown in a floating popover anchored beside the sidebar so long
+ * lists of stages, models, or agents never push Links or Location off screen.
  */
-
-/** Ranked splits past this many rows fold their tail into one. */
-const VISIBLE_ROWS = 5;
 
 const LABELS: Record<SpendGroup, string> = { phase: 'Stage', model: 'Model', agent: 'Agent' };
 
@@ -45,31 +43,68 @@ const Row: React.FC<{ row: SpendRow; fill: string }> = ({ row, fill }) => (
 
 export const SpendBreakdown: React.FC<{ breakdown: TaskSpendBreakdown }> = ({ breakdown }) => {
   const groups = spendGroups(breakdown);
+  const [opened, setOpened] = useState(false);
   const [picked, setPicked] = useState<SpendGroup | null>(null);
-  // Until the user picks, follow the data: the first split that divides the
-  // money can change as a running task moves stage or model.
   const group = picked && groups.some((g) => g.group === picked) ? picked : defaultSpendGroup(breakdown);
   const buckets = groups.find((g) => g.group === group)?.buckets || [];
-  const rows = spendRows(buckets, breakdown.total, { limit: VISIBLE_ROWS, fold: group !== 'phase' });
+  const rows = spendRows(buckets, breakdown.total, { limit: Math.max(1, buckets.length), fold: false });
 
   if (groups.length === 0) return null;
 
   return (
-    <div className="flex flex-col gap-3">
-      <div className="flex items-center justify-between gap-2">
-        <span className="type-meta text-ink-3">Split by</span>
-        <SegmentedControl
-          size="xs"
-          value={group}
-          onChange={setPicked}
-          options={groups.map((g) => ({ value: g.group, label: LABELS[g.group] }))}
-        />
-      </div>
-      <div className="flex flex-col gap-2.5">
-        {rows.map((row) => (
-          <Row key={row.key} row={row} fill={FILL[group]} />
-        ))}
-      </div>
-    </div>
+    <Popover
+      opened={opened}
+      onChange={setOpened}
+      position="left-start"
+      offset={10}
+      width={300}
+      shadow="md"
+      withinPortal
+    >
+      <Popover.Target>
+        <button
+          type="button"
+          aria-expanded={opened}
+          onClick={() => setOpened((o) => !o)}
+          className={`px-1.5 py-0.5 rounded-md inline-flex items-center gap-1 type-meta transition-colors ${
+            opened ? 'bg-acc-bg text-acc-fg' : 'text-ink-3 hover:text-ink hover:bg-s3h'
+          }`}
+        >
+          <BarChart3 className="w-3 h-3" />
+          <span>Breakdown</span>
+        </button>
+      </Popover.Target>
+
+      <Popover.Dropdown className="p-3 bg-surface border border-line rounded-xl">
+        <div className="flex flex-col gap-2.5">
+          <div className="flex items-center justify-between gap-2">
+            <span className="type-meta uppercase tracking-[0.06em] text-ink-3 font-medium">
+              Cost breakdown
+            </span>
+            <span className="font-mono text-[12px] font-semibold tabular-nums text-ink">
+              {formatUsdExact(breakdown.total)}
+            </span>
+          </div>
+
+          {groups.length > 1 && (
+            <SegmentedControl
+              size="xs"
+              value={group}
+              onChange={setPicked}
+              options={groups.map((g) => ({
+                value: g.group,
+                label: `${LABELS[g.group]} (${g.buckets.length})`
+              }))}
+            />
+          )}
+
+          <div className="max-h-64 overflow-y-auto pr-1 flex flex-col gap-2">
+            {rows.map((row) => (
+              <Row key={row.key} row={row} fill={FILL[group]} />
+            ))}
+          </div>
+        </div>
+      </Popover.Dropdown>
+    </Popover>
   );
 };

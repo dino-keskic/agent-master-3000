@@ -1,6 +1,17 @@
 import React from 'react';
 import { Menu } from '@mantine/core';
-import { Archive, Bell, Columns3, History, MessageSquare, MoreHorizontal, Settings } from 'lucide-react';
+import {
+  Archive,
+  Bell,
+  Bot,
+  Columns3,
+  History,
+  MessageSquare,
+  MoreHorizontal,
+  Settings,
+  WandSparkles,
+  Wrench
+} from 'lucide-react';
 import { Severity } from '../../../shared/setup/report';
 import { ThemeToggle } from './ThemeToggle';
 
@@ -19,6 +30,9 @@ interface BoardMenuProps {
   setupSeverity: Severity;
   onOpenNotifications: () => void;
   onOpenComments: () => void;
+  onOpenTools: () => void;
+  onOpenAgents: () => void;
+  onOpenSkills: () => void;
   onOpenColumnEditor: () => void;
   onOpenArchive: () => void;
   onOpenSessionImport: () => void;
@@ -34,6 +48,9 @@ export const BoardMenu: React.FC<BoardMenuProps> = ({
   setupSeverity,
   onOpenNotifications,
   onOpenComments,
+  onOpenTools,
+  onOpenAgents,
+  onOpenSkills,
   onOpenColumnEditor,
   onOpenArchive,
   onOpenSessionImport,
@@ -45,7 +62,11 @@ export const BoardMenu: React.FC<BoardMenuProps> = ({
   return (
     <Menu shadow="md" position="bottom-end" withinPortal width={240}>
       <Menu.Target>
-        <button type="button" className="hdr-btn is-icon relative" aria-label="More: columns, archive, import, settings">
+        <button
+          type="button"
+          className="hdr-btn is-icon relative"
+          aria-label="More: tools, agents, skills, columns, archive, import, settings"
+        >
           <MoreHorizontal className="w-4 h-4" />
           {marked && <span className={`topbar-dot ${broken ? 'bg-err' : 'bg-wait'}`} aria-hidden />}
         </button>
@@ -64,6 +85,16 @@ export const BoardMenu: React.FC<BoardMenuProps> = ({
           onClick={onOpenComments}
         >
           Review comments
+        </Menu.Item>
+        <Menu.Divider />
+        <Menu.Item leftSection={<Wrench className="w-3.5 h-3.5" />} onClick={onOpenTools}>
+          Tools
+        </Menu.Item>
+        <Menu.Item leftSection={<Bot className="w-3.5 h-3.5" />} onClick={onOpenAgents}>
+          Agents
+        </Menu.Item>
+        <Menu.Item leftSection={<WandSparkles className="w-3.5 h-3.5" />} onClick={onOpenSkills}>
+          Skills
         </Menu.Item>
         <Menu.Divider />
         <Menu.Item leftSection={<Columns3 className="w-3.5 h-3.5" />} onClick={onOpenColumnEditor}>

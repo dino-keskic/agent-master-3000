@@ -99,6 +99,8 @@ test('OpenCode 2 database', async (t) => {
     assert.strictEqual(summary.title, 'Fix the build');
     assert.strictEqual(summary.model, 'stub/m');
     assert.strictEqual(summary.agent, 'build');
+    assert.strictEqual(summary.durationMs, 60);
+    assert.strictEqual(summary.lastTurnDurationMs, 80);
     const listed = await listOpenCodeSessions({ cwd: dir });
     const ids = listed.sessions.map((s) => s.sessionId);
     assert.ok(ids.includes(ROOT) && ids.includes(RUNNING));
@@ -165,6 +167,31 @@ test('OpenCode 2 database', async (t) => {
       loadSessionHistory(copy.sessionId).logs.map((l) => l.text),
       loadSessionHistory(ROOT).logs.map((l) => l.text)
     );
+  });
+
+  await t.test('forking at a specific V2 message slices by seq and seeds event_sequence', () => {
+    const history = loadSessionHistory(ROOT);
+    const firstUserMsgId = history.logs[0]?.messageId;
+    assert.ok(firstUserMsgId, 'history exposes messageId on V2 entries');
+
+    const branch = cloneOpenCodeSession(ROOT, 'Early branch', { upToMessageId: firstUserMsgId });
+    assert.ok(branch);
+    closeReadDb();
+    assert.deepStrictEqual(
+      loadSessionHistory(branch.sessionId).logs.map((l) => l.text),
+      ['Please fix the build.']
+    );
+
+    const db = new DatabaseSync(file, { readOnly: true });
+    try {
+      const rows = db.prepare('SELECT seq FROM session_message WHERE session_id = ? ORDER BY seq').all(branch.sessionId) as { seq: number }[];
+      const counter = db.prepare('SELECT seq FROM event_sequence WHERE aggregate_id = ?').get(branch.sessionId) as { seq: number };
+      assert.strictEqual(counter.seq, rows[rows.length - 1]!.seq);
+    } finally {
+      db.close();
+    }
+
+    assert.strictEqual(cloneOpenCodeSession(ROOT, 'Bad anchor', { upToMessageId: 'msg_missing' }), null);
   });
 });
 

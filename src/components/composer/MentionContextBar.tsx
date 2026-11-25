@@ -15,12 +15,7 @@ interface MentionContextBarProps {
 
 /**
  * What each linked ticket, PR or Actions run is sending with the turn, and
- * what else it could. The description (a run's summary) arrives on the pick;
- * comment threads, CI output, every job and the failed logs are things you
- * sometimes want and mostly do not, so they wait behind a button.
- *
- * None of it is ever written into the textarea — that keeps the link, which is
- * the whole point. These chips are how you see what is riding along with it.
+ * what else it could.
  */
 export const MentionContextBar: React.FC<MentionContextBarProps> = ({
   items,
@@ -37,9 +32,9 @@ export const MentionContextBar: React.FC<MentionContextBarProps> = ({
           {item.kind === 'jira' ? (
             <Ticket className="w-3 h-3 text-accent shrink-0" />
           ) : item.kind === 'run' ? (
-            <PlayCircle className="w-3 h-3 text-teal-300 shrink-0" />
+            <PlayCircle className="w-3 h-3 text-run-fg shrink-0" />
           ) : (
-            <GitPullRequest className="w-3 h-3 text-teal-300 shrink-0" />
+            <GitPullRequest className="w-3 h-3 text-run-fg shrink-0" />
           )}
           <Text size="11px" className="font-mono text-ink-2 shrink-0" title={item.title}>
             {item.id}
@@ -62,7 +57,7 @@ export const MentionContextBar: React.FC<MentionContextBarProps> = ({
                 onClick={() => onToggle(item, extra.id)}
                 className={`flex items-center gap-1 rounded-full border px-1.5 py-[1px] text-[11px] font-mono transition-colors ${
                   on
-                    ? 'border-accent/70 bg-acc-bg text-ink'
+                    ? 'border-acc-bd bg-acc-bg text-ink'
                     : 'border-line bg-canvas/40 text-ink-3 hover:border-line-strong hover:text-ink-2'
                 }`}
               >

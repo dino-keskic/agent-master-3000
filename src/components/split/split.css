@@ -4,16 +4,16 @@
   flex: 0 0 272px;
   flex-direction: column;
   min-height: 0;
-  border-right: 1px solid rgb(var(--c-line));
-  background: rgb(var(--c-surface));
+  min-width: 0;
+  background: var(--session-rail);
 }
 
 .work-rail-back {
   display: flex;
   align-items: center;
   gap: 8px;
-  height: 60px;
-  padding: 0 16px;
+  height: 44px;
+  padding: 0 14px;
   border: 0;
   border-bottom: 1px solid rgb(var(--c-line));
   background: transparent;
@@ -76,8 +76,8 @@
 }
 
 .work-rail-row.is-focused {
-  background: var(--acc-bg);
-  box-shadow: inset 0 0 0 1px var(--acc-bd);
+  background: var(--session-user-bg);
+  box-shadow: inset 0 0 0 1px var(--session-user-bd);
 }
 
 .work-rail-dot {
@@ -103,6 +103,17 @@
 
 .work-rail-row.is-done .work-rail-dot {
   background: var(--ok);
+}
+
+.work-rail-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  color: rgb(var(--c-ink-4));
+  font-size: 10.5px;
+  line-height: 1.3;
+  margin-bottom: 1px;
 }
 
 .work-rail-title,

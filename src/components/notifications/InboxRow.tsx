@@ -1,22 +1,17 @@
 import React from 'react';
-import { ActionIcon, Badge, Button, Group, Paper, Text, Tooltip } from '@mantine/core';
-import { Check, Trash2, X } from 'lucide-react';
+import { Tooltip } from '@mantine/core';
+import { Check, ExternalLink, Trash2, X } from 'lucide-react';
 import { BoardTask, PermissionAnswer } from '../../../shared/types';
 import { eventHeadline } from '../../../shared/notifications/notifications';
 import { BoardNotification, isLiveAwaiting, livePendingRequest } from '../../../shared/notifications/inbox';
 import { pickAutoApproveOption, pickRejectOption } from '../../../shared/agent/permissions';
 import { relativeTime } from '../../../shared/format';
+import { Button, Chip, ChipTone, Surface, SurfaceVariant } from '../ui';
 
-const EVENT_BORDER: Record<BoardNotification['event'], string> = {
-  awaiting_input: 'border-amber-500/50 hover:border-amber-500',
-  turn_complete: 'border-teal-500/30 hover:border-teal-500/70',
-  error: 'border-rose-500/40 hover:border-rose-500/80'
-};
-
-const EVENT_BADGE: Record<BoardNotification['event'], { color: string; label: string }> = {
-  awaiting_input: { color: 'yellow', label: 'Needs you' },
-  turn_complete: { color: 'teal', label: 'Finished' },
-  error: { color: 'red', label: 'Failed' }
+const EVENT_BADGE: Record<BoardNotification['event'], { tone: ChipTone; label: string }> = {
+  awaiting_input: { tone: 'wait', label: 'Needs you' },
+  turn_complete: { tone: 'run', label: 'Finished' },
+  error: { tone: 'err', label: 'Failed' }
 };
 
 interface InboxRowProps {
@@ -52,80 +47,94 @@ export const InboxRow: React.FC<InboxRowProps> = ({
   const task = tasks.find((candidate) => candidate.id === item.taskId);
   const badge = EVENT_BADGE[item.event];
 
+  const variant: SurfaceVariant = live
+    ? 'waiting'
+    : item.event === 'error'
+      ? 'error'
+      : 'default';
+
   return (
-    <Paper
-      p="xs"
-      radius="md"
-      className={`bg-surface border transition-colors cursor-pointer flex flex-col gap-2 ${EVENT_BORDER[item.event]} ${item.read && !live ? 'opacity-70' : ''}`}
+    <Surface
+      level="s1"
+      variant={variant}
+      radius="lg"
+      interactive
+      className={`p-3 flex flex-col gap-2 ${item.read && !live ? 'opacity-70' : ''}`}
       onClick={onOpen}
     >
-      <Group justify="space-between" align="center" wrap="nowrap">
-        <Group gap={6} wrap="nowrap" className="min-w-0">
-          {!item.read && <span className="w-1.5 h-1.5 rounded-full bg-accent shrink-0" />}
-          <Badge size="xs" color="gray" variant="dot" className="font-mono shrink-0">
-            {item.taskId}
-          </Badge>
-          <Text size="xs" fw={600} className="text-ink truncate">
-            {item.taskTitle}
-          </Text>
-        </Group>
-        <Badge size="xs" color={badge.color} variant={live ? 'filled' : 'light'} className="font-mono shrink-0">
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-1.5 min-w-0">
+          {!item.read && <span className="w-2 h-2 rounded-full bg-accent shrink-0" />}
+          <Chip className="font-mono shrink-0">{item.taskId}</Chip>
+          <span className="text-[13px] font-semibold text-ink truncate">{item.taskTitle}</span>
+        </div>
+        <Chip tone={badge.tone} className="shrink-0">
           {badge.label}
-        </Badge>
-      </Group>
+        </Chip>
+      </div>
 
-      <Text size="12px" className={live ? 'text-amber-200' : 'text-ink-2'}>
+      <p className={`m-0 text-[12.5px] leading-snug ${live ? 'text-wait-fg font-medium' : 'text-ink-2'}`}>
         {item.detail || eventHeadline(item.event)}
-      </Text>
+      </p>
 
-      <Group gap={6} wrap="wrap" className="text-[11px] text-ink-3 font-mono">
-        {item.projectName && <span>{item.projectName}</span>}
-        {task && <span>· {columnTitle(task.columnId)}</span>}
-        <span>· {relativeTime(item.createdAt)}</span>
-      </Group>
+      <div className="flex items-center justify-between gap-2 pt-0.5 flex-wrap">
+        <div className="flex items-center gap-1.5 text-[11px] text-ink-3 font-mono min-w-0">
+          {item.projectName && <span className="truncate">{item.projectName}</span>}
+          {task && <span>· {columnTitle(task.columnId)}</span>}
+          <span>· {relativeTime(item.createdAt)}</span>
+        </div>
 
-      <Group justify="flex-end" gap={6} onClick={(e) => e.stopPropagation()}>
-        {permission && allowOption && (
+        <div className="flex items-center gap-1.5 shrink-0 ml-auto" onClick={(e) => e.stopPropagation()}>
+          {permission && allowOption && (
+            <Button
+              size="xs"
+              variant="wait"
+              leftSection={<Check className="w-3 h-3" />}
+              onClick={() => onRespond({ kind: 'permission', requestId: permission.requestId, optionId: allowOption })}
+            >
+              Allow
+            </Button>
+          )}
+          {permission && rejectOption && (
+            <Button
+              size="xs"
+              variant="secondary"
+              leftSection={<X className="w-3 h-3" />}
+              onClick={() => onRespond({ kind: 'permission', requestId: permission.requestId, optionId: rejectOption })}
+            >
+              Reject
+            </Button>
+          )}
+          {request?.type === 'question' && (
+            <Button
+              size="xs"
+              variant="secondary"
+              leftSection={<X className="w-3 h-3" />}
+              onClick={() => onRespond({ kind: 'question', requestId: request.requestId, action: 'decline' })}
+            >
+              Decline
+            </Button>
+          )}
           <Button
-            size="compact-xs"
-            color="accent"
-            leftSection={<Check className="w-3 h-3" />}
-            onClick={() => onRespond({ kind: 'permission', requestId: permission.requestId, optionId: allowOption })}
+            size="xs"
+            variant="secondary"
+            leftSection={<ExternalLink className="w-3 h-3" />}
+            onClick={onOpen}
           >
-            Allow
+            Open
           </Button>
-        )}
-        {permission && rejectOption && (
-          <Button
-            size="compact-xs"
-            color="gray"
-            variant="subtle"
-            leftSection={<X className="w-3 h-3" />}
-            onClick={() => onRespond({ kind: 'permission', requestId: permission.requestId, optionId: rejectOption })}
-          >
-            Reject
-          </Button>
-        )}
-        {request?.type === 'question' && (
-          <Button
-            size="compact-xs"
-            color="gray"
-            variant="subtle"
-            leftSection={<X className="w-3 h-3" />}
-            onClick={() => onRespond({ kind: 'question', requestId: request.requestId, action: 'decline' })}
-          >
-            Decline
-          </Button>
-        )}
-        <Button size="compact-xs" color="accent" variant="light" onClick={onOpen}>
-          Open
-        </Button>
-        <Tooltip label="Dismiss" withArrow>
-          <ActionIcon size="sm" color="gray" variant="subtle" aria-label="Dismiss" onClick={onDismiss}>
-            <Trash2 className="w-3 h-3" />
-          </ActionIcon>
-        </Tooltip>
-      </Group>
-    </Paper>
+          <Tooltip label="Dismiss" withArrow>
+            <button
+              type="button"
+              className="icon-btn w-6 h-6"
+              aria-label="Dismiss"
+              onClick={onDismiss}
+            >
+              <Trash2 className="w-3 h-3" />
+            </button>
+          </Tooltip>
+        </div>
+      </div>
+    </Surface>
   );
 };

@@ -37,6 +37,14 @@ export interface AcpSessionSummary {
   contextTokens?: number;
   /** Context window OpenCode is using (opencode.json override, else catalog). */
   contextLimit?: number;
+  /** Completed assistant turn run duration (ms) for this session. */
+  durationMs?: number;
+  /** Start timestamp (ms) of the latest unclosed assistant turn, if any. */
+  activeTurnStartedAt?: number;
+  /** Start timestamp (ms) of the latest user prompt in this session. */
+  lastPromptStartedAt?: number;
+  /** Elapsed ms from the latest user prompt to the completion of its final assistant turn. */
+  lastTurnDurationMs?: number;
   /** Set by the server when a board task already tracks this session. */
   importedAsTaskId?: string;
 }

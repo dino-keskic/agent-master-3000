@@ -1,9 +1,10 @@
 import React from 'react';
-import { ScrollArea, Stack } from '@mantine/core';
+import { ScrollArea } from '@mantine/core';
+import { Terminal } from 'lucide-react';
 import { BoardTask } from '../../../shared/types';
 import { BackgroundTaskItem } from '../../../shared/agent/backgroundTasks';
+import { EmptyState } from '../ui';
 import { BackgroundRow } from './BackgroundRow';
-import { Empty } from './Empty';
 
 /** What is still running somewhere while you are looking at something else. */
 
@@ -15,9 +16,13 @@ interface BackgroundPaneProps {
 
 export const BackgroundPane: React.FC<BackgroundPaneProps> = ({ items, tasks, onOpen }) => (
   <ScrollArea className="flex-1" type="auto">
-    <Stack gap={8} p="sm">
+    <div className="flex flex-col gap-2.5 p-3.5">
       {items.length === 0 ? (
-        <Empty>No background tasks running</Empty>
+        <EmptyState
+          icon={<Terminal className="w-4 h-4" />}
+          title="No background tasks running"
+          description="Active tool calls and background commands across your tasks appear here while they run."
+        />
       ) : (
         items.map((item) => (
           <BackgroundRow
@@ -28,6 +33,6 @@ export const BackgroundPane: React.FC<BackgroundPaneProps> = ({ items, tasks, on
           />
         ))
       )}
-    </Stack>
+    </div>
   </ScrollArea>
 );

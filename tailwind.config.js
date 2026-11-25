@@ -47,12 +47,16 @@ export default {
         'ink-3': token('ink-3'),
         'ink-4': token('ink-4'),
         accent: token('accent'),
+        link: token('link'),
+        'link-hover': token('link-hover'),
         add: token('add'),
         del: token('del'),
 
         // Roles the design defines as a finished colour per scheme — a wash in
         // the dark, a flat tint on paper. They carry their own alpha, so these
         // deliberately skip `<alpha-value>`: never append an opacity modifier.
+        'link-bg': 'var(--link-bg)',
+        'link-bd': 'var(--link-bd)',
         s3: 'var(--s3)',
         s3h: 'var(--s3h)',
         s4: 'var(--s4)',

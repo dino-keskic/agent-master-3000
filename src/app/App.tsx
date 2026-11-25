@@ -140,7 +140,7 @@ export const App: React.FC = () => {
   // `LOADING_REVEAL_MS` (the usual case against a local server) never flashes
   // a spinner; holding a minimum instead would delay a board that is ready.
   if (!load.showBoard) {
-    if (!load.showLoadingScreen) return <div className="min-h-screen" />;
+    if (!load.showLoadingScreen) return <div className="min-h-[100dvh]" />;
     return <BoardLoadingScreen state={load} onRetry={() => void board.refresh()} />;
   }
 
@@ -165,7 +165,7 @@ export const App: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen text-ink flex flex-col font-sans">
+    <div className="min-h-[100dvh] text-ink flex flex-col font-sans">
       <Header
         connection={load.phase}
         chips={filter.chips}
@@ -190,13 +190,16 @@ export const App: React.FC = () => {
         openCommentsCount={openCommentsCount}
         setupSeverity={setup.report ? setupSeverity(setup.report.locations) : 'ok'}
         onOpenComments={overlays.comments.open}
+        onOpenTools={() => overlays.studio.openPage('tools')}
+        onOpenAgents={() => overlays.studio.openPage('agents')}
+        onOpenSkills={() => overlays.studio.openPage('skills')}
         onOpenColumnEditor={overlays.columnEditor.open}
         onOpenArchive={overlays.archive.open}
         onOpenSessionImport={overlays.sessionImport.open}
         onOpenSettings={overlays.settings.open}
       />
 
-      <main className="flex-1 max-w-[2200px] w-full mx-auto px-5 pt-5" id="board">
+      <main className="flex-1 max-w-[2200px] w-full mx-auto px-2.5 sm:px-5 pt-2.5 sm:pt-5" id="board">
         {board.configStale && <ConfigStaleNotice onRestarted={() => void board.refresh()} />}
         <NeedsYouStrip
           items={attention}
@@ -256,6 +259,9 @@ export const App: React.FC = () => {
           onOpenSpend={overlays.spend.open}
           onOpenNotifications={notifications.openPanel}
           onOpenComments={overlays.comments.open}
+          onOpenTools={() => overlays.studio.openPage('tools')}
+          onOpenAgents={() => overlays.studio.openPage('agents')}
+          onOpenSkills={() => overlays.studio.openPage('skills')}
           onOpenColumnEditor={overlays.columnEditor.open}
           onOpenArchive={overlays.archive.open}
           onOpenSessionImport={overlays.sessionImport.open}

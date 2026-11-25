@@ -274,10 +274,27 @@ export class TaskStore extends BoardDocument {
   public setRunState(taskId: string, runState: TaskRunState): BoardTask | null {
     const task = this.getTask(taskId);
     if (!task) return null;
-    if (task.runState === runState) return task;
+    const previousState = task.runState;
+    if (previousState === runState) return task;
+    const now = Date.now();
     task.runState = runState;
-    if (runState === 'running') task.error = undefined;
-    task.updatedAt = Date.now();
+    if (runState === 'running') {
+      task.error = undefined;
+      task.activeTurnStartedAt = now;
+      if (previousState !== 'awaiting_input') {
+        task.lastPromptStartedAt = now;
+        task.lastTurnDurationMs = undefined;
+      }
+    } else if (previousState === 'running') {
+      if (task.activeTurnStartedAt && now > task.activeTurnStartedAt) {
+        task.durationMs = (task.durationMs || 0) + (now - task.activeTurnStartedAt);
+      }
+      task.activeTurnStartedAt = undefined;
+      if (task.lastPromptStartedAt && now > task.lastPromptStartedAt) {
+        task.lastTurnDurationMs = now - task.lastPromptStartedAt;
+      }
+    }
+    task.updatedAt = now;
     this.save();
     return task;
   }

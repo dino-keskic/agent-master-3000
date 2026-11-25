@@ -1,10 +1,12 @@
 import React, { useEffect, useRef } from 'react';
 import { Modal } from '@mantine/core';
+import { useMediaQuery } from '@mantine/hooks';
 import { OpenCodeAgent, OpenCodeModel } from '../../../shared/sessions/types';
 import { GlobalSettings, ProjectFolder } from '../../../shared/types';
 import { worktreeName } from '../../../shared/git/worktree';
 import { pullRequestIn, ticketInText } from '../../../shared/task/links';
 import { Composer } from '../composer/Composer';
+import { Chip, Surface } from '../ui';
 import { TaskTargetBar } from './TaskTargetBar';
 import { NewTaskDraft } from './useNewTaskDraft';
 
@@ -45,6 +47,7 @@ export const NewTaskSheet: React.FC<NewTaskSheetProps> = ({
 }) => {
   const projectPath = draft.project?.path;
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
+  const isMobile = useMediaQuery('(max-width: 639px)') ?? false;
 
   // The sheet is opened to type in. Mantine's focus trap lands on the project
   // picker, the first focusable thing, so the caret is moved once it is up.
@@ -61,26 +64,34 @@ export const NewTaskSheet: React.FC<NewTaskSheetProps> = ({
       opened={opened}
       onClose={onClose}
       size={760}
-      yOffset="12vh"
+      fullScreen={isMobile}
+      yOffset={isMobile ? 0 : '12vh'}
       title={
-        <span className="flex items-baseline gap-2">
-          <span className="text-[15px] font-semibold text-ink">New task</span>
-          <span className="text-[12px] text-ink-3">{where}</span>
-        </span>
+        <div className="flex items-center gap-2.5">
+          <span className="text-[14px] font-semibold text-ink">New task</span>
+          <Chip tone={draft.runsOnCreate ? 'run' : 'neutral'}>{where}</Chip>
+        </div>
       }
+      styles={{
+        content: { backgroundColor: 'var(--glass-pane)', color: 'rgb(var(--c-ink))' },
+        header: { backgroundColor: 'rgb(var(--c-surface))', borderBottom: '1px solid rgb(var(--c-line))' },
+        body: { backgroundColor: 'transparent', padding: 16 }
+      }}
     >
       <div className="flex flex-col gap-3">
-        <TaskTargetBar
-          projects={projects}
-          selectedProjectId={settings.selectedProjectId || draft.project?.id}
-          projectPath={projectPath}
-          worktree={draft.worktree}
-          slugPreview={draft.prompt.trim() ? worktreeName(ticketInText(draft.prompt), draft.prompt) : undefined}
-          pullRequest={pullRequestIn(undefined, draft.prompt)}
-          onSelectProject={(project) => void onUpdateSettings({ selectedProjectId: project.id, defaultCwd: project.path })}
-          onPickProjectFolder={() => void onPickProjectFolder()}
-          onDeleteProject={onDeleteProject}
-        />
+        <Surface level="s2" border="default" radius="lg" className="px-3 py-2">
+          <TaskTargetBar
+            projects={projects}
+            selectedProjectId={settings.selectedProjectId || draft.project?.id}
+            projectPath={projectPath}
+            worktree={draft.worktree}
+            slugPreview={draft.prompt.trim() ? worktreeName(ticketInText(draft.prompt), draft.prompt) : undefined}
+            pullRequest={pullRequestIn(undefined, draft.prompt)}
+            onSelectProject={(project) => void onUpdateSettings({ selectedProjectId: project.id, defaultCwd: project.path })}
+            onPickProjectFolder={() => void onPickProjectFolder()}
+            onDeleteProject={onDeleteProject}
+          />
+        </Surface>
         <Composer
           value={draft.prompt}
           onChange={draft.setPrompt}

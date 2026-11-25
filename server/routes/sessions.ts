@@ -25,6 +25,12 @@ interface StartSessionBody {
   agent?: string;
   thinkingLevel?: string;
   sourceSessionId?: string;
+  /** Optional message id in `sourceSessionId` to fork from instead of the end. */
+  upToMessageId?: string;
+  /** Exclude `upToMessageId` itself (for re-branching before a user prompt). */
+  exclusive?: boolean;
+  /** Short display label for the branch point, e.g. `turn #3`. */
+  forkedAtLabel?: string;
   cwd?: string;
   projectId?: string;
 }
@@ -66,13 +72,15 @@ function startSessionRoute({ publisher, orchestrator }: RouteContext) {
     const isFork = body.mode !== 'new';
     const prompt = body.prompt?.trim();
     const images = resolveImages(body.images);
-    if (isFork && !prompt && images.length === 0) {
-      return res.status(400).json({ error: 'A fork needs a prompt — it is the question you are asking the copy' });
-    }
+    const hasInput = !!prompt || images.length > 0;
+    const upToMessageId = body.upToMessageId?.trim() || undefined;
+    const forkedAtLabel = body.forkedAtLabel?.trim() || undefined;
 
     const chosen = pickedFor(task, body);
     const title =
-      body.title?.trim() || (prompt ? deriveTaskTitle(prompt) : '') || (isFork ? 'Side Chat' : 'New session');
+      body.title?.trim() ||
+      (prompt ? deriveTaskTitle(prompt) : '') ||
+      (isFork ? (forkedAtLabel ? `Branch from ${forkedAtLabel}` : 'Side Chat') : 'New session');
 
     if (!isFork) {
       // A blank session becomes the task's primary one: the user asked to carry
@@ -81,7 +89,7 @@ function startSessionRoute({ publisher, orchestrator }: RouteContext) {
       // would fall back to the task's own prompt and redo the work.
       void orchestrator.start(id, prompt, {
         newSession: true,
-        openOnly: !prompt && images.length === 0,
+        openOnly: !hasInput,
         primary: true,
         title,
         chosen,
@@ -98,16 +106,40 @@ function startSessionRoute({ publisher, orchestrator }: RouteContext) {
       return res.status(400).json({ error: 'There is no session to fork yet — run this task first' });
     }
 
-    const cloned = cloneOpenCodeSession(baseSessionId, title);
+    const cloned = cloneOpenCodeSession(baseSessionId, title, {
+      upToMessageId,
+      exclusive: Boolean(body.exclusive)
+    });
     if (!cloned) {
-      return res.status(502).json({ error: 'Could not copy that session in the OpenCode database' });
+      return res.status(502).json({
+        error: upToMessageId
+          ? 'Could not fork from that message in the OpenCode database'
+          : 'Could not copy that session in the OpenCode database'
+      });
     }
+
+    // Link immediately so the HTTP response already points `activeSessionId` at
+    // the new branch and the drawer switches into it without waiting on ACP.
+    taskStore.linkSession(id, {
+      sessionId: cloned.sessionId,
+      title,
+      kind: 'btw',
+      origin: 'fork',
+      forkedFrom: baseSessionId,
+      forkedAtLabel,
+      costAtFork: cloned.costAtFork,
+      chosen,
+      prompt,
+      primary: false
+    });
 
     void orchestrator.start(id, prompt, {
       sessionId: cloned.sessionId,
+      openOnly: !hasInput,
       isBtw: true,
       primary: false,
       forkedFrom: baseSessionId,
+      forkedAtLabel,
       costAtFork: cloned.costAtFork,
       title,
       chosen,

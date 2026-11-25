@@ -32,6 +32,25 @@ export function registerToolRoutes(app: Express, { orchestrator }: RouteContext)
         includeBoardTools: true,
         refresh: req.query.refresh === '1',
         policy: taskStore.getSettings().toolPolicy || {},
+        agentPolicy: taskStore.getSettings().agentToolPolicy || {},
+        pendingRestart: acpManager.toolPolicyPending()
+      })
+    );
+  }));
+
+  /** Task-independent tool inventory for a workspace folder (`?cwd=<path>&refresh=1`). */
+  app.get('/api/workspace/tools', route(async (req: Request, res: Response) => {
+    const requestedCwd = typeof req.query.cwd === 'string' ? req.query.cwd.trim() : '';
+    const cwd = requestedCwd || taskStore.getSettings().projects[0]?.path || process.cwd();
+
+    res.json(
+      await sessionToolInventory({
+        cwd,
+        usage: {},
+        includeBoardTools: true,
+        refresh: req.query.refresh === '1',
+        policy: taskStore.getSettings().toolPolicy || {},
+        agentPolicy: taskStore.getSettings().agentToolPolicy || {},
         pendingRestart: acpManager.toolPolicyPending()
       })
     );

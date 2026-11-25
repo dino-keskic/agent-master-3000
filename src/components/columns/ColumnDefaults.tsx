@@ -1,5 +1,5 @@
 import React from 'react';
-import { Group, Select } from '@mantine/core';
+import { Select } from '@mantine/core';
 import { OpenCodeAgent, OpenCodeModel } from '../../../shared/sessions/types';
 import { BoardColumn, PermissionMode } from '../../../shared/types';
 import { thinkingLevelOptions } from '../../../shared/format';
@@ -37,47 +37,43 @@ export const ColumnDefaults: React.FC<ColumnDefaultsProps> = ({ column, models, 
   const options = useModelOptions(column.model);
 
   return (
-  <Group gap="xs" wrap="wrap">
-    <Select
-      size="xs"
-      label="Model"
-      value={keepValue(column.model)}
-      data={[{ value: KEEP, label: 'Keep current model' }, ...models.map((m) => ({ value: m.id, label: m.scope ? `${m.name} (${m.scope})` : m.name }))]}
-      onChange={(val) => onPatch({ model: fromKeep(val) })}
-      searchable
-      // Mantine seeds the search box with the current label; without this the
-      // caret lands mid-string and typing corrupts it into an unmatchable value.
-      onFocus={(e) => e.currentTarget.select()}
-      allowDeselect={false}
-      className="min-w-[160px] flex-1"
-    />
-    <Select
-      size="xs"
-      label="Agent"
-      value={keepValue(column.agent)}
-      data={[{ value: KEEP, label: 'Keep current agent' }, ...(options.known ? options.agents : agents).map((a) => ({ value: a.name, label: a.name }))]}
-      onChange={(val) => onPatch({ agent: fromKeep(val) })}
-      allowDeselect={false}
-      className="min-w-[140px] flex-1"
-    />
-    <Select
-      size="xs"
-      label="Thinking"
-      value={keepValue(column.thinkingLevel)}
-      data={[{ value: KEEP, label: 'Keep current thinking' }, ...thinkingLevelOptions(options.effortLevels)]}
-      onChange={(val) => onPatch({ thinkingLevel: fromKeep(val) })}
-      allowDeselect={false}
-      className="min-w-[140px] flex-1"
-    />
-    <Select
-      size="xs"
-      label="Permissions"
-      value={keepValue(column.permissionMode)}
-      data={[{ value: KEEP, label: 'Keep current permissions' }, ...PERMISSION_MODES.map((m) => ({ value: m.value, label: m.label }))]}
-      onChange={(val) => onPatch({ permissionMode: fromKeep(val) as PermissionMode | undefined })}
-      allowDeselect={false}
-      className="min-w-[140px] flex-1"
-    />
-  </Group>
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+      <Select
+        size="xs"
+        label="Model"
+        value={keepValue(column.model)}
+        data={[{ value: KEEP, label: 'Keep current model' }, ...models.map((m) => ({ value: m.id, label: m.scope ? `${m.name} (${m.scope})` : m.name }))]}
+        onChange={(val) => onPatch({ model: fromKeep(val) })}
+        searchable
+        // Mantine seeds the search box with the current label; without this the
+        // caret lands mid-string and typing corrupts it into an unmatchable value.
+        onFocus={(e) => e.currentTarget.select()}
+        allowDeselect={false}
+      />
+      <Select
+        size="xs"
+        label="Agent"
+        value={keepValue(column.agent)}
+        data={[{ value: KEEP, label: 'Keep current agent' }, ...(options.known ? options.agents : agents).map((a) => ({ value: a.name, label: a.name }))]}
+        onChange={(val) => onPatch({ agent: fromKeep(val) })}
+        allowDeselect={false}
+      />
+      <Select
+        size="xs"
+        label="Thinking"
+        value={keepValue(column.thinkingLevel)}
+        data={[{ value: KEEP, label: 'Keep current thinking' }, ...thinkingLevelOptions(options.effortLevels)]}
+        onChange={(val) => onPatch({ thinkingLevel: fromKeep(val) })}
+        allowDeselect={false}
+      />
+      <Select
+        size="xs"
+        label="Permissions"
+        value={keepValue(column.permissionMode)}
+        data={[{ value: KEEP, label: 'Keep current permissions' }, ...PERMISSION_MODES.map((m) => ({ value: m.value, label: m.label }))]}
+        onChange={(val) => onPatch({ permissionMode: fromKeep(val) as PermissionMode | undefined })}
+        allowDeselect={false}
+      />
+    </div>
   );
 };

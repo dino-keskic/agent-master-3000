@@ -98,6 +98,25 @@ test('commands are found by their keywords too', () => {
   assert.deepStrictEqual(ids(searchPalette('dark', [], columns, commands), 'Commands'), ['command:theme']);
 });
 
+test('a direct command match surfaces above tasks that only mention the word', () => {
+  const studioCommands: PaletteCommand[] = [
+    { id: 'agents', title: 'Agents', keywords: 'custom subagents personas' },
+    { id: 'skills', title: 'Skills', keywords: 'slash commands skill.md' }
+  ];
+  const noisyTasks = [
+    task({ id: 'T-1', title: 'Agentic workflows for PR reviews', prompt: 'run agents' }),
+    task({ id: 'T-2', title: 'Install grilling skill', prompt: 'add a skill' })
+  ];
+
+  const agentSections = searchPalette('agents', noisyTasks, columns, studioCommands);
+  assert.strictEqual(agentSections[0]?.label, 'Commands');
+  assert.strictEqual(agentSections[0]?.results[0]?.id, 'command:agents');
+
+  const skillSections = searchPalette('skills', noisyTasks, columns, studioCommands);
+  assert.strictEqual(skillSections[0]?.label, 'Commands');
+  assert.strictEqual(skillSections[0]?.results[0]?.id, 'command:skills');
+});
+
 test('a query always ends with the offer to create it, so Enter on a hit opens the hit', () => {
   const sections = searchPalette(' Ship  it ', [task()], columns, commands);
   const rows = flattenSections(sections);

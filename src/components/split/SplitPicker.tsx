@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
-import { Popover, ScrollArea, TextInput, Tooltip } from '@mantine/core';
+import { Popover, ScrollArea, Tooltip } from '@mantine/core';
 import { Columns2 } from 'lucide-react';
 import { BoardTask } from '../../../shared/types';
 import { splitCandidates } from '../../../shared/board/splitLayout';
 import { SessionStateDot } from '../session/SessionStateDot';
+import { Chip, SearchInput } from '../ui';
 
 /**
  * "Open beside": pick another task to put in a panel next to this one.
@@ -37,7 +38,15 @@ export const SplitPicker: React.FC<SplitPickerProps> = ({ tasks, openTaskIds, at
   };
 
   return (
-    <Popover opened={opened} onChange={(next) => (next ? setOpened(true) : close())} position="bottom-end" width={380} shadow="md" trapFocus returnFocus={false}>
+    <Popover
+      opened={opened}
+      onChange={(next) => (next ? setOpened(true) : close())}
+      position="bottom-end"
+      width={380}
+      shadow="md"
+      trapFocus
+      returnFocus={false}
+    >
       <Popover.Target>
         <Tooltip label={label} withArrow disabled={opened}>
           <button
@@ -52,21 +61,19 @@ export const SplitPicker: React.FC<SplitPickerProps> = ({ tasks, openTaskIds, at
         </Tooltip>
       </Popover.Target>
 
-      <Popover.Dropdown p={6}>
-        {/* The dropdown sits inside the panel in React's tree, so its Escape
-            would bubble up and close the panel too; it is spent here. */}
+      <Popover.Dropdown p={8}>
         <div
+          className="flex flex-col gap-2"
           onKeyDown={(e) => {
             if (e.key !== 'Escape') return;
             e.preventDefault();
             close();
           }}
         >
-          <TextInput
-            size="xs"
+          <SearchInput
             placeholder={atCap ? 'Replace with…' : 'Open beside…'}
             value={query}
-            onChange={(e) => setQuery(e.currentTarget.value)}
+            onChange={setQuery}
             onKeyDown={(e) => {
               if (e.key === 'Enter' && candidates[0]) {
                 e.preventDefault();
@@ -74,24 +81,28 @@ export const SplitPicker: React.FC<SplitPickerProps> = ({ tasks, openTaskIds, at
               }
             }}
             data-autofocus
-            mb={6}
+            containerClassName="w-full"
           />
           <ScrollArea.Autosize mah={320} type="auto">
             {candidates.length === 0 ? (
-              <p className="m-0 px-2 py-3 text-[12px] text-ink-3">No other tasks match.</p>
+              <p className="m-0 px-2 py-4 text-center text-[12px] text-ink-3">No other tasks match.</p>
             ) : (
-              candidates.map((task) => (
-                <button
-                  key={task.id}
-                  type="button"
-                  className="w-full flex items-center gap-2 rounded-md px-2 py-1.5 text-left hover:bg-surface-3 focus:bg-surface-3 focus:outline-none"
-                  onClick={() => pick(task.id)}
-                >
-                  <SessionStateDot state={task.runState} />
-                  <span className="font-mono text-[12px] text-ink-3 shrink-0">{task.id}</span>
-                  <span className="text-[13px] text-ink truncate min-w-0">{task.title}</span>
-                </button>
-              ))
+              <div className="flex flex-col gap-0.5">
+                {candidates.map((task) => (
+                  <button
+                    key={task.id}
+                    type="button"
+                    className="w-full flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-left hover:bg-s3h focus:bg-s3h focus:outline-none border-0 bg-transparent cursor-pointer transition-colors"
+                    onClick={() => pick(task.id)}
+                  >
+                    <SessionStateDot state={task.runState} />
+                    <Chip className="font-mono shrink-0">{task.id}</Chip>
+                    <span className="text-[12.5px] font-medium text-ink truncate min-w-0">
+                      {task.title}
+                    </span>
+                  </button>
+                ))}
+              </div>
             )}
           </ScrollArea.Autosize>
         </div>

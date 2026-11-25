@@ -313,6 +313,44 @@ test('copying an OpenCode session', async (t) => {
     assert.strictEqual(row.time_archived, null);
   });
 
+  await t.test('forking at a specific message copies only the conversation up to that point', () => {
+    addSession('ses-branch');
+    const m1 = openCodeId('msg', T + 40_000, 1);
+    const m2 = openCodeId('msg', T + 40_000, 2);
+    const m3 = openCodeId('msg', T + 40_000, 3);
+    const m4 = openCodeId('msg', T + 40_000, 4);
+    addMessage('ses-branch', m1, T + 1, { role: 'user' });
+    addParts('ses-branch', m1, [{ id: openCodeId('prt', T + 40_000, 1), at: T + 1, data: { type: 'text', text: 'first prompt' } }]);
+    addMessage('ses-branch', m2, T + 2, { role: 'assistant', cost: 1.25 });
+    addParts('ses-branch', m2, [{ id: openCodeId('prt', T + 40_000, 2), at: T + 2, data: { type: 'text', text: 'first answer' } }]);
+    addMessage('ses-branch', m3, T + 3, { role: 'user' });
+    addParts('ses-branch', m3, [{ id: openCodeId('prt', T + 40_000, 3), at: T + 3, data: { type: 'text', text: 'second prompt' } }]);
+    addMessage('ses-branch', m4, T + 4, { role: 'assistant', cost: 3.5 });
+    addParts('ses-branch', m4, [{ id: openCodeId('prt', T + 40_000, 4), at: T + 4, data: { type: 'text', text: 'second answer' } }]);
+
+    const afterFirstAnswer = cloneOpenCodeSession('ses-branch', 'Branch after m2', { upToMessageId: m2 });
+    assert.ok(afterFirstAnswer);
+    assert.strictEqual(afterFirstAnswer.costAtFork, 1.25);
+    assert.deepStrictEqual(
+      readLikeOpenCode(file, afterFirstAnswer.sessionId).map(({ parts }) => JSON.parse(parts[0]!.data).text),
+      ['first prompt', 'first answer']
+    );
+
+    const beforeSecondPrompt = cloneOpenCodeSession('ses-branch', 'Branch before m3', {
+      upToMessageId: m3,
+      exclusive: true
+    });
+    assert.ok(beforeSecondPrompt);
+    assert.strictEqual(beforeSecondPrompt.costAtFork, 1.25);
+    assert.deepStrictEqual(
+      readLikeOpenCode(file, beforeSecondPrompt.sessionId).map(({ parts }) => JSON.parse(parts[0]!.data).text),
+      ['first prompt', 'first answer']
+    );
+
+    // An unknown message id fails cleanly without writing a session row.
+    assert.strictEqual(cloneOpenCodeSession('ses-branch', 'Invalid', { upToMessageId: 'msg_nonexistent' }), null);
+  });
+
   fs.rmSync(root, { recursive: true, force: true });
   delete process.env.OPENCODE_DB;
 });

@@ -30,6 +30,12 @@ export interface StartSessionInput {
   thinkingLevel?: string;
   /** Which session to copy; defaults to the one currently on screen. */
   sourceSessionId?: string;
+  /** Optional message id in `sourceSessionId` to fork at instead of the end. */
+  upToMessageId?: string;
+  /** Exclude `upToMessageId` itself when re-branching before a user prompt. */
+  exclusive?: boolean;
+  /** Short human label for where this fork branched, e.g. `turn #3`. */
+  forkedAtLabel?: string;
   /** Blank sessions can run in another project than the task. */
   cwd?: string;
   projectId?: string;

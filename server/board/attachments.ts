@@ -5,6 +5,7 @@ import {
   MAX_CAPTION_LENGTH,
   MAX_IMAGE_BYTES,
   PromptImage,
+  VIDEO_ATTACHMENT_EXTENSIONS,
   imageExtension,
   isSupportedImageType,
   parseImageDataUrl
@@ -41,9 +42,12 @@ function fileOf(id: string): string | null {
   return path.join(DIRECTORY, id);
 }
 
+const SUPPORTED_VIDEO_MIMES = new Set(Object.values(VIDEO_ATTACHMENT_EXTENSIONS));
+
 /** The type a stored file holds, taken from the extension its id carries. */
 function mimeOf(id: string): string {
   const extension = path.extname(id).slice(1).toLowerCase();
+  if (extension in VIDEO_ATTACHMENT_EXTENSIONS) return VIDEO_ATTACHMENT_EXTENSIONS[extension]!;
   return extension === 'jpg' ? 'image/jpeg' : `image/${extension}`;
 }
 
@@ -95,11 +99,18 @@ export function saveImage(upload: ImageUpload): PromptImage {
   return { id, name: upload.name?.slice(0, 200) || id, mimeType, size: bytes.length };
 }
 
-/** The stored bytes, or null when the id names nothing. */
-export function readImage(id: string): { mimeType: string; bytes: Buffer } | null {
+/** The stored path and MIME type, or null when the id names nothing. */
+export function readAttachmentPath(id: string): { file: string; mimeType: string } | null {
   const file = fileOf(id);
   if (!file || !fs.existsSync(file)) return null;
-  return { mimeType: mimeOf(id), bytes: fs.readFileSync(file) };
+  return { file, mimeType: mimeOf(id) };
+}
+
+/** The stored bytes, or null when the id names nothing. */
+export function readImage(id: string): { mimeType: string; bytes: Buffer } | null {
+  const attachment = readAttachmentPath(id);
+  if (!attachment) return null;
+  return { mimeType: attachment.mimeType, bytes: fs.readFileSync(attachment.file) };
 }
 
 /**
@@ -131,12 +142,17 @@ export function resolveImages(input: unknown): PromptImage[] {
     }
     const mimeType = mimeOf(id);
     if (!isSupportedImageType(mimeType)) continue;
+    const video = typeof ref?.videoId === 'string' ? readAttachmentPath(ref.videoId) : null;
+    const videoMimeType = video && SUPPORTED_VIDEO_MIMES.has(video.mimeType) ? video.mimeType : undefined;
     images.push({
       id,
       name: typeof name === 'string' ? name.slice(0, 200) : id,
       mimeType,
       size,
-      ...(caption ? { caption } : {})
+      ...(caption ? { caption } : {}),
+      ...(videoMimeType && typeof ref?.videoId === 'string'
+        ? { videoId: ref.videoId, videoMimeType }
+        : {})
     });
   }
   return images;

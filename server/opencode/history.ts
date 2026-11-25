@@ -4,6 +4,7 @@ import { isSubagentTool, replayedToolStatus, toolKind } from '../../shared/agent
 import { codeModeCalls } from '../../shared/agent/codeMode.js';
 import { turnAttributionFromMessage } from '../../shared/turns/attribution.js';
 import { MAX_SAY_TEXT } from '../../shared/task/logWrites.js';
+import { mediaPartToMarkdown } from '../../shared/transcript/media.js';
 import { parseSessionModel } from './models.js';
 import { readDb } from './db.js';
 import { SubagentResolver, subagentResolver } from './subagentLinks.js';
@@ -28,6 +29,7 @@ export interface SessionHistory {
 
 interface PartRow {
   id: string;
+  messageId: string;
   timeCreated: number;
   partData: string;
   messageData: string;
@@ -87,6 +89,7 @@ function readPartWindow(db: DatabaseSync, sessionId: string, since: number): Par
       watermark,
       rows: parts.map((part) => ({
         id: part.id,
+        messageId: part.message_id,
         timeCreated: part.time_created,
         partData: part.data,
         messageData: messageData.get(part.message_id) || '{}'
@@ -113,12 +116,13 @@ function parsePartRow(row: PartRow): ParsedPart | undefined {
   return { part, message, timestamp: Number(part?.time?.start || row.timeCreated) || row.timeCreated };
 }
 
-function textLog(id: string, { part, message, timestamp }: ParsedPart): TaskLogItem | undefined {
+function textLog(id: string, messageId: string, { part, message, timestamp }: ParsedPart): TaskLogItem | undefined {
   if (typeof part.text !== 'string' || !part.text.trim()) return undefined;
   const isUser = message?.role === 'user';
   const attr = isUser ? undefined : turnAttributionFromMessage(message);
   return {
     id,
+    messageId,
     timestamp,
     type: isUser ? 'user_say' : 'agent_say',
     title: isUser ? 'User Prompt' : 'OpenCode Agent',
@@ -127,10 +131,11 @@ function textLog(id: string, { part, message, timestamp }: ParsedPart): TaskLogI
   };
 }
 
-function reasoningLog(id: string, { part, timestamp }: ParsedPart): TaskLogItem | undefined {
+function reasoningLog(id: string, messageId: string, { part, timestamp }: ParsedPart): TaskLogItem | undefined {
   if (typeof part.text !== 'string' || !part.text.trim()) return undefined;
   return {
     id,
+    messageId,
     timestamp,
     type: 'thought',
     title: 'Agent Thought Process',
@@ -141,7 +146,12 @@ function reasoningLog(id: string, { part, timestamp }: ParsedPart): TaskLogItem 
   };
 }
 
-function toolLog(id: string, { part, timestamp }: ParsedPart, resolveSubagent: SubagentResolver): TaskLogItem {
+function toolLog(
+  id: string,
+  messageId: string,
+  { part, timestamp }: ParsedPart,
+  resolveSubagent: SubagentResolver
+): TaskLogItem {
   const name = String(part.tool || part.title || 'tool');
   const state = part.state || {};
   const output = typeof state.output === 'string' ? clipImportText(state.output) : undefined;
@@ -151,6 +161,7 @@ function toolLog(id: string, { part, timestamp }: ParsedPart, resolveSubagent: S
   const ran = codeModeCalls({ name, rawInput }, state.metadata);
   return {
     id,
+    messageId,
     timestamp,
     type: 'tool_call',
     title: name,
@@ -169,11 +180,35 @@ function toolLog(id: string, { part, timestamp }: ParsedPart, resolveSubagent: S
   };
 }
 
-function logForPart(id: string, parsed: ParsedPart, resolveSubagent: SubagentResolver): TaskLogItem | undefined {
+function mediaLog(id: string, messageId: string, { part, message, timestamp }: ParsedPart): TaskLogItem | undefined {
+  const markdown = mediaPartToMarkdown(part);
+  if (!markdown) return undefined;
+  const isUser = message?.role === 'user';
+  const attr = isUser ? undefined : turnAttributionFromMessage(message);
+  return {
+    id,
+    messageId,
+    timestamp,
+    type: isUser ? 'user_say' : 'agent_say',
+    title: isUser ? 'User Prompt' : 'OpenCode Agent',
+    text: markdown,
+    metadata: attr && (attr.model || attr.agent || attr.thinkingLevel) ? { ...attr } : undefined
+  };
+}
+
+function logForPart(
+  id: string,
+  messageId: string,
+  parsed: ParsedPart,
+  resolveSubagent: SubagentResolver
+): TaskLogItem | undefined {
   switch (parsed.part?.type) {
-    case 'text': return textLog(id, parsed);
-    case 'reasoning': return reasoningLog(id, parsed);
-    case 'tool': return toolLog(id, parsed, resolveSubagent);
+    case 'text': return textLog(id, messageId, parsed);
+    case 'reasoning': return reasoningLog(id, messageId, parsed);
+    case 'tool': return toolLog(id, messageId, parsed, resolveSubagent);
+    case 'file':
+    case 'image':
+      return mediaLog(id, messageId, parsed);
     default: return undefined;
   }
 }
@@ -184,7 +219,7 @@ function historyLogs(db: DatabaseSync, sessionId: string, rows: PartRow[]): Task
   for (const row of rows) {
     const parsed = parsePartRow(row);
     if (!parsed) continue;
-    const log = logForPart(row.id, parsed, resolveSubagent);
+    const log = logForPart(row.id, row.messageId, parsed, resolveSubagent);
     if (log) logs.push(log);
   }
   return logs.length > MAX_IMPORT_LOGS ? logs.slice(-MAX_IMPORT_LOGS) : logs;

@@ -4,8 +4,10 @@ import { SubagentSession } from '../../../shared/sessions/types';
 import { BoardTask, ProjectFolder } from '../../../shared/types';
 import { taskSessionViews } from '../../../shared/task/sessions';
 import { contextFillPct, formatContext } from '../../../shared/sessions/cost';
+import { liveLastTurnDurationMs, liveSessionDurationMs, totalTaskDurationMs } from '../../../shared/sessions/duration';
 import { sessionSpendTotal } from '../../../shared/spend/taskSpend';
 import { EditorOption } from '../../api';
+import { useNow } from '../ui/useNow';
 import { TaskLinksSection } from './TaskLinksSection';
 import { SessionList } from './SessionList';
 import { LocationSection } from './LocationSection';
@@ -16,20 +18,19 @@ import { useTaskSpend } from './useTaskSpend';
  * The column beside the conversation: the task's sessions, what they have cost,
  * what it is linked to and where it runs. What it changed is the Changes tab's.
  *
- * Each block is its own component; what is left here is the order they come in
- * and the handful of numbers that describe the session on screen rather than
- * the task as a whole. A block with nothing to say renders nothing, and the
- * rule between blocks goes with it.
+ * Sized to match the left WorkRail (272px) so both rails balance the stream.
  */
 
 interface TaskSidebarProps {
   task: BoardTask;
   activeSessionId?: string;
   viewedCwd?: string;
+  /** Resized width in pixels or CSS size; defaults to 272px. */
+  width?: number | string;
   /** Child OpenCode sessions keyed by the linked session they were spawned from. */
   subagents?: Record<string, SubagentSession[]>;
   onSwitchSession?: (sessionId: string) => void;
-  onStartFork?: () => void;
+  onStartFork?: (sourceSessionId?: string) => void;
   onStartNewSession?: () => void;
   /** True while a new session is on its way, so the button cannot start two. */
   startingSession?: boolean;
@@ -49,6 +50,7 @@ export const TaskSidebar: React.FC<TaskSidebarProps> = ({
   task,
   activeSessionId,
   viewedCwd,
+  width = 272,
   subagents,
   onSwitchSession,
   onStartFork,
@@ -77,16 +79,24 @@ export const TaskSidebar: React.FC<TaskSidebarProps> = ({
   const contextTokens = viewed?.contextTokens ?? task.contextTokens;
   const contextLimit = viewed?.contextLimit ?? task.contextLimit;
 
-  // The session's cost and the task's total are the same money, so they are
-  // the same read. The session's own column total is the fallback
-  // for the moment before the breakdown lands, and for a session it has no row
-  // for at all.
+  const viewedSource = viewed ?? task;
+  const anyRunning = sessions.some((s) => s.runState === 'running') || task.runState === 'running';
+  const viewedRunning = (viewed?.runState ?? task.runState) === 'running';
+  const now = useNow(anyRunning);
+  const lastTurnDurationMs = liveLastTurnDurationMs(viewedSource, now);
+  const sessionDurationMs = liveSessionDurationMs(viewedSource, now);
+  const totalDurationMs = sessions.length > 1 ? totalTaskDurationMs(sessions, now) : sessionDurationMs;
+
   const spend = useTaskSpend(task.id, task.runState === 'running');
   const viewedSpend = sessionSpendTotal(spend.breakdown, viewedSessionId);
 
   return (
-    <ScrollArea className="w-80 shrink-0 border-l border-line bg-surface" type="auto">
-      <div className="flex flex-col divide-y divide-line [&>*]:px-4 [&>*]:py-4">
+    <ScrollArea
+      className="shrink-0 bg-[var(--session-rail)] h-full"
+      style={{ width }}
+      type="auto"
+    >
+      <div className="flex flex-col divide-y divide-line [&>*]:px-3 [&>*]:py-3">
         <SessionList
           task={task}
           sessions={sessions}
@@ -105,6 +115,10 @@ export const TaskSidebar: React.FC<TaskSidebarProps> = ({
           sessionCost={viewedSpend ?? viewed?.cost ?? task.cost}
           multiSession={sessions.length > 1}
           subagentCount={task.subagentCount}
+          isRunning={viewedRunning}
+          lastTurnDurationMs={lastTurnDurationMs}
+          sessionDurationMs={sessionDurationMs}
+          totalDurationMs={totalDurationMs}
           contextPct={contextFillPct(contextTokens, contextLimit)}
           contextLabel={formatContext(contextTokens, contextLimit)}
           breakdown={spend.breakdown}

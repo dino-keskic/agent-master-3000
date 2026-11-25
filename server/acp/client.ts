@@ -20,7 +20,12 @@ export type { AcpEvent, AcpEventCallback } from './events.js';
 export type { AcpConfigOptionsResult } from './sessionConfig.js';
 export type { ImportSessionOptions, ImportedSessionConfig } from './sessions.js';
 export type { StartTurnOptions } from './turns.js';
-export { setConfigStampSource, setToolPolicySource } from './transport.js';
+export {
+  setAgentToolPolicySource,
+  setConfigStampSource,
+  setSkillPolicySource,
+  setToolPolicySource
+} from './transport.js';
 
 /** Whether the agent's lists reflect OpenCode's config files as they are now. */
 export type ConfigFreshness = 'current' | 'restarted' | 'stale';
@@ -117,8 +122,8 @@ export class AcpManager {
   }
 
   /** Hand a running OpenCode 2 the current tool policy; false when it needs a restart. */
-  public applyToolPolicy(): boolean {
-    return this.transport.applyToolPolicyLive();
+  public applyToolPolicy(forceTouch = false): boolean {
+    return this.transport.applyToolPolicyLive(forceTouch);
   }
 
   /** True when an OpenCode config file changed after the running agent read them. */
@@ -356,7 +361,7 @@ export const acpManager = {
   killBackgroundProcesses: (spec: ProcessKillSpec) => getAcpManager().killBackgroundProcesses(spec),
   agentPid: () => getAcpManager().agentPid(),
   toolPolicyPending: () => getAcpManager().toolPolicyPending(),
-  applyToolPolicy: () => getAcpManager().applyToolPolicy(),
+  applyToolPolicy: (forceTouch = false) => getAcpManager().applyToolPolicy(forceTouch),
   configPending: () => getAcpManager().configPending(),
   refreshConfig: (busy: () => boolean) => getAcpManager().refreshConfig(busy),
   restartAgent: () => getAcpManager().restartAgent(),

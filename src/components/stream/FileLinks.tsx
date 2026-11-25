@@ -69,9 +69,11 @@ export const FileLink: React.FC<{ target: FileRef; label: string; mono?: boolean
       type="button"
       onClick={() => open(target)}
       title={fileRefLabel(target)}
-      className={`underline underline-offset-2 decoration-dotted decoration-accent/60 hover:decoration-accent text-accent hover:brightness-110 transition ${
-        mono ? 'px-1 py-0.5 rounded bg-acc-bg text-[0.95em] font-mono no-underline' : ''
-      }`}
+      className={
+        mono
+          ? 'inline-flex items-baseline px-1.5 py-[1px] rounded-[5px] bg-link-bg border border-link-bd hover:border-link/45 text-[0.855em] leading-[1.45] font-mono text-link hover:text-link-hover no-underline transition-colors'
+          : 'underline decoration-1 underline-offset-[3px] decoration-link/35 hover:decoration-link-hover/85 text-link hover:text-link-hover transition-colors'
+      }
     >
       {label}
     </button>

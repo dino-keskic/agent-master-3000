@@ -1,6 +1,7 @@
 import { listTaskSessions, sessionCwd } from '../../shared/task/sessions.js';
 import { acpManager } from '../acp/client.js';
 import { attachChangeSummary } from '../board/queries.js';
+import { BoardPoller } from '../board/poller.js';
 import { BoardPublisher } from '../live/publisher.js';
 import { taskStore } from '../board/taskStore.js';
 import { TurnOrchestrator } from './orchestrator.js';
@@ -11,7 +12,7 @@ import { TurnOrchestrator } from './orchestrator.js';
  * The manager knows what the agent said; it does not know what a board task is.
  * Everything that turns one into the other lives here.
  */
-export function registerAcpEvents(publisher: BoardPublisher, orchestrator: TurnOrchestrator): void {
+export function registerAcpEvents(publisher: BoardPublisher, orchestrator: TurnOrchestrator, poller: BoardPoller): void {
   acpManager.setFolderResolver((taskId, sessionId) => {
     const task = taskStore.getTask(taskId);
     if (!task) return undefined;
@@ -26,10 +27,36 @@ export function registerAcpEvents(publisher: BoardPublisher, orchestrator: TurnO
     const sessionId = event.sessionId;
 
     if (event.type === 'session_bound' && event.sessionId) {
+      poller.hurry();
       const updated = event.primary === false
         ? taskStore.setSessionRunState(taskId, event.sessionId, 'running')
         : taskStore.updateTask(taskId, { sessionId: event.sessionId });
       if (updated) publisher.updated(updated);
+      return;
+    }
+
+    if (event.type === 'session_recovered' && event.sessionId && event.previousSessionId) {
+      orchestrator.rekeySession(taskId, event.previousSessionId, event.sessionId);
+      const prev = task?.sessions?.find((s) => s.sessionId === event.previousSessionId);
+      const primary = event.primary !== false;
+      taskStore.linkSession(taskId, {
+        sessionId: event.sessionId,
+        title: prev?.title || task?.title || 'Session',
+        kind: prev?.kind === 'btw' ? 'btw' : 'main',
+        origin: 'fork',
+        forkedFrom: event.previousSessionId,
+        costAtFork: event.costAtFork,
+        chosen: event.chosen || prev?.chosen,
+        cwd: prev?.cwd,
+        projectId: prev?.projectId,
+        projectName: prev?.projectName,
+        primary,
+        supersedes: event.previousSessionId
+      });
+      taskStore.updateTask(taskId, { error: undefined });
+      taskStore.setSessionRunState(taskId, event.sessionId, 'running');
+      if (event.log) publisher.log(taskId, event.log);
+      publisher.refresh(taskId);
       return;
     }
 
@@ -64,6 +91,7 @@ export function registerAcpEvents(publisher: BoardPublisher, orchestrator: TurnO
     if (event.type === 'status_change') {
       if (event.log) publisher.log(taskId, event.log);
       orchestrator.drainOrIdle(taskId, sessionId);
+      poller.hurry();
       return;
     }
 

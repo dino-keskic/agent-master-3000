@@ -3,8 +3,10 @@ import { Check, Copy } from 'lucide-react';
 import { MdBlock, MdInline, parseInline, parseMarkdown } from '../../../shared/transcript/markdown';
 import { highlight } from '../../../shared/transcript/highlight';
 import { parseFileToken, parseFileUrl, splitFileLinks } from '../../../shared/transcript/fileLinks';
+import { resolveMediaTarget } from '../../../shared/transcript/media';
 import { FileLink, useFileLinks } from './FileLinks';
 import { HighlightedCode } from './HighlightedCode';
+import { MediaLightbox } from './MediaLightbox';
 
 /**
  * Renders agent output.
@@ -26,11 +28,83 @@ import { HighlightedCode } from './HighlightedCode';
 interface LinkOptions {
   enabled: boolean;
   cwd?: string;
+  taskId?: string;
   /**
    * False inside something that is itself a click target — a card is one big
    * link — where an anchor would steal the click. Links read as their text.
    */
   anchors?: boolean;
+}
+
+function mediaFallbackLabel(alt: string, fallback: string): string {
+  if (alt.trim()) return alt.trim();
+  const clean = fallback.split(/[?#]/)[0] || fallback;
+  return clean.split(/[\\/]/).pop() || fallback;
+}
+
+function InlineMedia({ src, alt, links }: { src: string; alt: string; links: LinkOptions }) {
+  const [failedSrc, setFailedSrc] = useState<string | null>(null);
+  const [lightboxOpen, setLightboxOpen] = useState(false);
+  const resolved = resolveMediaTarget(src, { cwd: links.cwd, taskId: links.taskId });
+  const failed = failedSrc === src;
+
+  if (!resolved || failed) {
+    if (resolved?.localPath && links.enabled) {
+      return <FileLink target={{ path: resolved.localPath }} label={alt || resolved.localPath} />;
+    }
+    if (/^https?:\/\//i.test(src)) {
+      return (
+        <a href={src} target="_blank" rel="noreferrer noopener">
+          {alt || src}
+        </a>
+      );
+    }
+    return <>{alt || src}</>;
+  }
+
+  const label = mediaFallbackLabel(alt, resolved.localPath || src);
+
+  if (resolved.kind === 'video') {
+    return (
+      <span className="block my-2">
+        <video
+          controls
+          playsInline
+          preload="metadata"
+          src={resolved.url}
+          onError={() => setFailedSrc(src)}
+          className="block max-h-80 max-w-full rounded-md border border-line bg-black"
+        />
+        {label && (
+          <span className="block mt-1 text-[11px] font-mono text-ink-4 truncate">{label}</span>
+        )}
+      </span>
+    );
+  }
+
+  return (
+    <span className="block">
+      <button
+        type="button"
+        onClick={() => setLightboxOpen(true)}
+        title={label}
+        className="block p-0 border-0 bg-transparent text-left max-w-full"
+      >
+        <img
+          src={resolved.url}
+          alt={label}
+          onError={() => setFailedSrc(src)}
+          className="my-2 max-h-80 max-w-full rounded-md border border-line bg-surface-2 cursor-zoom-in block"
+        />
+      </button>
+      <MediaLightbox
+        opened={lightboxOpen}
+        onClose={() => setLightboxOpen(false)}
+        src={resolved.url}
+        name={label}
+      />
+    </span>
+  );
 }
 
 /** Plain prose, with any file reference in it lifted out as a link. */
@@ -99,13 +173,24 @@ function renderInline(nodes: MdInline[], keyPrefix: string, links: LinkOptions):
           </a>
         );
       }
+
+      case 'image': {
+        if (links.anchors === false) {
+          return <React.Fragment key={key}>[{node.alt || 'image'}]</React.Fragment>;
+        }
+        return <InlineMedia key={key} src={node.src} alt={node.alt} links={links} />;
+      }
     }
   });
 }
 
 function plainText(nodes: MdInline[]): string {
   return nodes
-    .map((node) => (node.kind === 'text' || node.kind === 'code' ? node.text : plainText('children' in node ? node.children : [])))
+    .map((node) => {
+      if (node.kind === 'text' || node.kind === 'code') return node.text;
+      if (node.kind === 'image') return node.alt;
+      return plainText(node.children);
+    })
     .join('');
 }
 
@@ -231,8 +316,8 @@ function renderBlocks(blocks: MdBlock[], keyPrefix: string, links: LinkOptions):
 }
 
 export const Markdown: React.FC<{ children: string; className?: string }> = ({ children, className }) => {
-  const { cwd, editorId } = useFileLinks();
-  const links: LinkOptions = { enabled: !!editorId, cwd };
+  const { cwd, taskId, editorId } = useFileLinks();
+  const links: LinkOptions = { enabled: !!editorId, cwd, taskId };
   const blocks = parseMarkdown(children || '');
 
   return <div className={`md ${className || ''}`}>{renderBlocks(blocks, 'md', links)}</div>;

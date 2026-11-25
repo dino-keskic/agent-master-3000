@@ -1,17 +1,47 @@
 import { Express, Request, Response } from 'express';
-import { readImage, saveImage } from '../board/attachments.js';
+import fs from 'fs';
+import os from 'os';
+import path from 'path';
+import { xdgDirs } from '../../shared/setup/locations.js';
+import { mediaMimeForPath } from '../../shared/transcript/media.js';
+import { absoluteTarget, resolveWithinRoots } from '../app/openExternal.js';
+import { readAttachmentPath, saveImage } from '../board/attachments.js';
+import { boardRoots, transcriptsNamePath } from '../board/queries.js';
 import { VideoSheetError, saveVideoSheet } from '../board/videoSheet.js';
 import { route } from '../http/app.js';
+import { opencodeGlobalConfigDirs } from '../setup/locations.js';
+import { queryString } from './common.js';
+
+function isWithinDir(target: string, dir: string): boolean {
+  const resolved = path.resolve(target);
+  const base = path.resolve(dir);
+  return resolved === base || resolved.startsWith(`${base}${path.sep}`);
+}
+
+/** OpenCode's own config/state/cache folders are never served through `/api/media`. */
+function isForbiddenOpencodePath(target: string): boolean {
+  const home = os.homedir();
+  const xdg = xdgDirs(process.env, home);
+  const forbidden = [
+    path.join(home, '.local', 'share', 'opencode'),
+    path.join(home, '.config', 'opencode'),
+    path.join(home, '.cache', 'opencode'),
+    path.join(xdg.data, 'opencode'),
+    path.join(xdg.config, 'opencode'),
+    path.join(xdg.cache, 'opencode'),
+    ...opencodeGlobalConfigDirs()
+  ];
+  return forbidden.some((dir) => isWithinDir(target, dir));
+}
 
 /**
- * The images a prompt carries: dropped in here, read back out here.
+ * The images and videos a prompt carries, plus local media cited in transcripts.
  *
  * Upload answers with the reference the composer then sends along with the
- * turn; the GET is what an `<img>` in the transcript points at. Nothing here
- * touches a task — an image exists before anyone has decided which turn it
- * belongs to, and a turn that is never sent just leaves an unreferenced file.
- * A video is uploaded as its raw bytes and answered with the contact sheet the
- * server made of it — the same kind of reference, with a caption.
+ * turn; `/api/attachments/:id` is what an `<img>` or `<video>` in the
+ * transcript points at, served via `sendFile` so HTTP Range requests work for
+ * video scrubbing. `/api/media` serves local images and videos referenced by
+ * markdown inside board folders or transcripts, gated like `/api/open`.
  */
 export function registerAttachmentRoutes(app: Express): void {
   app.post('/api/attachments', route(async (req: Request, res: Response) => {
@@ -41,12 +71,63 @@ export function registerAttachmentRoutes(app: Express): void {
   }));
 
   app.get('/api/attachments/:id', (req: Request<{ id: string }>, res: Response) => {
-    const file = readImage(req.params.id);
-    if (!file) return res.status(404).json({ error: 'No such image' });
+    const attachment = readAttachmentPath(req.params.id);
+    if (!attachment) return res.status(404).json({ error: 'No such image' });
 
     // The id is a fresh uuid per upload, so the bytes behind it never change.
-    res.setHeader('Content-Type', file.mimeType);
-    res.setHeader('Cache-Control', 'private, max-age=31536000, immutable');
-    res.send(file.bytes);
+    // sendFile handles HTTP Range / 206 Partial Content natively for <video>.
+    res.sendFile(attachment.file, {
+      dotfiles: 'allow',
+      headers: {
+        'Content-Type': attachment.mimeType,
+        'Cache-Control': 'private, max-age=31536000, immutable',
+        'X-Content-Type-Options': 'nosniff'
+      }
+    });
+  });
+
+  app.get('/api/media', (req: Request, res: Response) => {
+    const target = queryString(req, 'path');
+    const taskId = queryString(req, 'taskId') || undefined;
+    const mimeType = mediaMimeForPath(target);
+    if (!target || !mimeType) {
+      return res.status(400).json({ error: 'Path must point to a supported image or video file' });
+    }
+
+    const named = absoluteTarget(target);
+    const resolved =
+      resolveWithinRoots(target, boardRoots()) ||
+      (named && transcriptsNamePath(named, taskId) ? named : undefined);
+
+    if (!resolved || isForbiddenOpencodePath(resolved)) {
+      return res.status(403).json({
+        error: 'That path is outside every folder on the board, and no transcript mentions it'
+      });
+    }
+
+    let stat: fs.Stats;
+    try {
+      stat = fs.statSync(resolved);
+    } catch {
+      return res.status(404).json({ error: 'Media file not found' });
+    }
+    if (!stat.isFile()) return res.status(400).json({ error: 'Path is not a file' });
+
+    try {
+      if (isForbiddenOpencodePath(fs.realpathSync(resolved))) {
+        return res.status(403).json({ error: 'Access denied' });
+      }
+    } catch {
+      return res.status(404).json({ error: 'Media file not found' });
+    }
+
+    res.sendFile(resolved, {
+      dotfiles: 'allow',
+      headers: {
+        'Content-Type': mimeType,
+        'Cache-Control': 'private, max-age=60',
+        'X-Content-Type-Options': 'nosniff'
+      }
+    });
   });
 }

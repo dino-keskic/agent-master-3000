@@ -1,8 +1,9 @@
 import React from 'react';
-import { ActionIcon, Group, Menu } from '@mantine/core';
+import { Group, Menu } from '@mantine/core';
 import { Archive, Circle, MoreHorizontal, Plus, Zap } from 'lucide-react';
 import { BoardColumn } from '../../../shared/types';
 import { columnRunsOnDrop } from '../../../shared/board/columns';
+import { Chip } from '../ui';
 
 /** A column's name, what it is doing, and the two things you can do to it. */
 
@@ -47,15 +48,13 @@ export const ColumnPanelHeader: React.FC<ColumnPanelHeaderProps> = ({
         ) : (
           <Circle className="w-3.5 h-3.5 text-ink-4" />
         )}
-        <h2 className="text-[13px] font-semibold text-ink m-0">
-          {column.title}
-        </h2>
+        <h2 className="text-[13px] font-semibold text-ink m-0">{column.title}</h2>
         <span className={`bubble${runningCount > 0 ? ' is-running' : ''}`}>{taskCount}</span>
         {columnRunsOnDrop(column) && (
-          <span className="inline-flex items-center gap-1 h-[18px] px-[7px] rounded-full border border-line text-ink-3 text-[11px] font-medium">
-            <Zap className="w-3 h-3" />
+          <Chip tone="accent" className="gap-1" title="Dropping a task here automatically runs its stage prompt">
+            <Zap className="w-2.5 h-2.5" />
             drop runs
-          </span>
+          </Chip>
         )}
       </Group>
 
@@ -68,14 +67,13 @@ export const ColumnPanelHeader: React.FC<ColumnPanelHeaderProps> = ({
         )}
         <Menu shadow="md" position="bottom-end" withinPortal>
           <Menu.Target>
-            <ActionIcon
-              variant="subtle"
-              color="gray"
-              size="sm"
+            <button
+              type="button"
+              className="icon-btn w-6 h-6"
               aria-label={`${column.title} column actions`}
             >
               <MoreHorizontal className="w-4 h-4" />
-            </ActionIcon>
+            </button>
           </Menu.Target>
           <Menu.Dropdown>
             <Menu.Item

@@ -17,10 +17,11 @@ import { taskStore } from '../board/taskStore.js';
 
 let stopping = false;
 
-function stop(server: http.Server, wss: WebSocketServer, reason: string): void {
+function stop(server: http.Server, wss: WebSocketServer, reason: string, onShutdown?: () => void): void {
   if (stopping) return;
   stopping = true;
   console.log(`[Server] ${reason}; shutting down`);
+  try { onShutdown?.(); } catch { /* ignore */ }
   try { server.close(); } catch { /* ignore */ }
   for (const client of wss.clients) {
     try { client.terminate(); } catch { /* ignore */ }
@@ -29,12 +30,12 @@ function stop(server: http.Server, wss: WebSocketServer, reason: string): void {
   try { taskStore.flush(); } catch (e) { console.error('[Server] Could not save the board on the way out:', e); }
 }
 
-export function installShutdown(server: http.Server, wss: WebSocketServer): void {
+export function installShutdown(server: http.Server, wss: WebSocketServer, onShutdown?: () => void): void {
   for (const signal of ['SIGINT', 'SIGTERM', 'SIGHUP'] as const) {
     process.on(signal, () => {
       // A second Ctrl-C while the first is still saving means "now".
       if (stopping) process.exit(1);
-      stop(server, wss, signal);
+      stop(server, wss, signal, onShutdown);
       process.exit(signal === 'SIGINT' ? 130 : 143);
     });
   }
@@ -50,7 +51,7 @@ export function installShutdown(server: http.Server, wss: WebSocketServer): void
   // so the process does end — but with the board saved and the agent stopped.
   process.on('uncaughtException', (err) => {
     console.error('[Server] Uncaught exception:', err);
-    stop(server, wss, 'uncaught exception');
+    stop(server, wss, 'uncaught exception', onShutdown);
     process.exit(1);
   });
 }

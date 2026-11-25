@@ -4,6 +4,7 @@ import {
   resolveViewedSession,
   sessionTabLabel,
   shortSessionLabel,
+  shouldShowReturnBanner,
   transcriptPending
 } from '../../../shared/task/viewedSession.js';
 import { SubagentSession } from '../../../shared/sessions/types.js';
@@ -165,4 +166,25 @@ test('an empty transcript is told apart from one that has not arrived', async (t
     });
     assert.equal(transcriptPending(withTree, view, undefined), true);
   });
+});
+
+test('return-to-current banner is shown only for archived side sessions', () => {
+  const archivedTask = task({
+    sessionId: 'ses_main',
+    sessions: [
+      link({ sessionId: 'ses_main', title: 'Main', runState: 'idle' }),
+      link({ sessionId: 'ses_fork', title: 'Live fork', kind: 'btw', origin: 'fork', runState: 'idle' }),
+      link({ sessionId: 'ses_old', title: 'Earlier run', kind: 'btw', origin: 'fork', archivedAt: 1234 })
+    ]
+  });
+
+  assert.equal(shouldShowReturnBanner(resolveViewedSession(archivedTask, 'ses_main')), false);
+  assert.equal(shouldShowReturnBanner(resolveViewedSession(archivedTask, 'ses_fork')), false);
+  assert.equal(shouldShowReturnBanner(resolveViewedSession(archivedTask, 'ses_old')), true);
+  assert.equal(
+    shouldShowReturnBanner(
+      resolveViewedSession(archivedTask, 'ses_sub', { ses_main: [subagent({ sessionId: 'ses_sub' })] })
+    ),
+    false
+  );
 });

@@ -1,7 +1,7 @@
 import React from 'react';
 import { Group } from '@mantine/core';
 import { CornerDownLeft, GitFork, History, Users } from 'lucide-react';
-import { ViewedSession } from '../../../shared/task/viewedSession';
+import { ViewedSession, shouldShowReturnBanner } from '../../../shared/task/viewedSession';
 import { subagentLabel } from '../../../shared/sessions/subagents';
 import { SessionStateDot } from '../session/SessionStateDot';
 import { Button, Chip, Type } from '../ui';
@@ -20,14 +20,14 @@ interface SessionBannersProps {
  * this task is still working, since that transcript is elsewhere.
  */
 export const SessionBanners: React.FC<SessionBannersProps> = ({ view, primarySessionId, onSelectSession }) => {
-  const { caller, isSideSession, isSubagentView, otherBusyCount, runState, subagent, viewed } = view;
+  const { caller, isSubagentView, otherBusyCount, runState, subagent, viewed } = view;
 
   if (isSubagentView) {
     const backId = caller?.sessionId || subagent?.parentId || primarySessionId;
     return (
-      <Group justify="space-between" px="sm" py={6} className="bg-acc-bg border-b border-acc-bd" wrap="nowrap">
+      <Group justify="space-between" px="sm" py={6} gap={6} className="bg-[var(--session-user-bg)] border-b border-[var(--session-user-bd)]" wrap="wrap">
         <Group gap={6} wrap="nowrap" className="min-w-0">
-          <Users className="w-3.5 h-3.5 text-acc-fg shrink-0" />
+          <Users className="w-3.5 h-3.5 text-link shrink-0" />
           <Chip tone="accent" className="shrink-0">Subagent</Chip>
           <Type role="title" size="sm" as="span" tone="accent" className="shrink-0">
             {subagentLabel(subagent)}
@@ -58,15 +58,15 @@ export const SessionBanners: React.FC<SessionBannersProps> = ({ view, primarySes
     );
   }
 
-  if (isSideSession) {
+  if (shouldShowReturnBanner(view)) {
     return (
-      <Group justify="space-between" px="sm" py={6} className="bg-acc-bg border-b border-acc-bd" wrap="nowrap">
+      <Group justify="space-between" px="sm" py={6} gap={6} className="bg-[var(--session-user-bg)] border-b border-[var(--session-user-bd)]" wrap="wrap">
         <Group gap={6} wrap="nowrap" className="min-w-0">
           <SessionStateDot state={runState} />
           {viewed?.kind === 'btw' ? (
-            <GitFork className="w-3.5 h-3.5 text-acc-fg shrink-0" />
+            <GitFork className="w-3.5 h-3.5 text-link shrink-0" />
           ) : (
-            <History className="w-3.5 h-3.5 text-acc-fg shrink-0" />
+            <History className="w-3.5 h-3.5 text-link shrink-0" />
           )}
           <Type role="title" size="sm" as="span" tone="accent" className="truncate">
             {viewed?.title || 'Side chat'}
@@ -90,7 +90,7 @@ export const SessionBanners: React.FC<SessionBannersProps> = ({ view, primarySes
 
   if (otherBusyCount > 0) {
     return (
-      <Group px="sm" py={6} gap={6} className="bg-surface-2 border-b border-line" wrap="nowrap">
+      <Group px="sm" py={6} gap={6} className="bg-[var(--session-rail)] border-b border-line" wrap="nowrap">
         <SessionStateDot state="running" />
         <Type role="copy" as="span">
           {otherBusyCount} other session{otherBusyCount === 1 ? '' : 's'} on this task{' '}

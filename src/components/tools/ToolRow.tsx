@@ -1,7 +1,8 @@
 import React from 'react';
-import { Badge, Button, Group, Switch, Text, Tooltip } from '@mantine/core';
+import { Switch, Tooltip } from '@mantine/core';
 import { Undo2 } from 'lucide-react';
 import { SessionTool } from '../../../shared/agent/tools';
+import { Chip } from '../ui';
 
 /**
  * One tool, and why it is in the state it is in.
@@ -32,7 +33,9 @@ function isLockedOff(tool: SessionTool): boolean {
 
 const OFF_BADGE: Partial<Record<NonNullable<SessionTool['disabledBy']>, string>> = {
   server: 'no server',
-  plugin: 'plugin off'
+  plugin: 'plugin off',
+  agent: 'agent rule',
+  config: 'config'
 };
 
 export const ToolRow: React.FC<{
@@ -41,64 +44,67 @@ export const ToolRow: React.FC<{
   onToggle: (tool: SessionTool, enabled: boolean) => void;
   onClear: (tool: SessionTool) => void;
 }> = ({ tool, busy, onToggle, onClear }) => (
-  <Group gap={8} wrap="nowrap" px="xs" py={5} className="border-b border-slate-900/80 last:border-b-0">
+  <div className="flex items-center gap-2.5 px-3 py-2 border-b border-hairline last:border-b-0 hover:bg-s3h transition-colors">
     <Tooltip label={stateLabel(tool)} withArrow multiline w={260}>
-      <Switch
-        size="xs"
-        checked={tool.enabled}
-        disabled={busy || isLockedOff(tool)}
-        onChange={(e) => onToggle(tool, e.currentTarget.checked)}
-        aria-label={`${tool.enabled ? 'Block' : 'Allow'} ${tool.name}`}
-        className="shrink-0"
-      />
+      <div className="shrink-0 flex items-center">
+        <Switch
+          size="xs"
+          checked={tool.enabled}
+          disabled={busy || isLockedOff(tool)}
+          onChange={(e) => onToggle(tool, e.currentTarget.checked)}
+          aria-label={`${tool.enabled ? 'Block' : 'Allow'} ${tool.name}`}
+        />
+      </div>
     </Tooltip>
-    <Text
-      size="xs"
-      className={`font-mono truncate shrink-0 max-w-[60%] ${tool.enabled ? 'text-ink' : 'text-ink-4 line-through'}`}
+
+    <span
+      className={`font-mono text-[12px] font-medium truncate shrink-0 max-w-[48%] ${
+        tool.enabled ? 'text-ink' : 'text-ink-4 line-through'
+      }`}
       title={tool.name}
     >
       {tool.name}
-    </Text>
-    {tool.description && (
-      <Text size="xs" c="dimmed" className="truncate min-w-0 flex-1" title={tool.description}>
+    </span>
+
+    {tool.description ? (
+      <span className="text-[12px] text-ink-3 truncate min-w-0 flex-1" title={tool.description}>
         {tool.description}
-      </Text>
+      </span>
+    ) : (
+      <div className="flex-1" />
     )}
-    {!tool.description && <div className="flex-1" />}
-    {tool.used > 0 && (
-      <Tooltip label={`Called ${tool.used}× in this session`} withArrow>
-        <Badge size="xs" variant="light" color="accent" className="font-mono shrink-0">
-          {tool.used}×
-        </Badge>
-      </Tooltip>
-    )}
-    {tool.policy !== undefined && (
-      <Tooltip label="Drop the board's override and follow your OpenCode config again" withArrow>
-        <Button
-          size="compact-xs"
-          variant="subtle"
-          color="gray"
-          disabled={busy}
-          onClick={() => onClear(tool)}
-          aria-label={`Clear the board override on ${tool.name}`}
-        >
-          <Undo2 className="w-3 h-3" />
-        </Button>
-      </Tooltip>
-    )}
-    {tool.policyOverridden && (
-      <Tooltip label={stateLabel(tool)} withArrow multiline w={260}>
-        <Badge size="xs" variant="light" color="yellow" className="shrink-0">
-          outvoted
-        </Badge>
-      </Tooltip>
-    )}
-    {!tool.enabled && tool.disabledBy !== 'board' && !tool.policyOverridden && (
-      <Tooltip label={stateLabel(tool)} withArrow multiline w={260}>
-        <Badge size="xs" variant="light" color="gray" className="shrink-0">
-          {(tool.disabledBy && OFF_BADGE[tool.disabledBy]) || 'config'}
-        </Badge>
-      </Tooltip>
-    )}
-  </Group>
+
+    <div className="flex items-center gap-1.5 shrink-0">
+      {tool.used > 0 && (
+        <Tooltip label={`Called ${tool.used}× in this session`} withArrow>
+          <Chip tone="accent" className="font-mono">
+            {tool.used}×
+          </Chip>
+        </Tooltip>
+      )}
+      {tool.policy !== undefined && (
+        <Tooltip label="Drop the board's override and follow your OpenCode config again" withArrow>
+          <button
+            type="button"
+            className="icon-btn w-6 h-6"
+            disabled={busy}
+            onClick={() => onClear(tool)}
+            aria-label={`Clear the board override on ${tool.name}`}
+          >
+            <Undo2 className="w-3 h-3" />
+          </button>
+        </Tooltip>
+      )}
+      {tool.policyOverridden && (
+        <Tooltip label={stateLabel(tool)} withArrow multiline w={260}>
+          <Chip tone="wait">outvoted</Chip>
+        </Tooltip>
+      )}
+      {!tool.enabled && tool.disabledBy !== 'board' && !tool.policyOverridden && (
+        <Tooltip label={stateLabel(tool)} withArrow multiline w={260}>
+          <Chip>{(tool.disabledBy && OFF_BADGE[tool.disabledBy]) || 'config'}</Chip>
+        </Tooltip>
+      )}
+    </div>
+  </div>
 );

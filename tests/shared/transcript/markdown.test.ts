@@ -131,6 +131,17 @@ test('parseInline', async (t) => {
     ]);
   });
 
+  await t.test('reads images as dedicated image nodes', () => {
+    assert.deepStrictEqual(parseInline('see ![ui shot](./shots/ui.png) now'), [
+      { kind: 'text', text: 'see ' },
+      { kind: 'image', src: './shots/ui.png', alt: 'ui shot' },
+      { kind: 'text', text: ' now' }
+    ]);
+    assert.deepStrictEqual(parseInline('![](https://example.com/demo.mp4)'), [
+      { kind: 'image', src: 'https://example.com/demo.mp4', alt: '' }
+    ]);
+  });
+
   await t.test('autolinks bare urls without swallowing trailing punctuation', () => {
     assert.deepStrictEqual(parseInline('see https://x.dev/a.'), [
       { kind: 'text', text: 'see ' },

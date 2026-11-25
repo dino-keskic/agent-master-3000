@@ -5,7 +5,12 @@ import path from 'path';
 import { Readable } from 'stream';
 import { pipeline } from 'stream/promises';
 import { promisify } from 'util';
-import { MAX_CAPTION_LENGTH, PromptImage } from '../../shared/composer/promptImages.js';
+import {
+  MAX_CAPTION_LENGTH,
+  PromptImage,
+  VIDEO_ATTACHMENT_EXTENSIONS,
+  videoExtensionForName
+} from '../../shared/composer/promptImages.js';
 import {
   MAX_VIDEO_BYTES,
   parseProbe,
@@ -17,12 +22,13 @@ import { findExecutable } from '../speech/modelServer.js';
 import { newAttachment } from './attachments.js';
 
 /**
- * A dropped video, stored as the one contact-sheet image the agent is sent.
+ * A dropped video, stored alongside the contact-sheet image the agent is sent.
  *
  * The upload is streamed to a temporary file (a video does not fit in a JSON
  * body, nor comfortably in memory), probed with ffprobe, tiled with ffmpeg
- * into the attachments directory, and then thrown away: the board keeps the
- * sheet, never the video. What the sheet looks like is decided in
+ * into the attachments directory, and then copied into the attachments store so
+ * the transcript can play back the original clip while the agent reads the
+ * contact sheet. What the sheet looks like is decided in
  * `shared/composer/videoSheet.ts`.
  *
  * Env: `FFMPEG_PATH` / `FFPROBE_PATH` when the binaries are somewhere the
@@ -129,13 +135,27 @@ export async function saveVideoSheet(body: Readable, name: string): Promise<Prom
 
     // A clip whose frames all fail to decode exits cleanly with nothing written.
     if (!fs.existsSync(file)) throw new VideoSheetError(`${displayName} had no frames ffmpeg could decode`, 422);
+
+    const videoExt = videoExtensionForName(displayName);
+    const { id: videoId, file: videoFile } = newAttachment(videoExt);
+    try {
+      // Copy rather than rename: `/tmp` and `dataDir()` can live on different volumes.
+      fs.copyFileSync(input, videoFile);
+    } catch (e) {
+      fs.rmSync(file, { force: true });
+      fs.rmSync(videoFile, { force: true });
+      throw e;
+    }
+
     const size = fs.statSync(file).size;
     return {
       id,
       name: displayName,
       mimeType: 'image/jpeg',
       size,
-      caption: sheetCaption(displayName, probe, plan).slice(0, MAX_CAPTION_LENGTH)
+      caption: sheetCaption(displayName, probe, plan).slice(0, MAX_CAPTION_LENGTH),
+      videoId,
+      videoMimeType: VIDEO_ATTACHMENT_EXTENSIONS[videoExt] || 'video/mp4'
     };
   } finally {
     fs.rmSync(scratch, { recursive: true, force: true });

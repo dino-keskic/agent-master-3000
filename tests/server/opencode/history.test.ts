@@ -15,6 +15,8 @@ test('OpenCode session history', async (t) => {
     const types = history.logs.map(l => l.type);
     assert.deepStrictEqual(types, ['user_say', 'thought', 'tool_call', 'agent_say']);
     assert.strictEqual(history.logs[0]!.text, 'Please fix the navbar overflow');
+    assert.ok(history.logs[0]!.messageId, 'user prompt carries its OpenCode message id');
+    assert.ok(history.logs[3]!.messageId, 'agent answer carries its OpenCode message id');
     assert.strictEqual(history.logs[3]!.text, 'I tightened the flex wrap on the header.');
     assert.deepStrictEqual(history.logs[3]!.metadata, {
       model: 'github-copilot/grok-4.5',
@@ -99,6 +101,53 @@ test('OpenCode session history', async (t) => {
     assert.strictEqual(row.title, 'Fix navbar');
     assert.strictEqual(row.project_id, source.project_id, 'an unknown folder keeps the source project');
     assert.ok(loadSessionHistory(moved.sessionId).logs.length >= 1, 'the conversation came along');
+  });
+
+  await t.test('file and image parts render as markdown media logs alongside text parts', () => {
+    const db = new DatabaseSync(file);
+    db.prepare(`
+      INSERT INTO session (id, project_id, parent_id, directory, title, time_created, time_updated, summary_files, summary_additions, summary_deletions, agent, tokens_input)
+      VALUES ('ses-media', 'proj-spa', NULL, ?, 'Media test', ?, ?, 0, 0, 0, 'build', 1)
+    `).run(live, NOW, NOW);
+    const msg = db.prepare(`INSERT INTO message (id, session_id, time_created, time_updated, data) VALUES (?, ?, ?, ?, ?)`);
+    msg.run('msg-u1', 'ses-media', NOW, NOW, JSON.stringify({ role: 'user' }));
+    msg.run('msg-a1', 'ses-media', NOW + 10, NOW + 10, JSON.stringify({ role: 'assistant' }));
+
+    const part = db.prepare(`INSERT INTO part (id, message_id, session_id, time_created, time_updated, data) VALUES (?, ?, ?, ?, ?, ?)`);
+    part.run('prt-u-img', 'msg-u1', 'ses-media', NOW, NOW, JSON.stringify({
+      type: 'file',
+      mime: 'image/png',
+      filename: 'bug.png',
+      url: 'data:image/png;base64,QUJD'
+    }));
+    part.run('prt-u-txt', 'msg-u1', 'ses-media', NOW + 1, NOW + 1, JSON.stringify({
+      type: 'text',
+      text: 'See screenshot'
+    }));
+    part.run('prt-a-vid', 'msg-a1', 'ses-media', NOW + 10, NOW + 10, JSON.stringify({
+      type: 'file',
+      mime: 'video/mp4',
+      filename: 'fix.mp4',
+      url: 'file:///tmp/fix.mp4'
+    }));
+    // Non-media file part should be skipped.
+    part.run('prt-a-txtfile', 'msg-a1', 'ses-media', NOW + 11, NOW + 11, JSON.stringify({
+      type: 'file',
+      mime: 'text/plain',
+      filename: 'notes.txt',
+      url: 'file:///tmp/notes.txt'
+    }));
+    db.close();
+
+    const logs = loadSessionHistory('ses-media').logs;
+    assert.deepStrictEqual(
+      logs.map((l) => ({ type: l.type, text: l.text })),
+      [
+        { type: 'user_say', text: '![bug.png](data:image/png;base64,QUJD)' },
+        { type: 'user_say', text: 'See screenshot' },
+        { type: 'agent_say', text: '![fix.mp4](file:///tmp/fix.mp4)' }
+      ]
+    );
   });
 
   fs.rmSync(root, { recursive: true, force: true });

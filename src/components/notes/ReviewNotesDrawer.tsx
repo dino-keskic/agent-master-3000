@@ -1,12 +1,10 @@
 import React, { useMemo, useState } from 'react';
 import { Drawer, ScrollArea } from '@mantine/core';
-import { BoardTask } from '../../../shared/types';
-import {
-  collectBoardComments,
-  countBoardComments
-} from '../../../shared/review/boardComments';
-import { ReviewNoteCard } from './ReviewNoteCard';
 import { MessageSquare } from 'lucide-react';
+import { BoardTask } from '../../../shared/types';
+import { collectBoardComments, countBoardComments } from '../../../shared/review/boardComments';
+import { Button, Chip, EmptyState, PaneToolbar, SearchInput, SegmentedControl } from '../ui';
+import { ReviewNoteCard } from './ReviewNoteCard';
 
 interface ReviewNotesDrawerProps {
   opened: boolean;
@@ -17,11 +15,10 @@ interface ReviewNotesDrawerProps {
   onAddressComments?: (taskId: string) => void | Promise<void>;
 }
 
-type FilterTab = 'open' | 'resolved' | 'waiting_agent' | 'all';
+type FilterTab = 'open' | 'waiting_agent' | 'resolved' | 'all';
 
 /**
  * Board-wide review notes drawer overlay.
- * Matches Agent Master 3000.dc.html (lines 1253-1300).
  */
 export const ReviewNotesDrawer: React.FC<ReviewNotesDrawerProps> = ({
   opened,
@@ -32,6 +29,7 @@ export const ReviewNotesDrawer: React.FC<ReviewNotesDrawerProps> = ({
   onAddressComments
 }) => {
   const [filter, setFilter] = useState<FilterTab>('open');
+  const [query, setQuery] = useState('');
 
   const taskMap = useMemo(() => new Map(tasks.map((t) => [t.id, t])), [tasks]);
 
@@ -39,12 +37,24 @@ export const ReviewNotesDrawer: React.FC<ReviewNotesDrawerProps> = ({
   const counts = useMemo(() => countBoardComments(allComments), [allComments]);
 
   const filteredComments = useMemo(() => {
-    if (filter === 'all') return allComments;
-    return allComments.filter((c) => c.status === filter);
-  }, [allComments, filter]);
+    const byTab = allComments.filter((c) => {
+      if (filter === 'all') return true;
+      // Open shows all non-resolved comments so its list always matches `counts.open`.
+      if (filter === 'open') return c.status !== 'resolved';
+      return c.status === filter;
+    });
+    const q = query.trim().toLowerCase();
+    if (!q) return byTab;
+    return byTab.filter(
+      (c) =>
+        c.taskId.toLowerCase().includes(q) ||
+        c.taskTitle.toLowerCase().includes(q) ||
+        c.location.toLowerCase().includes(q) ||
+        c.comment.body.toLowerCase().includes(q)
+    );
+  }, [allComments, filter, query]);
 
   const handleAddressAll = () => {
-    // Find first task with open comments and trigger addressComments or select it
     const target = tasks.find((t) => (t.changelogComments || []).some((c) => !c.resolvedAt));
     if (!target) return;
     if (onAddressComments) {
@@ -65,9 +75,10 @@ export const ReviewNotesDrawer: React.FC<ReviewNotesDrawerProps> = ({
         <div className="flex flex-col gap-0.5">
           <div className="flex items-center gap-2">
             <MessageSquare className="w-4 h-4 text-accent" />
-            <h2 className="m-0 text-base font-bold text-ink tracking-tight">Review notes</h2>
+            <h2 className="m-0 text-[14px] font-semibold text-ink">Review notes</h2>
+            {counts.open > 0 && <Chip tone="accent">{counts.open} open</Chip>}
           </div>
-          <span className="text-xs text-ink-3">
+          <span className="text-[11.5px] text-ink-3">
             Across every task on the board — local to this machine, not GitHub.
           </span>
         </div>
@@ -87,78 +98,56 @@ export const ReviewNotesDrawer: React.FC<ReviewNotesDrawerProps> = ({
         }
       }}
     >
-      {/* Top toolbar */}
-      <div className="flex items-center justify-between gap-3 px-5 py-3 border-b border-line bg-surface/50 backdrop-blur-sm flex-wrap">
-        <div className="flex items-center gap-1 p-0.5 border border-line rounded-lg bg-surface-2">
-          <button
-            type="button"
-            onClick={() => setFilter('open')}
-            className={`inline-flex items-center gap-1.5 h-6 px-2.5 text-xs font-medium rounded-md transition-colors cursor-pointer border-0 ${
-              filter === 'open'
-                ? 'bg-s4 text-ink shadow-card'
-                : 'bg-transparent text-ink-3 hover:text-ink'
-            }`}
-          >
-            Open
-            <span className="font-mono text-[11px] text-ink-3">{counts.open}</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setFilter('resolved')}
-            className={`inline-flex items-center gap-1.5 h-6 px-2.5 text-xs font-medium rounded-md transition-colors cursor-pointer border-0 ${
-              filter === 'resolved'
-                ? 'bg-s4 text-ink shadow-card'
-                : 'bg-transparent text-ink-3 hover:text-ink'
-            }`}
-          >
-            Resolved
-            <span className="font-mono text-[11px] text-ink-3">{counts.resolved}</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setFilter('waiting_agent')}
-            className={`inline-flex items-center gap-1.5 h-6 px-2.5 text-xs font-medium rounded-md transition-colors cursor-pointer border-0 ${
-              filter === 'waiting_agent'
-                ? 'bg-s4 text-ink shadow-card'
-                : 'bg-transparent text-ink-3 hover:text-ink'
-            }`}
-          >
-            Waiting on agent
-            <span className="font-mono text-[11px] text-ink-3">{counts.waitingAgent}</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setFilter('all')}
-            className={`inline-flex items-center gap-1.5 h-6 px-2.5 text-xs font-medium rounded-md transition-colors cursor-pointer border-0 ${
-              filter === 'all'
-                ? 'bg-s4 text-ink shadow-card'
-                : 'bg-transparent text-ink-3 hover:text-ink'
-            }`}
-          >
-            All
-            <span className="font-mono text-[11px] text-ink-3">{counts.total}</span>
-          </button>
-        </div>
+      <PaneToolbar
+        left={
+          <div className="flex items-center gap-2 flex-wrap">
+            <SegmentedControl<FilterTab>
+              size="xs"
+              value={filter}
+              onChange={setFilter}
+              options={[
+                { value: 'open', label: 'Open', count: counts.open },
+                { value: 'waiting_agent', label: 'Waiting on agent', count: counts.waitingAgent },
+                { value: 'resolved', label: 'Resolved', count: counts.resolved },
+                { value: 'all', label: 'All', count: counts.total }
+              ]}
+            />
+            {allComments.length > 0 && (
+              <SearchInput
+                value={query}
+                onChange={setQuery}
+                placeholder="Filter notes…"
+                containerClassName="w-48 max-w-full"
+              />
+            )}
+          </div>
+        }
+        right={
+          counts.open > 0 ? (
+            <Button
+              size="sm"
+              variant="primary"
+              onClick={handleAddressAll}
+              leftSection={<MessageSquare className="w-3.5 h-3.5" />}
+            >
+              Address {counts.open === 1 ? 'note' : `all ${counts.open}`}
+            </Button>
+          ) : undefined
+        }
+      />
 
-        {counts.open > 0 && (
-          <button
-            type="button"
-            onClick={handleAddressAll}
-            className="inline-flex items-center gap-1.5 h-[30px] px-3 border-0 rounded-lg bg-accent text-white text-xs font-semibold cursor-pointer hover:brightness-110 transition-all shadow-sm"
-          >
-            <MessageSquare className="w-3.5 h-3.5" />
-            Address all {counts.open}
-          </button>
-        )}
-      </div>
-
-      {/* Threads list */}
-      <ScrollArea className="flex-1 p-5" type="auto">
-        <div className="flex flex-col gap-3.5 max-w-3xl mx-auto">
+      <ScrollArea className="flex-1 p-4" type="auto">
+        <div className="flex flex-col gap-3 max-w-3xl mx-auto">
           {filteredComments.length === 0 ? (
-            <div className="text-center py-12 text-ink-4 text-sm font-mono">
-              No review notes in this view.
-            </div>
+            <EmptyState
+              icon={<MessageSquare className="w-4 h-4" />}
+              title={query.trim() ? 'No matching review notes' : 'No review notes in this view'}
+              description={
+                query.trim()
+                  ? `No review note matches "${query}".`
+                  : "Click any line number in a task's Changes tab to leave an inline review note for the agent."
+              }
+            />
           ) : (
             filteredComments.map((commentItem) => (
               <ReviewNoteCard

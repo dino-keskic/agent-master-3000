@@ -8,12 +8,19 @@
  */
 
 export const TASK_PARAM = 'task';
+export const SESSION_PARAM = 'session';
 
 /** The tasks a location points at, left to right. Empty when there are none. */
 export function taskIdsFromSearch(search: string): string[] {
   const raw = new URLSearchParams(search).get(TASK_PARAM) || '';
   const ids = raw.split(',').map((id) => id.trim()).filter(Boolean);
   return [...new Set(ids)];
+}
+
+/** The optional session id a deep link asks to focus, or undefined when absent. */
+export function sessionIdFromSearch(search: string): string | undefined {
+  const raw = new URLSearchParams(search).get(SESSION_PARAM)?.trim();
+  return raw || undefined;
 }
 
 /**
@@ -27,6 +34,8 @@ export function hrefWithTasks(href: string, taskIds: readonly string[]): string 
   if (current === wanted) return null;
   if (wanted) url.searchParams.set(TASK_PARAM, wanted);
   else url.searchParams.delete(TASK_PARAM);
+  // Switching or closing tasks invalidates any session id that belonged to the previous deep link.
+  url.searchParams.delete(SESSION_PARAM);
   // Task ids never contain a comma, so the separator can stay readable in the
   // address bar rather than turning into %2C.
   url.search = url.searchParams.toString().replace(/%2C/gi, ',');

@@ -1,5 +1,6 @@
-import React from 'react';
-import { Paper, Stack } from '@mantine/core';
+import React, { useState } from 'react';
+import { Paper, Stack, Tooltip } from '@mantine/core';
+import { GitFork, Play, Shrink, X } from 'lucide-react';
 import { OpenCodeAgent, OpenCodeModel } from '../../../shared/sessions/types';
 import { BoardColumn, BoardTask } from '../../../shared/types';
 import { PendingPrompt } from '../../../shared/turns/pendingPrompts';
@@ -9,18 +10,16 @@ import { runButtonLabel } from '../../../shared/format';
 import { DEFAULT_PERMISSION_MODE } from '../../../shared/agent/permissions';
 import { queuedForSession } from '../../../shared/turns/queue';
 import { sessionRunSettings, settingsTargetFor } from '../../../shared/task/sessions';
+import { ForkAnchor } from '../../../shared/transcript/forkPoint';
 import { Composer } from '../composer/Composer';
-import { DrawerFooterControls } from './DrawerFooterControls';
+import { Button } from '../ui';
 import { QueuedTurns } from './QueuedTurns';
 import { DrawerActions } from './drawerActions';
 
 /**
- * Everything below the transcript: what to do with the session, what is waiting
- * to be sent to it, and the box the next turn is written in.
- *
- * The composer's wording follows the session on screen, because "send" means
- * something different in a side session than in the task's own — and nothing at
- * all in a subagent's, which is a recording.
+ * Everything below the transcript: an optional fork-point banner, queued
+ * turns, and the compact composer with Compact & Continue tucked cleanly into
+ * its own action row.
  */
 
 interface DrawerFooterProps {
@@ -39,10 +38,20 @@ interface DrawerFooterProps {
   isCompacting: boolean;
   promptText: string;
   onPromptChange: (text: string) => void;
+  /** Non-null while the user is branching from a specific turn in the transcript. */
+  forkAnchor: ForkAnchor | null;
+  onCancelFork: () => void;
   actions: DrawerActions;
-  onMoveTask: (taskId: string, columnId: string) => void | Promise<void>;
   onRunTask: (taskId: string) => void | Promise<void>;
   onUpdateTask: (taskId: string, updates: Partial<BoardTask>) => void | Promise<void>;
+}
+
+/** Why the Compact button is unavailable, or what it does when it is. */
+function compactHint(isSubagentView: boolean, hasSession: boolean, busy: boolean): string {
+  if (isSubagentView) return 'Subagent transcripts cannot be compacted';
+  if (!hasSession) return 'This task has not started a session yet';
+  if (busy) return "Wait for this session's turn to finish";
+  return 'Summarize the conversation so far to free up context';
 }
 
 export const DrawerFooter: React.FC<DrawerFooterProps> = ({
@@ -59,11 +68,14 @@ export const DrawerFooter: React.FC<DrawerFooterProps> = ({
   isCompacting,
   promptText,
   onPromptChange,
+  forkAnchor,
+  onCancelFork,
   actions,
-  onMoveTask,
   onRunTask,
   onUpdateTask
 }) => {
+  const [forking, setForking] = useState(false);
+
   // The composer shows what the session on screen will run as, not what the
   // task would run — a fork asked on another model keeps it, and changing it
   // here changes that fork rather than everything the task has open.
@@ -73,73 +85,154 @@ export const DrawerFooter: React.FC<DrawerFooterProps> = ({
     else actions.setSessionSettings(settings);
   };
 
-  return (
-  <Paper px={16} py={14} radius={0} className="bg-surface border-t border-line shrink-0 overflow-visible relative">
-    <Stack gap="xs">
-      {!conversationOnly && <DrawerFooterControls
-        columns={columns}
-        columnId={task.columnId}
-        runState={view.runState}
-        busy={view.busy}
-        isSubagentView={view.isSubagentView}
-        hasSession={!!sessionId}
-        folderGone={folderGone}
-        runLabel={runButtonLabel(columns.find((c) => c.id === task.columnId), task)}
-        isCompacting={isCompacting}
-        onMoveColumn={(columnId) => void onMoveTask(task.id, columnId)}
-        onCompact={actions.compact}
-        onRun={() => void onRunTask(task.id)}
-      />}
+  const hasSession = !!sessionId;
+  const runLabel = runButtonLabel(columns.find((c) => c.id === task.columnId), task);
+  const hasDraft = promptText.trim().length > 0;
 
-      <QueuedTurns
-        turns={queuedForSession(task, sessionId)}
-        sending={queuingPrompts}
-        onRemove={actions.removeQueued}
-        onSendNow={actions.sendQueuedNow}
-      />
+  const submitFork = async (prompt?: string, images?: Parameters<DrawerActions['forkFromPoint']>[2]) => {
+    if (!forkAnchor || forking) return;
+    setForking(true);
+    try {
+      await actions.forkFromPoint(forkAnchor, prompt, images);
+    } finally {
+      setForking(false);
+    }
+  };
 
-      {view.isSubagentView && (
-        <p className="m-0 text-[12px] leading-[1.55] text-ink-3">
-          Subagent transcripts are read-only. Go back to the parent session to send a follow-up.
-        </p>
+  const extraActions = !conversationOnly && !view.isSubagentView ? (
+    <>
+      {!forkAnchor && (
+        <Tooltip label={compactHint(view.isSubagentView, hasSession, view.busy)} withArrow>
+          <Button
+            size="xs"
+            variant="ghost"
+            disabled={!hasSession || view.busy}
+            loading={isCompacting}
+            aria-label="Compact conversation"
+            leftSection={<Shrink className="w-3 h-3" />}
+            onClick={actions.compact}
+          >
+            <span className="hidden sm:inline">Compact</span>
+          </Button>
+        </Tooltip>
       )}
-      <Composer
-        value={promptText}
-        onChange={onPromptChange}
-        onSubmit={actions.sendPrompt}
-        cwd={viewedCwd}
-        placeholder={
-          view.isSubagentView
-            ? 'Subagent transcripts are read-only'
-            : view.isSideSession
-              ? `Follow-up in ${shortSessionLabel(view.viewed?.title)}…`
-              : conversationOnly
-                ? 'Ask about the board…'
-                : 'Reply, or give the next instruction…'
-        }
-        models={models}
-        agents={agents}
-        thinkingLevel={runAs.thinkingLevel || task.thinkingLevel}
-        onThinkingLevelChange={(val) => change({ thinkingLevel: val })}
-        model={runAs.model || task.model}
-        onModelChange={(val) => change({ model: val })}
-        permissionMode={task.permissionMode || DEFAULT_PERMISSION_MODE}
-        onPermissionModeChange={(val) => void onUpdateTask(task.id, { permissionMode: val })}
-        agent={runAs.agent || task.agent}
-        onAgentChange={(val) => change({ agent: val })}
-        disabled={folderGone || view.isSubagentView}
-        submitKind="send"
-        submitTooltip={
-          view.isSubagentView
-            ? 'Subagent transcripts are read-only'
-            : view.isSideSession
-              ? 'Send to this session (⌘Enter)'
-              : 'Send (⌘Enter)'
-        }
-        slashCommands={changelogSlashCommands(task.changelogComments)}
-        onStop={view.busy && !view.isSubagentView ? actions.stop : undefined}
-      />
-    </Stack>
-  </Paper>
+      {!forkAnchor && !view.busy && !hasDraft && (
+        <Tooltip
+          label={folderGone ? 'Folder is gone — this worktree was deleted' : undefined}
+          disabled={!folderGone}
+          withArrow
+        >
+          <Button
+            size="xs"
+            variant="ghost"
+            disabled={folderGone}
+            leftSection={<Play className="w-3 h-3 fill-current" />}
+            onClick={() => void onRunTask(task.id)}
+          >
+            {runLabel}
+          </Button>
+        </Tooltip>
+      )}
+    </>
+  ) : undefined;
+
+  return (
+    <Paper radius={0} className="px-2.5 sm:px-3 pt-2 pb-[max(8px,env(safe-area-inset-bottom))] bg-[var(--session-rail)] border-t border-line shrink-0 overflow-visible relative">
+      <Stack gap={6}>
+        <QueuedTurns
+          turns={queuedForSession(task, sessionId)}
+          sending={queuingPrompts}
+          onRemove={actions.removeQueued}
+          onSendNow={actions.sendQueuedNow}
+        />
+
+        {forkAnchor && (
+          <div className="flex flex-wrap items-center justify-between gap-2 px-2.5 py-1.5 rounded-lg border border-acc-bd bg-acc-bg text-[12px]">
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded font-mono text-[11px] font-semibold bg-accent text-white shrink-0">
+                <GitFork className="w-3 h-3" />
+                Fork
+              </span>
+              <span className="truncate text-ink">
+                {forkAnchor.mode === 'before' ? 'Before' : 'After'} {forkAnchor.label} · &ldquo;{forkAnchor.preview}&rdquo;
+              </span>
+            </div>
+            <div className="flex items-center gap-1 shrink-0">
+              <Tooltip label="Create this branch up to this point without sending a prompt yet" withArrow>
+                <Button
+                  size="xs"
+                  variant="secondary"
+                  loading={forking}
+                  onClick={() => void submitFork()}
+                >
+                  Fork empty
+                </Button>
+              </Tooltip>
+              <button
+                type="button"
+                aria-label="Cancel fork"
+                className="icon-btn w-6 h-6"
+                onClick={onCancelFork}
+              >
+                <X className="w-3 h-3" />
+              </button>
+            </div>
+          </div>
+        )}
+
+        {view.isSubagentView && (
+          <p className="m-0 text-[12px] leading-[1.45] text-ink-3">
+            Subagent transcripts are read-only. Go back to the parent session to send a follow-up.
+          </p>
+        )}
+
+        <Composer
+          value={promptText}
+          onChange={onPromptChange}
+          onSubmit={(prompt, images) =>
+            forkAnchor ? submitFork(prompt, images) : actions.sendPrompt(prompt, images)
+          }
+          cwd={viewedCwd}
+          placeholder={
+            forkAnchor
+              ? forkAnchor.mode === 'before'
+                ? 'Edit the prompt to branch from here…'
+                : `Send a new direction from ${forkAnchor.label}…`
+              : view.isSubagentView
+                ? 'Subagent transcripts are read-only'
+                : view.isSideSession
+                  ? `Follow-up in ${shortSessionLabel(view.viewed?.title)}…`
+                  : conversationOnly
+                    ? 'Ask about the board…'
+                    : 'Reply, or give the next instruction…'
+          }
+          models={models}
+          agents={agents}
+          thinkingLevel={runAs.thinkingLevel || task.thinkingLevel}
+          onThinkingLevelChange={(val) => change({ thinkingLevel: val })}
+          model={runAs.model || task.model}
+          onModelChange={(val) => change({ model: val })}
+          permissionMode={task.permissionMode || DEFAULT_PERMISSION_MODE}
+          onPermissionModeChange={(val) => void onUpdateTask(task.id, { permissionMode: val })}
+          agent={runAs.agent || task.agent}
+          onAgentChange={(val) => change({ agent: val })}
+          submitting={forking}
+          disabled={folderGone || view.isSubagentView}
+          submitKind="send"
+          submitTooltip={
+            forkAnchor
+              ? `Fork from ${forkAnchor.label} & send (⌘Enter)`
+              : view.isSubagentView
+                ? 'Subagent transcripts are read-only'
+                : view.isSideSession
+                  ? 'Send to this session (⌘Enter)'
+                  : 'Send (⌘Enter)'
+          }
+          slashCommands={changelogSlashCommands(task.changelogComments)}
+          extraActions={extraActions}
+          onStop={!forkAnchor && view.busy && !view.isSubagentView ? actions.stop : undefined}
+        />
+      </Stack>
+    </Paper>
   );
 };

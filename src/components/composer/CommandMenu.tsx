@@ -1,7 +1,8 @@
 import React, { useEffect, useRef } from 'react';
-import { Loader, Paper, Stack, Text } from '@mantine/core';
+import { Loader } from '@mantine/core';
 import { FileCode, GitPullRequest, Sparkles, Terminal, Ticket } from 'lucide-react';
 import { ComposerMenuEntry } from '../../../shared/composer/menu';
+import { Chip, Surface } from '../ui';
 
 function sectionOf(entry: ComposerMenuEntry): string {
   if (entry.kind === 'command') return entry.command.kind === 'skill' ? 'Skills' : 'Commands';
@@ -16,16 +17,16 @@ function isDisabled(entry: ComposerMenuEntry): boolean {
 function iconFor(entry: ComposerMenuEntry): React.ReactNode {
   if (entry.kind === 'command') {
     return entry.command.kind === 'skill' ? (
-      <Sparkles className="w-3.5 h-3.5 text-amber-300 shrink-0 mt-0.5" />
+      <Sparkles className="w-3.5 h-3.5 text-wait-fg shrink-0 mt-0.5" />
     ) : (
       <Terminal className="w-3.5 h-3.5 text-accent shrink-0 mt-0.5" />
     );
   }
-  if (entry.kind === 'file') return <FileCode className="w-3.5 h-3.5 text-sky-300 shrink-0 mt-0.5" />;
+  if (entry.kind === 'file') return <FileCode className="w-3.5 h-3.5 text-acc-fg shrink-0 mt-0.5" />;
   return entry.mention.kind === 'jira' ? (
     <Ticket className="w-3.5 h-3.5 text-accent shrink-0 mt-0.5" />
   ) : (
-    <GitPullRequest className="w-3.5 h-3.5 text-teal-300 shrink-0 mt-0.5" />
+    <GitPullRequest className="w-3.5 h-3.5 text-run-fg shrink-0 mt-0.5" />
   );
 }
 
@@ -82,27 +83,27 @@ export const CommandMenu: React.FC<CommandMenuProps> = ({
     activeRef.current?.scrollIntoView({ block: 'nearest' });
   }, [active]);
 
-  // Section headers are worked out up front: deciding them while mapping means
-  // reassigning a local mid-render, which is not stable across re-renders.
   const headers = entries.map((entry, index) => {
     const section = sectionOf(entry);
     return index > 0 && sectionOf(entries[index - 1]!) === section ? null : section;
   });
 
   return (
-    <Paper
-      shadow="md"
-      radius="md"
-      className={`bg-surface absolute left-0 right-0 z-50 border border-line-strong/80 overflow-hidden ${
-        placement === 'below' ? 'top-full mt-1' : 'bottom-full mb-1'
+    <Surface
+      level="s1"
+      variant="panel"
+      border="default"
+      radius="lg"
+      className={`absolute left-0 right-0 z-50 overflow-hidden ${
+        placement === 'below' ? 'top-full mt-1.5' : 'bottom-full mb-1.5'
       }`}
     >
       <div className="max-h-[min(18rem,45vh)] overflow-y-auto">
-        <Stack gap={0}>
+        <div className="flex flex-col">
           {entries.length === 0 && !loading && !error && (
-            <Text size="xs" c="dimmed" className="font-mono px-3 py-2">
+            <span className="font-mono text-[12px] text-ink-3 px-3 py-2.5">
               {emptyHint || 'Nothing matches'}
-            </Text>
+            </span>
           )}
           {entries.map((entry, index) => {
             const header = headers[index];
@@ -111,23 +112,20 @@ export const CommandMenu: React.FC<CommandMenuProps> = ({
             return (
               <React.Fragment key={entry.id}>
                 {header && (
-                  <Text
-                    size="11px"
-                    className="font-mono uppercase tracking-wide text-ink-3 px-3 pt-2 pb-1 sticky top-0 bg-surface z-10"
-                  >
+                  <span className="font-mono text-[10.5px] font-semibold uppercase tracking-wider text-ink-3 px-3 pt-2 pb-1 sticky top-0 bg-surface z-10 border-b border-hairline">
                     {header}
-                  </Text>
+                  </span>
                 )}
                 <button
                   ref={index === active ? activeRef : undefined}
                   type="button"
                   disabled={disabled}
-                  className={`flex items-start gap-2 w-full text-left px-3 py-1.5 ${
+                  className={`flex items-start gap-2.5 w-full text-left px-3 py-2 border-0 bg-transparent cursor-pointer transition-colors ${
                     disabled
                       ? 'opacity-50 cursor-default'
                       : index === active
                         ? 'bg-acc-bg'
-                        : 'hover:bg-slate-800/80'
+                        : 'hover:bg-s3h'
                   }`}
                   onMouseEnter={() => onHover(index)}
                   onMouseDown={(e) => {
@@ -136,36 +134,34 @@ export const CommandMenu: React.FC<CommandMenuProps> = ({
                   }}
                 >
                   {iconFor(entry)}
-                  <Stack gap={0} className="min-w-0 flex-1">
-                    <Text size="xs" fw={600} className="font-mono text-ink truncate">
+                  <div className="flex flex-col min-w-0 flex-1">
+                    <span className="font-mono text-[12px] font-semibold text-ink truncate">
                       {titleOf(entry)}
-                    </Text>
-                    <Text size="12px" className="text-ink-2 truncate">
+                    </span>
+                    <span className="text-[12px] text-ink-2 truncate">
                       {subtitleOf(entry)}
-                    </Text>
-                  </Stack>
+                    </span>
+                  </div>
                   {hint && (
-                    <Text size="11px" c="dimmed" className="font-mono shrink-0 mt-0.5">
-                      {hint}
-                    </Text>
+                    <Chip className="font-mono shrink-0 mt-0.5">{hint}</Chip>
                   )}
                 </button>
               </React.Fragment>
             );
           })}
           {loading && (
-            <Text size="xs" c="dimmed" className="font-mono px-3 py-2 flex items-center gap-2">
+            <span className="font-mono text-[12px] text-ink-3 px-3 py-2 flex items-center gap-2">
               <Loader size={10} color="gray" />
               Searching…
-            </Text>
+            </span>
           )}
           {error && (
-            <Text size="xs" className="font-mono px-3 py-2 text-amber-400">
+            <span className="font-mono text-[12px] px-3 py-2 text-wait-fg">
               {error}
-            </Text>
+            </span>
           )}
-        </Stack>
+        </div>
       </div>
-    </Paper>
+    </Surface>
   );
 };

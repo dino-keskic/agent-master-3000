@@ -1,8 +1,9 @@
 import React from 'react';
-import { Button, Group, ScrollArea, Stack, Text } from '@mantine/core';
+import { ScrollArea } from '@mantine/core';
+import { Bell, BellOff, CheckCheck, Settings, Trash2 } from 'lucide-react';
 import { BoardTask, PermissionAnswer } from '../../../shared/types';
 import { BoardNotification } from '../../../shared/notifications/inbox';
-import { Empty } from './Empty';
+import { Banner, Button, EmptyState } from '../ui';
 import { InboxRow } from './InboxRow';
 
 /**
@@ -40,35 +41,62 @@ export const InboxPane: React.FC<InboxPaneProps> = ({
   onDismiss
 }) => (
   <>
-    <Group justify="space-between" px="sm" py={8} className="shrink-0 border-b border-line/50" wrap="nowrap">
-      <Group gap={6} wrap="nowrap" className="min-w-0">
-        {alertsHint && (
-          <Text size="xs" c="orange.4" className="truncate" title={alertsHint}>
-            {alertsHint}
-          </Text>
-        )}
-        <Button size="compact-xs" variant="subtle" color="gray" className="shrink-0" onClick={onOpenAlertSettings}>
-          Alert settings
-        </Button>
-      </Group>
-      <Group gap={4} wrap="nowrap">
+    {alertsHint && (
+      <Banner
+        strip
+        tone="wait"
+        icon={<BellOff className="w-3.5 h-3.5" />}
+        actions={
+          <Button size="xs" variant="secondary" onClick={onOpenAlertSettings}>
+            Alert settings
+          </Button>
+        }
+      >
+        {alertsHint}
+      </Banner>
+    )}
+
+    <div className="flex items-center justify-between gap-2 px-3.5 py-2 border-b border-line bg-surface/30 shrink-0">
+      <Button
+        size="xs"
+        variant="ghost"
+        leftSection={<Settings className="w-3 h-3" />}
+        onClick={onOpenAlertSettings}
+      >
+        Alert settings
+      </Button>
+      <div className="flex items-center gap-1.5">
         {unread > 0 && (
-          <Button size="compact-xs" variant="subtle" color="gray" onClick={onMarkAllRead}>
+          <Button
+            size="xs"
+            variant="ghost"
+            leftSection={<CheckCheck className="w-3 h-3" />}
+            onClick={onMarkAllRead}
+          >
             Mark all read
           </Button>
         )}
         {inbox.length > 0 && (
-          <Button size="compact-xs" variant="subtle" color="gray" onClick={onClear}>
+          <Button
+            size="xs"
+            variant="ghost"
+            leftSection={<Trash2 className="w-3 h-3" />}
+            onClick={onClear}
+          >
             Clear
           </Button>
         )}
-      </Group>
-    </Group>
+      </div>
+    </div>
 
     <ScrollArea className="flex-1" type="auto">
-      <Stack gap={8} p="sm">
+      <div className="flex flex-col gap-2.5 p-3.5">
         {inbox.length === 0 ? (
-          <Empty>Nothing to catch up on. Finished turns and questions from agents land here.</Empty>
+          <EmptyState
+            icon={<Bell className="w-4 h-4" />}
+            title="All caught up"
+            description="Nothing to catch up on. Finished turns and questions from agents land here."
+          />
         ) : (
           inbox.map((item) => (
             <InboxRow
@@ -82,7 +110,7 @@ export const InboxPane: React.FC<InboxPaneProps> = ({
             />
           ))
         )}
-      </Stack>
+      </div>
     </ScrollArea>
   </>
 );

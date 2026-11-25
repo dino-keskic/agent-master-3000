@@ -84,6 +84,8 @@ export interface InventoryInput {
   refresh?: boolean;
   /** The board's own tool overrides. */
   policy?: Record<string, boolean>;
+  /** Per-agent board overrides (for built-in/config agents). */
+  agentPolicy?: Record<string, Record<string, boolean>>;
   /** True when the running agent predates the current policy. */
   pendingRestart?: boolean;
 }
@@ -318,7 +320,14 @@ export async function sessionToolInventory(input: InventoryInput): Promise<Sessi
   // The agent's own tool map wins over the global one, and the board's policy
   // over both, unless a config OpenCode 2 merges after the board's file says
   // otherwise — one resolver so every source below agrees on that order.
-  const agentTools = agent ? snapshot.agents[agent]?.tools : undefined;
+  const agentToolsByAgent: Record<string, Record<string, boolean>> = {};
+  for (const [id, entry] of Object.entries(snapshot.agents)) {
+    agentToolsByAgent[id] = { ...(entry.tools || {}), ...(input.agentPolicy?.[id] || {}) };
+  }
+  for (const [id, map] of Object.entries(input.agentPolicy || {})) {
+    if (!agentToolsByAgent[id]) agentToolsByAgent[id] = { ...map };
+  }
+  const agentTools = agent ? agentToolsByAgent[agent] : undefined;
   const { overrides } = snapshot;
   const resolve: ResolveState = (name) =>
     resolveToolState(name, { tools: snapshot.tools, agentTools, policy, overrides });
@@ -346,6 +355,8 @@ export async function sessionToolInventory(input: InventoryInput): Promise<Sessi
     ...base,
     tools: sortTools(tools),
     servers,
+    globalTools: snapshot.tools,
+    agentToolsByAgent,
     ...(plugins ? { plugins } : {}),
     pluginSwitches: !!plugins,
     warnings: [...snapshot.warnings],

@@ -1,6 +1,7 @@
 import React from 'react';
-import { Button, Group, Loader, Text } from '@mantine/core';
+import { Loader } from '@mantine/core';
 import { CheckCheck, Download } from 'lucide-react';
+import { Button, Chip } from '../ui';
 
 interface SessionImportFooterProps {
   shown: number;
@@ -30,44 +31,42 @@ export const SessionImportFooter: React.FC<SessionImportFooterProps> = ({
   onToggleAll,
   onImport
 }) => (
-  <Group justify="space-between" align="center" wrap="nowrap" className="pt-1">
-    <Text size="xs" c="dimmed" className="font-mono text-[12px]">
-      Showing <span className="text-ink font-bold">{shown}</span> of {total} session{total === 1 ? '' : 's'}
+  <div className="flex items-center justify-between gap-3 pt-1 flex-wrap">
+    <span className="font-mono text-[12px] text-ink-3">
+      Showing <span className="text-ink font-semibold">{shown}</span> of {total} session{total === 1 ? '' : 's'}
       {projectCount > 0 ? ` across ${projectCount} project${projectCount === 1 ? '' : 's'}` : ''}
-    </Text>
+    </span>
 
-    <Group gap="xs" wrap="nowrap">
+    <div className="flex items-center gap-2">
       {progress ? (
-        <Group gap="sm" wrap="nowrap" className="bg-acc-bg px-3 py-1.5 rounded-lg border border-acc-bd">
-          <Loader size="xs" color="accent" />
-          <Text size="xs" className="font-mono text-acc-fg">
+        <Chip tone="accent" className="gap-2 px-3 py-1 font-mono">
+          <Loader size={12} color="accent" />
+          <span>
             Importing {progress.done + 1} of {progress.total}…
-          </Text>
-        </Group>
+          </span>
+        </Chip>
       ) : (
         <>
           <Button
-            size="xs"
-            variant="subtle"
-            color="gray"
+            size="sm"
+            variant="ghost"
             disabled={selectableCount === 0}
             onClick={onToggleAll}
             leftSection={<CheckCheck className="w-3.5 h-3.5" />}
           >
-            {allSelected ? 'Clear Selection' : `Select All (${selectableCount})`}
+            {allSelected ? 'Clear selection' : `Select all (${selectableCount})`}
           </Button>
           <Button
-            size="sm"
-            color="accent"
-            variant="filled"
+            size="md"
+            variant="primary"
             disabled={selectedCount === 0 || busy}
             onClick={onImport}
             leftSection={<Download className="w-4 h-4" />}
           >
-            Import {selectedCount > 0 ? `(${selectedCount})` : ''} to Board
+            Import {selectedCount > 0 ? `(${selectedCount})` : ''} to board
           </Button>
         </>
       )}
-    </Group>
-  </Group>
+    </div>
+  </div>
 );

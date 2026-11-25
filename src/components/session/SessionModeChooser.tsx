@@ -1,5 +1,5 @@
-import { Button, Group, Paper, Text } from '@mantine/core';
 import { GitFork, Plus } from 'lucide-react';
+import { SegmentedControl, Surface } from '../ui';
 import { MODE_COPY, SessionStartMode } from './sessionMode';
 
 /**
@@ -24,40 +24,32 @@ export function SessionModeChooser({
   onModeChange: (mode: SessionStartMode) => void;
 }) {
   return (
-    <>
-      <Group gap={6} wrap="nowrap">
-        <Button
-          size="compact-xs"
-          variant={mode === 'fork' ? 'filled' : 'default'}
-          color="accent"
-          disabled={!canFork}
-          leftSection={<GitFork className="w-3 h-3" />}
-          onClick={() => onModeChange('fork')}
-        >
-          Fork
-        </Button>
-        <Button
-          size="compact-xs"
-          variant={mode === 'new' ? 'filled' : 'default'}
-          color="accent"
-          leftSection={<Plus className="w-3 h-3" />}
-          onClick={() => onModeChange('new')}
-        >
-          Blank
-        </Button>
-      </Group>
+    <div className="flex flex-col gap-2.5">
+      {canFork && (
+        <div>
+          <SegmentedControl<SessionStartMode>
+            size="sm"
+            value={mode}
+            onChange={onModeChange}
+            options={[
+              { value: 'fork', label: 'Fork session', icon: <GitFork className="w-3.5 h-3.5" /> },
+              { value: 'new', label: 'Blank session', icon: <Plus className="w-3.5 h-3.5" /> }
+            ]}
+          />
+        </div>
+      )}
 
-      <Paper p="xs" radius="md" className="bg-surface border border-line/70">
-        <Text size="xs" c="dimmed">
+      <Surface level="s1" border="default" radius="lg" className="p-3 flex flex-col gap-1">
+        <span className="text-[12px] text-ink-3 leading-relaxed">
           {MODE_COPY[mode].help}
-        </Text>
+        </span>
         {mode === 'fork' && sourceTitle && (
-          <Text size="xs" className="text-ink-2 pt-1">
+          <span className="text-[12px] text-ink-2">
             Copying <span className="font-semibold text-acc-fg">{sourceTitle}</span> on{' '}
             <span className="font-semibold text-ink">{taskTitle}</span>
-          </Text>
+          </span>
         )}
-      </Paper>
-    </>
+      </Surface>
+    </div>
   );
 }

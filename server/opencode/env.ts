@@ -18,7 +18,9 @@ import { boardConfigOverlay } from '../../shared/agent/tools.js';
 export function opencodeEnv(
   base: NodeJS.ProcessEnv,
   policy: Record<string, boolean> | undefined,
-  policyFile?: string
+  policyFile?: string,
+  agentPolicy?: Record<string, Record<string, boolean>>,
+  skillPolicy?: Record<string, boolean>
 ): NodeJS.ProcessEnv {
   // The board's token is for clients of the board, not for the agent's shell.
   if ('BOARD_TOKEN' in base) {
@@ -26,10 +28,10 @@ export function opencodeEnv(
     base = rest;
   }
   if (policyFile) return { ...base, OPENCODE_CONFIG: policyFile };
-  const overlay = boardConfigOverlay(policy);
-  if (!overlay.tools) return base;
+  const overlay = boardConfigOverlay(policy, agentPolicy, skillPolicy);
+  if (!overlay.tools && !overlay.agent && !overlay.permission) return base;
 
-  // Anything the user set by hand stays; the board only adds its tool map.
+  // Anything the user set by hand stays; the board only adds its tool/agent/skill maps.
   let existing: Record<string, unknown> = {};
   if (base.OPENCODE_CONFIG_CONTENT) {
     try {
@@ -44,12 +46,47 @@ export function opencodeEnv(
     existing.tools && typeof existing.tools === 'object' && !Array.isArray(existing.tools)
       ? (existing.tools as Record<string, boolean>)
       : {};
+  const existingAgent =
+    existing.agent && typeof existing.agent === 'object' && !Array.isArray(existing.agent)
+      ? (existing.agent as Record<string, Record<string, unknown>>)
+      : {};
+  const existingPermission =
+    existing.permission && typeof existing.permission === 'object' && !Array.isArray(existing.permission)
+      ? (existing.permission as Record<string, unknown>)
+      : {};
+  const existingSkillPermission =
+    existingPermission.skill &&
+    typeof existingPermission.skill === 'object' &&
+    !Array.isArray(existingPermission.skill)
+      ? (existingPermission.skill as Record<string, unknown>)
+      : {};
+
+  const mergedAgent: Record<string, unknown> = { ...existingAgent };
+  for (const [id, entry] of Object.entries(overlay.agent || {})) {
+    const prev = existingAgent[id] && typeof existingAgent[id] === 'object' ? existingAgent[id] : {};
+    const prevTools =
+      prev.tools && typeof prev.tools === 'object' && !Array.isArray(prev.tools)
+        ? (prev.tools as Record<string, boolean>)
+        : {};
+    mergedAgent[id] = { ...prev, tools: { ...prevTools, ...entry.tools } };
+  }
 
   return {
     ...base,
     OPENCODE_CONFIG_CONTENT: JSON.stringify({
       ...existing,
-      tools: { ...existingTools, ...overlay.tools }
+      ...(overlay.tools || Object.keys(existingTools).length > 0
+        ? { tools: { ...existingTools, ...(overlay.tools || {}) } }
+        : {}),
+      ...(Object.keys(mergedAgent).length > 0 ? { agent: mergedAgent } : {}),
+      ...(overlay.permission
+        ? {
+            permission: {
+              ...existingPermission,
+              skill: { ...existingSkillPermission, ...overlay.permission.skill }
+            }
+          }
+        : {})
     })
   };
 }

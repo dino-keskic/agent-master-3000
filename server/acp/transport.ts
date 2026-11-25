@@ -41,9 +41,19 @@ function retryDelay(failures: number): number {
  * use, which can happen before — or after — the server has loaded its state.
  */
 let toolPolicySource: () => Record<string, boolean> = () => ({});
+let agentToolPolicySource: () => Record<string, Record<string, boolean>> = () => ({});
+let skillPolicySource: () => Record<string, boolean> = () => ({});
 
 export function setToolPolicySource(source: () => Record<string, boolean>): void {
   toolPolicySource = source;
+}
+
+export function setAgentToolPolicySource(source: () => Record<string, Record<string, boolean>>): void {
+  agentToolPolicySource = source;
+}
+
+export function setSkillPolicySource(source: () => Record<string, boolean>): void {
+  skillPolicySource = source;
 }
 
 /**
@@ -132,7 +142,7 @@ export class AcpTransport {
 
   /** True when settings hold a tool policy the running agent has not picked up. */
   policyPending(): boolean {
-    return toolPolicySignature(toolPolicySource()) !== this.appliedToolPolicy;
+    return toolPolicySignature(toolPolicySource(), agentToolPolicySource(), skillPolicySource()) !== this.appliedToolPolicy;
   }
 
   /**
@@ -140,16 +150,18 @@ export class AcpTransport {
    * true when that was possible: an OpenCode 2 watching the board's file picks
    * the change up on its next turn. Otherwise the policy waits for `restart`.
    */
-  applyToolPolicyLive(): boolean {
+  applyToolPolicyLive(forceTouch = false): boolean {
     if (!this.child || !this.policyFile) return false;
     const policy = toolPolicySource();
+    const agentPolicy = agentToolPolicySource();
+    const skillPolicy = skillPolicySource();
     try {
-      writeBoardPolicyFile(policy, this.policyFile);
+      writeBoardPolicyFile(policy, this.policyFile, agentPolicy, skillPolicy, { forceTouch });
     } catch (e) {
       console.warn('[ACP] Could not write the tool policy file:', e);
       return false;
     }
-    this.appliedToolPolicy = toolPolicySignature(policy);
+    this.appliedToolPolicy = toolPolicySignature(policy, agentPolicy, skillPolicy);
     return true;
   }
 
@@ -255,14 +267,16 @@ export class AcpTransport {
     try {
       const [bin, args] = acpCommand();
       const policy = toolPolicySource();
+      const agentPolicy = agentToolPolicySource();
+      const skillPolicy = skillPolicySource();
       const base = childBaseEnv(isOpencodeAcp(bin, args, opencodeBin()) ? opencodeVersion(bin, process.env) : undefined);
-      this.appliedToolPolicy = toolPolicySignature(policy);
+      this.appliedToolPolicy = toolPolicySignature(policy, agentPolicy, skillPolicy);
       this.appliedConfigStamp = configStampSource();
-      this.policyFile = agentPolicyFile(bin, args, base, policy);
+      this.policyFile = agentPolicyFile(bin, args, base, policy, agentPolicy, skillPolicy);
       this.major = undefined;
       const child = spawn(bin, args, {
         stdio: ['pipe', 'pipe', 'pipe'],
-        env: opencodeEnv(base, policy, this.policyFile)
+        env: opencodeEnv(base, policy, this.policyFile, agentPolicy, skillPolicy)
       });
       this.child = child;
 

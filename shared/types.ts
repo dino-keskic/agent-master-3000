@@ -181,6 +181,8 @@ export interface TaskLogItem {
    */
   images?: PromptImage[];
   metadata?: Record<string, unknown>;
+  /** OpenCode message id this entry belongs to, so a fork can branch right at it. */
+  messageId?: string;
   /** The session this log belongs to when a task has multiple linked sessions. */
   sessionId?: string;
 }
@@ -386,6 +388,8 @@ export interface TaskSessionLink {
   logsOmitted?: boolean;
   /** Session this one was copied from, when it was a fork. */
   forkedFrom?: string;
+  /** Human label for where in the parent session this fork branched (e.g. "turn #3"). */
+  forkedAtLabel?: string;
   /** How this session came to exist — drives the badge in the sessions list. */
   origin?: SessionOrigin;
   /** Working folder for this session when it is not the task's cwd. */
@@ -395,6 +399,14 @@ export interface TaskSessionLink {
   /** Last assistant turn occupancy for this session, not the task's primary. */
   contextTokens?: number;
   contextLimit?: number;
+  /** Active assistant run duration (ms) recorded for this session. */
+  durationMs?: number;
+  /** Start timestamp (ms) of an in-flight assistant turn, for live ticking. */
+  activeTurnStartedAt?: number;
+  /** Start timestamp (ms) of the latest user prompt in this session. */
+  lastPromptStartedAt?: number;
+  /** Elapsed ms from the latest user prompt to completion of the agent's final response. */
+  lastTurnDurationMs?: number;
   /** Set when a stage transition retired this session; it stays readable. */
   archivedAt?: number;
   error?: string;
@@ -479,6 +491,14 @@ export interface BoardTask {
   contextTokens?: number;
   /** Context window OpenCode is using (opencode.json override, else catalog). */
   contextLimit?: number;
+  /** Active assistant run duration (ms) recorded for this task's session. */
+  durationMs?: number;
+  /** Start timestamp (ms) of an in-flight assistant turn, for live ticking. */
+  activeTurnStartedAt?: number;
+  /** Start timestamp (ms) of the latest user prompt in this task's primary session. */
+  lastPromptStartedAt?: number;
+  /** Elapsed ms from the latest user prompt to completion of the agent's final response. */
+  lastTurnDurationMs?: number;
   cwdExists?: boolean;
   cwdDirty?: boolean;
   worktreeLabel?: string;
@@ -537,6 +557,16 @@ export interface GlobalSettings {
    * tool list rather than refused after it has already been called.
    */
   toolPolicy?: Record<string, boolean>;
+  /**
+   * Per-agent tool overrides for built-in or config-defined agents that do
+   * not have a markdown file of their own, keyed by agent id -> tool rule.
+   */
+  agentToolPolicy?: Record<string, Record<string, boolean>>;
+  /**
+   * Skills toggled off on the fly, keyed by skill name. `false` disables a
+   * skill via OpenCode's `permission.skill.<name> = "deny"` config overlay.
+   */
+  skillPolicy?: Record<string, boolean>;
 }
 
 export interface BoardState {

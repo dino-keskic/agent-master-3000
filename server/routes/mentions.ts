@@ -2,6 +2,7 @@ import { Express, Request, Response } from 'express';
 import { MENTION_EXTRAS, MentionItem, mentionNeedsUrl, parseMentionKind } from '../../shared/trackers/mentions.js';
 import { listAgentCommands } from '../opencode/commands.js';
 import { boardRoots } from '../board/queries.js';
+import { taskStore } from '../board/taskStore.js';
 import { searchFiles } from '../git/files.js';
 import { route } from '../http/app.js';
 import { mentionContext, resolveMention, searchMentions } from '../trackers/index.js';
@@ -70,6 +71,6 @@ export function registerMentionRoutes(app: Express): void {
   app.get('/api/agent-commands', route(async (req: Request, res: Response) => {
     const cwd = queryString(req, 'cwd');
     const resolved = cwd ? resolveWithinRoots(cwd, boardRoots()) : null;
-    res.json(listAgentCommands(resolved || undefined));
+    res.json(listAgentCommands(resolved || undefined, taskStore.getSettings().skillPolicy));
   }));
 }

@@ -1,6 +1,8 @@
 import React from 'react';
 import { ScrollArea } from '@mantine/core';
+import { Zap } from 'lucide-react';
 import { BoardColumn, BoardTask } from '../../../shared/types';
+import { columnRunsOnDrop } from '../../../shared/board/columns';
 import { TaskChangeSummary } from '../../../shared/git/changeSummary';
 import { TaskCard } from '../card/TaskCard';
 import { ColumnPanelHeader } from './ColumnPanelHeader';
@@ -45,14 +47,15 @@ export const ColumnPanel: React.FC<ColumnPanelProps> = ({
   focusedTaskId
 }) => {
   const isHovered = drag.overColumnId === column.id;
+  const autoRuns = columnRunsOnDrop(column);
 
   return (
     <section
       onDragOver={(e) => drag.onColumnDragOver(e, column.id)}
       onDragLeave={() => drag.onColumnDragLeave(column.id)}
       onDrop={(e) => drag.onColumnDrop(e, column.id)}
-      className={`glass-panel rounded-[20px] p-3 flex flex-col border ${
-        isHovered ? 'border-line-strong' : ''
+      className={`glass-panel rounded-[20px] p-3 flex flex-col flex-1 border ${
+        isHovered ? 'border-acc-bd bg-acc-bg' : ''
       } transition-all duration-150 min-w-0`}
     >
       <ColumnPanelHeader
@@ -90,10 +93,24 @@ export const ColumnPanel: React.FC<ColumnPanelProps> = ({
           ))}
 
           {tasks.length === 0 && (
-            <div className="flex flex-col items-center justify-center text-center gap-2 p-7 rounded-[10px] border-2 border-dashed border-dash min-h-[190px]">
-              <span className="text-[12px] text-ink-3">
+            <div
+              className={`flex flex-col items-center justify-center text-center gap-2 p-7 rounded-[12px] border-2 border-dashed min-h-[190px] transition-colors ${
+                isHovered ? 'border-acc-bd bg-acc-bg' : 'border-dash'
+              }`}
+            >
+              <span className="text-[12.5px] font-medium text-ink-3">
                 No tasks in {column.title}
               </span>
+              {autoRuns ? (
+                <span className="inline-flex items-center gap-1 text-[11px] text-acc-fg">
+                  <Zap className="w-3 h-3" />
+                  Drop a task here to auto-run
+                </span>
+              ) : (
+                !isInbox && (
+                  <span className="text-[11px] text-ink-4">Drag a task here</span>
+                )
+              )}
               {isInbox && (
                 <button type="button" className="hdr-btn h-7 px-2.5 text-[12px]" onClick={onNewTask}>
                   + New task

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { BoardTask } from '../../shared/types';
-import { hrefWithTasks, taskIdsFromSearch } from '../../shared/board/deepLink';
+import { hrefWithTasks, sessionIdFromSearch, taskIdsFromSearch } from '../../shared/board/deepLink';
 import {
   closeTask,
   EMPTY_LAYOUT,
@@ -53,7 +53,11 @@ export function useOpenTasks(
   applySnapshot: (task: BoardTask) => void
 ): OpenTasks {
   const [stored, setLayout] = useState<SplitLayout>(() => layoutOf(taskIdsFromSearch(window.location.search)));
-  const [focusSessionIds, setFocusSessionIds] = useState<Record<string, string>>({});
+  const [focusSessionIds, setFocusSessionIds] = useState<Record<string, string>>(() => {
+    const firstTaskId = taskIdsFromSearch(window.location.search)[0];
+    const sessionId = sessionIdFromSearch(window.location.search);
+    return firstTaskId && sessionId ? { [firstTaskId]: sessionId } : {};
+  });
 
   // A panel whose task left the board closes during render, so no frame is
   // painted with a gap. Before the first load there is no board to judge by,

@@ -7,11 +7,56 @@
   position: relative;
   display: flex;
   flex-direction: column;
-  gap: 5px;
-  padding: 11px 13px 10px;
+  gap: 6px;
+  padding: 10px 12px;
   border-radius: 14px;
   overflow: hidden;
   cursor: pointer;
+  transition: border-color 0.14s ease, background-color 0.14s ease, box-shadow 0.14s ease;
+}
+
+.task-card-top {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 5px;
+  min-width: 0;
+  padding-right: 52px;
+}
+
+.task-card-id {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: rgb(var(--c-ink-4));
+}
+
+.task-card-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  height: 17px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--s3);
+  border: 1px solid var(--hairline);
+  color: rgb(var(--c-ink-3));
+  font-size: 10.5px;
+  font-weight: 500;
+  line-height: 1;
+}
+
+.task-card-pill.is-note {
+  background: var(--wait-bg);
+  border-color: var(--wait-bd);
+  color: var(--wait-fg);
+}
+
+.task-card-pill.is-queue {
+  background: var(--acc-bg);
+  border-color: var(--acc-bd);
+  color: var(--acc-fg);
 }
 
 .task-card-title {
@@ -19,12 +64,27 @@
   margin: 0;
   overflow: hidden;
   color: rgb(var(--c-ink));
-  font-size: 14px;
+  font-size: 13.5px;
   font-weight: 600;
   line-height: 1.35;
   letter-spacing: -0.005em;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
+}
+
+.task-card-progress {
+  width: 100%;
+  height: 2px;
+  border-radius: 999px;
+  background: var(--s3);
+  overflow: hidden;
+}
+
+.task-card-progress-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: var(--run);
+  transition: width 0.25s ease;
 }
 
 .task-card-status {

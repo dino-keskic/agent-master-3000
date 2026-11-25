@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { CornerDownLeft, Plus, Search } from 'lucide-react';
+import { CornerDownLeft, Plus, Search, X } from 'lucide-react';
 import { BoardColumn, BoardTask, TaskRunState } from '../../../shared/types';
 import {
   PaletteResult,
@@ -130,7 +130,15 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
             spellCheck={false}
             autoComplete="off"
           />
-          <span className="kbd">esc</span>
+          <span className="kbd hidden sm:inline-flex">esc</span>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close palette"
+            className="icon-btn sm:hidden shrink-0"
+          >
+            <X className="w-4 h-4" />
+          </button>
         </div>
 
         <div className="palette-list" ref={listRef} role="listbox">

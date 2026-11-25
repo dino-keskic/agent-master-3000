@@ -96,6 +96,10 @@ export interface SessionToolInventory {
   error?: string;
   /** The board's overrides, exactly as stored in settings. */
   policy: Record<string, boolean>;
+  /** Global `tools` rules from OpenCode's config (before agent-specific rules). */
+  globalTools?: Record<string, boolean>;
+  /** Per-agent tool maps from OpenCode's resolved snapshot, keyed by agent id. */
+  agentToolsByAgent?: Record<string, Record<string, boolean>>;
   /** OpenCode 2: what the configs merged after the board's file say (`readV2ToolConfig`). */
   overrides?: Record<string, boolean>;
   /**
@@ -228,8 +232,27 @@ export function toolUsage(logs: TaskLogItem[] | undefined, sessionId?: string): 
  * A stable identity for a policy, so the board can tell whether the agent
  * process it started is still running the policy in settings.
  */
-export function toolPolicySignature(policy: Record<string, boolean> | undefined): string {
+export function toolPolicySignature(
+  policy: Record<string, boolean> | undefined,
+  agentPolicy?: Record<string, Record<string, boolean>>,
+  skillPolicy?: Record<string, boolean>
+): string {
   const entries = Object.entries(policy || {}).sort(([a], [b]) => a.localeCompare(b));
+  const agentEntries = Object.entries(agentPolicy || {})
+    .filter(([, map]) => map && Object.keys(map).length > 0)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([id, map]) => [id, Object.entries(map).sort(([a], [b]) => a.localeCompare(b))]);
+  const disabledSkills = Object.entries(skillPolicy || {})
+    .filter(([, value]) => value === false)
+    .map(([name]) => name)
+    .sort((a, b) => a.localeCompare(b));
+  if (agentEntries.length > 0 || disabledSkills.length > 0) {
+    return JSON.stringify({
+      entries,
+      ...(agentEntries.length > 0 ? { agentEntries } : {}),
+      ...(disabledSkills.length > 0 ? { disabledSkills } : {})
+    });
+  }
   return JSON.stringify(entries);
 }
 
@@ -238,11 +261,18 @@ export function toolPolicySignature(policy: Record<string, boolean> | undefined)
  * A switched-off plugin is a `-id` entry in `plugins` (OpenCode 2, verified on
  * 2.0.24: removing it from a watched file takes its tools away live). Turning
  * one back on is dropping the entry — the board cannot load a plugin the
- * user's config does not.
+ * user's config does not. A switched-off skill becomes a `deny` entry under
+ * `permission.skill`.
  */
-export function boardConfigOverlay(policy: Record<string, boolean> | undefined): {
+export function boardConfigOverlay(
+  policy: Record<string, boolean> | undefined,
+  agentPolicy?: Record<string, Record<string, boolean>>,
+  skillPolicy?: Record<string, boolean>
+): {
   tools?: Record<string, boolean>;
+  agent?: Record<string, { tools: Record<string, boolean> }>;
   plugins?: string[];
+  permission?: { skill: Record<string, 'deny'> };
 } {
   const tools: Record<string, boolean> = {};
   const plugins: string[] = [];
@@ -251,21 +281,47 @@ export function boardConfigOverlay(policy: Record<string, boolean> | undefined):
     if (plugin === undefined) tools[rule] = value;
     else if (!value) plugins.push(`-${plugin}`);
   }
+  const agent: Record<string, { tools: Record<string, boolean> }> = {};
+  for (const [agentId, map] of Object.entries(agentPolicy || {})) {
+    if (map && Object.keys(map).length > 0) agent[agentId] = { tools: map };
+  }
+  const disabledSkills = Object.entries(skillPolicy || {})
+    .filter(([, value]) => value === false)
+    .map(([name]) => name)
+    .sort((a, b) => a.localeCompare(b));
+  const skillPermission: Record<string, 'deny'> = {};
+  for (const name of disabledSkills) {
+    skillPermission[name] = 'deny';
+  }
   return {
     ...(Object.keys(tools).length ? { tools } : {}),
-    ...(plugins.length ? { plugins: plugins.sort() } : {})
+    ...(Object.keys(agent).length ? { agent } : {}),
+    ...(plugins.length ? { plugins: plugins.sort() } : {}),
+    ...(disabledSkills.length ? { permission: { skill: skillPermission } } : {})
   };
 }
+
+export type ToolStatusFilter = 'all' | 'on' | 'off';
 
 /**
  * The filter box on the tools panel. It searches descriptions as well as names
  * because that is how you find a tool you only know the purpose of.
  * An empty filter matches everything.
  */
-export function filterTools(tools: SessionTool[], filter: string): SessionTool[] {
+export function filterTools(
+  tools: SessionTool[],
+  filter: string,
+  status: ToolStatusFilter = 'all'
+): SessionTool[] {
+  const byStatus =
+    status === 'on'
+      ? tools.filter((tool) => tool.enabled)
+      : status === 'off'
+        ? tools.filter((tool) => !tool.enabled)
+        : tools;
   const needle = filter.trim().toLowerCase();
-  if (!needle) return tools;
-  return tools.filter(
+  if (!needle) return byStatus;
+  return byStatus.filter(
     (tool) =>
       tool.name.toLowerCase().includes(needle) || (tool.description || '').toLowerCase().includes(needle)
   );
@@ -279,11 +335,16 @@ export function filterTools(tools: SessionTool[], filter: string): SessionTool[]
 export function filterServers(
   servers: McpServerInfo[],
   withTools: string[],
-  filter: string
+  filter: string,
+  status: ToolStatusFilter = 'all'
 ): McpServerInfo[] {
+  if (status === 'on') return [];
   const needle = filter.trim().toLowerCase();
   return servers.filter(
-    (server) => !withTools.includes(server.name) && (!needle || server.name.toLowerCase().includes(needle))
+    (server) =>
+      !withTools.includes(server.name) &&
+      (status !== 'off' || server.status !== 'connected') &&
+      (!needle || server.name.toLowerCase().includes(needle))
   );
 }
 

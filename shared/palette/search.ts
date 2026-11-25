@@ -188,13 +188,6 @@ export function searchPalette(
         b.entry.updatedAt - a.entry.updatedAt
     )
     .slice(0, PALETTE_TASK_LIMIT);
-  if (matchedTasks.length) {
-    sections.push({
-      label: 'Tasks',
-      results: matchedTasks.map(({ entry }) => ({ kind: 'task', id: `task:${entry.taskId}`, task: entry }))
-    });
-  }
-
   const matchedCommands = commands
     .map((command) => ({
       command,
@@ -205,11 +198,31 @@ export function searchPalette(
     }))
     .filter((hit) => hit.score > 0)
     .sort((a, b) => b.score - a.score);
-  if (matchedCommands.length) {
-    sections.push({
-      label: 'Commands',
-      results: matchedCommands.map(({ command }) => ({ kind: 'command', id: `command:${command.id}`, command }))
-    });
+
+  const tasksSection: PaletteSection | null = matchedTasks.length
+    ? {
+        label: 'Tasks',
+        results: matchedTasks.map(({ entry }) => ({ kind: 'task', id: `task:${entry.taskId}`, task: entry }))
+      }
+    : null;
+  const commandsSection: PaletteSection | null = matchedCommands.length
+    ? {
+        label: 'Commands',
+        results: matchedCommands.map(({ command }) => ({ kind: 'command', id: `command:${command.id}`, command }))
+      }
+    : null;
+
+  // When a command matches at least as strongly as the best task (e.g. typing
+  // "agents", "skills", or "tools"), list Commands first so they are not buried
+  // under tasks that merely mention the word in a prompt.
+  const topTaskScore = matchedTasks[0]?.score ?? 0;
+  const topCommandScore = matchedCommands[0]?.score ?? 0;
+  if (commandsSection && topCommandScore >= topTaskScore) {
+    sections.push(commandsSection);
+    if (tasksSection) sections.push(tasksSection);
+  } else {
+    if (tasksSection) sections.push(tasksSection);
+    if (commandsSection) sections.push(commandsSection);
   }
 
   sections.push({ label: 'New', results: [{ kind: 'create', id: 'create', text }] });

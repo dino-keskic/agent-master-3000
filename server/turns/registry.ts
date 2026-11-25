@@ -31,6 +31,7 @@ export interface TurnOptions {
   isBtw?: boolean;
   title?: string;
   forkedFrom?: string;
+  forkedAtLabel?: string;
   costAtFork?: number;
   cwd?: string;
   projectId?: string;

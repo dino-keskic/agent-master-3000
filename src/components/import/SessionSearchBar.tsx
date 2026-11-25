@@ -1,21 +1,15 @@
 import React from 'react';
-import { ActionIcon, Group, Select, TextInput, Tooltip } from '@mantine/core';
-import { ArrowUpDown, Folder, RefreshCw, Search, X } from 'lucide-react';
+import { Tooltip } from '@mantine/core';
+import { ArrowUpDown, Folder, RefreshCw } from 'lucide-react';
 import { ProjectFolder } from '../../../shared/types';
 import { SessionSortOption } from '../../../shared/sessions/import';
-
-/** Mantine's dark inputs, which the modal uses in three places. */
-const INPUT_STYLE = {
-  backgroundColor: 'rgb(var(--c-surface-2))',
-  borderColor: 'rgb(var(--c-line-strong))',
-  color: 'rgb(var(--c-ink))'
-};
+import { InlineSelect, SearchInput, Surface } from '../ui';
 
 const SORT_OPTIONS: { value: SessionSortOption; label: string }[] = [
-  { value: 'recent', label: 'Recent Activity' },
-  { value: 'tokens', label: 'Most Tokens' },
-  { value: 'cost', label: 'Highest Cost' },
-  { value: 'changes', label: 'Most Changes' }
+  { value: 'recent', label: 'Recent activity' },
+  { value: 'tokens', label: 'Most tokens' },
+  { value: 'cost', label: 'Highest cost' },
+  { value: 'changes', label: 'Most changes' }
 ];
 
 /** Every project, plus the "no filter" entry the modal opens on. */
@@ -45,59 +39,54 @@ export const SessionSearchBar: React.FC<SessionSearchBarProps> = ({
   isLoading,
   onRefresh
 }) => (
-  <Group gap="sm" align="center" wrap="wrap">
-    <TextInput
+  <div className="flex items-center justify-between gap-2.5 flex-wrap">
+    <SearchInput
       size="sm"
-      className="flex-1 min-w-[280px]"
-      placeholder="Search sessions by title, model, or directory…"
       value={query}
-      onChange={(e) => onQueryChange(e.target.value)}
-      leftSection={<Search className="w-4 h-4 text-ink-2" />}
-      rightSection={
-        query ? (
-          <ActionIcon size="xs" variant="subtle" color="gray" onClick={() => onQueryChange('')}>
-            <X className="w-3.5 h-3.5" />
-          </ActionIcon>
-        ) : null
-      }
-      styles={{ input: { ...INPUT_STYLE, fontSize: '13px' } }}
+      onChange={onQueryChange}
+      placeholder="Search sessions by title, model, or directory…"
+      containerClassName="flex-1 min-w-[260px]"
     />
 
-    <Group gap="xs" wrap="nowrap">
+    <Surface level="s1" border="default" radius="md" className="flex items-center gap-2 px-2.5 py-0.5">
       {projects.length > 1 && (
-        <Select
-          size="sm"
-          aria-label="Project"
-          value={projectId}
-          data={[
-            { value: ALL_PROJECTS, label: `All Projects (${projects.length})` },
-            ...projects.map((p) => ({ value: p.id, label: p.name }))
-          ]}
-          onChange={(val) => val && onProjectChange(val)}
-          allowDeselect={false}
-          leftSection={<Folder className="w-3.5 h-3.5 text-accent" />}
-          className="w-[180px]"
-          styles={{ input: { ...INPUT_STYLE, fontSize: '12px' } }}
-        />
+        <>
+          <InlineSelect
+            label="Project"
+            icon={<Folder className="w-3.5 h-3.5 text-acc-fg" />}
+            value={projectId}
+            options={[
+              { value: ALL_PROJECTS, label: `All projects (${projects.length})` },
+              ...projects.map((p) => ({ value: p.id, label: p.name }))
+            ]}
+            onChange={onProjectChange}
+            searchable={projects.length > 8}
+          />
+          <span className="h-3.5 w-px bg-line" />
+        </>
       )}
 
-      <Select
-        size="sm"
-        aria-label="Sort by"
+      <InlineSelect
+        label="Sort by"
+        icon={<ArrowUpDown className="w-3.5 h-3.5 text-ink-3" />}
         value={sortBy}
-        data={SORT_OPTIONS}
-        onChange={(val) => val && onSortChange(val as SessionSortOption)}
-        allowDeselect={false}
-        leftSection={<ArrowUpDown className="w-3.5 h-3.5 text-ink-2" />}
-        className="w-[160px]"
-        styles={{ input: { ...INPUT_STYLE, fontSize: '12px' } }}
+        options={SORT_OPTIONS}
+        onChange={(val) => onSortChange(val as SessionSortOption)}
       />
 
+      <span className="h-3.5 w-px bg-line" />
+
       <Tooltip label="Refresh sessions" withArrow>
-        <ActionIcon variant="light" color="accent" size="lg" onClick={onRefresh} disabled={isLoading}>
-          <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
-        </ActionIcon>
+        <button
+          type="button"
+          className="icon-btn w-7 h-7"
+          onClick={onRefresh}
+          disabled={isLoading}
+          aria-label="Refresh sessions"
+        >
+          <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} />
+        </button>
       </Tooltip>
-    </Group>
-  </Group>
+    </Surface>
+  </div>
 );

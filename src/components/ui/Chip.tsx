@@ -1,18 +1,19 @@
 import React from 'react';
 
 /**
- * The quiet mono chip on a card — model, agent, a session's kind, a project.
- * The paint is `.chip` in `src/index.css`. `tone` is only for a state that
- * already has a color on the board (a running session, an accent selection),
- * not a new color per kind of thing.
+ * The quiet mono chip on a card — model, agent, a session's kind, a project, or
+ * a status badge. The paint is `.chip` in `src/index.css`. `tone` maps to the
+ * board's semantic states (`accent`, `run`, `wait`, `err`).
  */
 
-export type ChipTone = 'neutral' | 'accent' | 'run';
+export type ChipTone = 'neutral' | 'accent' | 'run' | 'wait' | 'err';
 
 const TONE: Record<ChipTone, string> = {
   neutral: 'chip',
   accent: 'chip is-accent',
-  run: 'chip is-run'
+  run: 'chip is-run',
+  wait: 'chip is-wait',
+  err: 'chip is-err'
 };
 
 export const Chip = React.forwardRef<

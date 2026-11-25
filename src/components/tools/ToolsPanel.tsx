@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Group, Loader, ScrollArea } from '@mantine/core';
+import { ToolStatusFilter } from '../../../shared/agent/tools';
 import { ToolRestartBanner } from './ToolRestartBanner';
 import { ToolsHeader } from './ToolsHeader';
 import { ToolsList } from './ToolsList';
@@ -15,19 +16,22 @@ import { useSessionTools } from './useSessionTools';
  */
 
 interface ToolsPanelProps {
-  taskId: string;
+  taskId?: string;
   sessionId?: string;
+  cwd?: string;
   /** The agent's tool list only changes between turns, so this drives a refresh. */
   running?: boolean;
 }
 
-export const ToolsPanel: React.FC<ToolsPanelProps> = ({ taskId, sessionId, running = false }) => {
+export const ToolsPanel: React.FC<ToolsPanelProps> = ({ taskId, sessionId, cwd, running = false }) => {
   const { inventory, loading, busy, restarting, needsForce, reload, save, restart } = useSessionTools(
     taskId,
     sessionId,
-    running
+    running,
+    cwd
   );
   const [filter, setFilter] = useState('');
+  const [status, setStatus] = useState<ToolStatusFilter>('all');
 
   return (
     <div className="flex flex-col min-h-0 flex-1">
@@ -35,6 +39,8 @@ export const ToolsPanel: React.FC<ToolsPanelProps> = ({ taskId, sessionId, runni
         inventory={inventory}
         filter={filter}
         onFilterChange={setFilter}
+        status={status}
+        onStatusChange={setStatus}
         onRefresh={() => reload(true)}
       />
 
@@ -48,7 +54,14 @@ export const ToolsPanel: React.FC<ToolsPanelProps> = ({ taskId, sessionId, runni
             <Loader size="sm" color="gray" />
           </Group>
         ) : inventory ? (
-          <ToolsList inventory={inventory} filter={filter} busy={busy} onSave={save} />
+          <ToolsList
+            inventory={inventory}
+            filter={filter}
+            status={status}
+            busy={busy}
+            onSave={save}
+            onRetry={() => reload(true)}
+          />
         ) : null}
       </ScrollArea>
     </div>

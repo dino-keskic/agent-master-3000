@@ -98,6 +98,8 @@ export const DiffView: React.FC<DiffViewProps> = ({
         workspaces={workspaces}
         onScope={view.pickScope}
         onReload={view.reload}
+        onExpandAll={view.expandAll}
+        onCollapseAll={view.collapseAll}
       />
 
       <ScrollArea className="flex-1 min-h-0">

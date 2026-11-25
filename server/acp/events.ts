@@ -1,9 +1,16 @@
-import { PendingRequest, PromptImage, TaskLogItem, TaskLogType } from '../../shared/types.js';
+import { PendingRequest, PromptImage, SessionChoice, TaskLogItem, TaskLogType } from '../../shared/types.js';
 import { newId } from '../../shared/ids.js';
 
 /** Something the agent did that the board needs to know about. */
 export interface AcpEvent {
-  type: 'log' | 'status_change' | 'error' | 'session_bound' | 'awaiting_input' | 'session_info';
+  type:
+    | 'log'
+    | 'status_change'
+    | 'error'
+    | 'session_bound'
+    | 'session_recovered'
+    | 'awaiting_input'
+    | 'session_info';
   log?: TaskLogItem;
   error?: string;
   /**
@@ -12,8 +19,12 @@ export interface AcpEvent {
    * a task id alone would collapse them all into one state.
    */
   sessionId?: string;
-  /** Set on 'session_bound': this session is the task's primary one. */
+  /** Set on 'session_recovered': the overflowed session being replaced. */
+  previousSessionId?: string;
+  /** Set on 'session_bound' / 'session_recovered': this session is the task's primary one. */
   primary?: boolean;
+  costAtFork?: number;
+  chosen?: SessionChoice;
   /** Set on 'awaiting_input': the agent is blocked until the user answers. */
   request?: PendingRequest;
   /** Set on 'session_info': OpenCode renamed the session. */
@@ -133,6 +144,38 @@ export function compactFailed(sessionId: string, error: unknown): AcpEvent {
     sessionId,
     error: message,
     log: note('error', 'Compact Failed', `Could not compact this session: ${message || String(error)}`, sessionId)
+  };
+}
+
+export function sessionRecovered(input: {
+  previousSessionId: string;
+  sessionId: string;
+  primary: boolean;
+  costAtFork: number;
+  chosen?: SessionChoice;
+  removedImages: number;
+  keptImages: number;
+  model?: string;
+  maxAllowed?: number;
+}): AcpEvent {
+  const capNote = input.model && input.maxAllowed
+    ? ` (${input.model} allows max ${input.maxAllowed})`
+    : input.maxAllowed
+      ? ` (model allows max ${input.maxAllowed})`
+      : '';
+  return {
+    type: 'session_recovered',
+    previousSessionId: input.previousSessionId,
+    sessionId: input.sessionId,
+    primary: input.primary,
+    costAtFork: input.costAtFork,
+    chosen: input.chosen,
+    log: note(
+      'info',
+      'Trimmed older images',
+      `Removed ${input.removedImages} older image(s) from session history, kept ${input.keptImages}${capNote}, and continued cleanly.`,
+      input.sessionId
+    )
   };
 }
 

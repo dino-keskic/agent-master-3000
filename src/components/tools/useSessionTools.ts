@@ -26,33 +26,42 @@ export interface SessionTools {
 }
 
 export function useSessionTools(
-  taskId: string,
+  taskId: string | undefined,
   sessionId: string | undefined,
-  running: boolean
+  running: boolean,
+  cwd?: string
 ): SessionTools {
   const [inventory, setInventory] = useState<SessionToolInventory | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [restarting, setRestarting] = useState(false);
   const [needsForce, setNeedsForce] = useState(false);
+  const loadSeq = useRef(0);
 
   const load = useCallback(
     async (showSpinner: boolean, refresh = false) => {
+      const seq = ++loadSeq.current;
       if (showSpinner) setLoading(true);
       try {
-        setInventory(await api.getSessionTools(taskId, sessionId, refresh));
+        const next = await api.getSessionTools(taskId, sessionId, refresh, cwd);
+        if (loadSeq.current !== seq) return;
+        setInventory(next);
       } catch (e) {
+        if (loadSeq.current !== seq) return;
         reportError('Could not read the session tools', e);
         setInventory(null);
       } finally {
-        setLoading(false);
+        if (loadSeq.current === seq) setLoading(false);
       }
     },
-    [taskId, sessionId]
+    [taskId, sessionId, cwd]
   );
 
   useEffect(() => {
     void load(true);
+    return () => {
+      loadSeq.current += 1;
+    };
   }, [load]);
 
   // Usage counts move while a turn runs; the catalog behind them does not.

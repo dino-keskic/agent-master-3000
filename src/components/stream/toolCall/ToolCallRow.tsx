@@ -73,15 +73,15 @@ export function ToolCallRow({
         ) : (
           <span className={`${style.color} shrink-0`}>{kindIcon(info.kind, info.name)}</span>
         )}
-        <span className="tool-name font-mono font-medium text-ink shrink-0">
+        <span className="text-[12px] font-mono font-medium text-ink shrink-0">
           {info.name}
         </span>
         {skill && <SkillChip name={skill} />}
         {opensChild && info.subagentName && (
-          <span className="tool-name font-mono text-acc-fg shrink-0">{info.subagentName}</span>
+          <span className="text-[12px] font-medium text-link shrink-0">{info.subagentName}</span>
         )}
         {summary && (
-          <span className="tool-name font-mono text-ink-3 truncate min-w-0" title={summary}>
+          <span className="text-[12.5px] text-ink-3 truncate min-w-0" title={summary}>
             {summary}
           </span>
         )}
@@ -89,13 +89,13 @@ export function ToolCallRow({
 
       <Group gap={6} wrap="nowrap" className="shrink-0">
         {opensChild && (
-          <span className="flex items-center gap-1 text-acc-fg">
+          <span className="flex items-center gap-1 text-link">
             <Users className="w-3 h-3" />
             <CornerDownRight className="w-3 h-3" />
           </span>
         )}
         {info.status === 'in_progress' ? (
-          <span className="type-meta text-run-fg tabular-nums">
+          <span className="text-[11px] text-run-fg tabular-nums">
             running <LiveElapsed startedAt={timestamp} />
           </span>
         ) : (
@@ -103,7 +103,7 @@ export function ToolCallRow({
             <Tooltip label={style.label} withArrow position="left">
               <span className="flex items-center"><StatusIcon status={info.status} /></span>
             </Tooltip>
-            <span className="type-meta text-ink-3">
+            <span className="hidden sm:inline text-[11px] text-ink-4 tabular-nums">
               {new Date(timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
             </span>
           </>

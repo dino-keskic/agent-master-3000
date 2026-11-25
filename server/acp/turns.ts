@@ -1,7 +1,9 @@
 import { BoardTask, PromptImage, SessionChoice } from '../../shared/types.js';
 import { listTaskSessions } from '../../shared/task/sessions.js';
 import { promptBlocks } from '../../shared/composer/promptImages.js';
+import { imageKeepBudget, parseImageLimitError } from '../../shared/sessions/imageLimit.js';
 import { loadImageData } from '../board/attachments.js';
+import { cloneSessionWithoutExcessImages } from '../opencode/clone.js';
 import { ConfigOption, promptResultSchema, sessionResultSchema } from './schema.js';
 import { boardMcpServer } from '../mcp/boardMcp.js';
 import {
@@ -13,6 +15,7 @@ import {
   promptEcho,
   promptEchoTitle,
   sessionBound,
+  sessionRecovered,
   turnFailed,
   turnFinished,
   turnSuperseded
@@ -52,6 +55,12 @@ export interface StartTurnOptions {
   cwd?: string;
   /** Open and configure the session, then stop: no prompt, no turn. */
   openOnly?: boolean;
+}
+
+interface RecoveryContext {
+  isPrimary: boolean;
+  chosen?: SessionChoice;
+  cwd: string;
 }
 
 function messageOf(e: unknown): string {
@@ -119,7 +128,11 @@ export class TurnRunner {
     const prompt = promptMessage || (isNew ? (task.prompt || task.description || task.title) : 'Continue.');
     const images = options?.images || [];
     this.emit(task.id, promptEcho(sessionId, promptEchoTitle(!!promptMessage, !!options?.isBtw, isNew), prompt, images));
-    this.dispatch(task.id, sessionId, prompt, generation, images);
+    this.dispatch(task, sessionId, prompt, generation, images, {
+      isPrimary: target.makePrimary,
+      chosen,
+      cwd
+    });
     return sessionId;
   }
 
@@ -143,25 +156,52 @@ export class TurnRunner {
     this.registry.bind(sessionId, task.id);
     const generation = this.registry.nextGeneration(sessionId);
 
+    const cwd = task.cwd || process.cwd();
+    const isPrimary = sessionId === (this.registry.primaryOf(task.id) || task.sessionId);
+    const chosen = listTaskSessions(task).find((link) => link.sessionId === sessionId)?.chosen;
+    const context: RecoveryContext = { isPrimary, chosen, cwd };
+
+    let activeSessionId = sessionId;
+    let activeGeneration = generation;
+    const startedAt = Date.now();
+
     try {
       if (!this.registry.isLoaded(sessionId)) {
-        await this.sessions.importSession(task.id, sessionId, task.cwd || process.cwd(), {
+        await this.sessions.importSession(task.id, sessionId, cwd, {
           replayLogs: false,
           primary: sessionId === task.sessionId
         });
       }
       this.emit(task.id, compactStarted(sessionId, COMPACT_COMMAND));
 
-      const res = await this.sendPrompt(sessionId, [{ type: 'text', text: COMPACT_COMMAND }]);
-      if (this.settle(task.id, sessionId, generation)) return;
+      let res: unknown;
+      try {
+        res = await this.sendPrompt(sessionId, [{ type: 'text', text: COMPACT_COMMAND }]);
+      } catch (err) {
+        const recovered = await this.recoverImageLimitedSession(
+          task,
+          sessionId,
+          generation,
+          err,
+          0,
+          startedAt,
+          COMPACT_COMMAND,
+          context
+        );
+        if (!recovered) throw err;
+        activeSessionId = recovered.sessionId;
+        activeGeneration = recovered.generation;
+        res = await this.sendPrompt(activeSessionId, [{ type: 'text', text: COMPACT_COMMAND }]);
+      }
+      if (this.settle(task.id, activeSessionId, activeGeneration)) return;
 
       const stopReason = promptResultSchema.safeParse(res).data?.stopReason || 'end_turn';
       console.log(`[ACP] Task ${task.id} compact finished:`, stopReason);
-      this.emit(task.id, compactFinished(sessionId, stopReason));
+      this.emit(task.id, compactFinished(activeSessionId, stopReason));
     } catch (err) {
-      if (this.settle(task.id, sessionId, generation)) return;
+      if (this.settle(task.id, activeSessionId, activeGeneration)) return;
       console.error(`[ACP] Task ${task.id} compact error:`, err);
-      this.emit(task.id, compactFailed(sessionId, err));
+      this.emit(task.id, compactFailed(activeSessionId, err));
       throw err instanceof Error ? err : new Error(String(err));
     }
   }
@@ -231,36 +271,170 @@ export class TurnRunner {
    * can show the task as running.
    */
   private dispatch(
-    taskId: string,
+    task: BoardTask,
     sessionId: string,
     text: string,
     generation: number,
-    images: PromptImage[] = []
+    images: PromptImage[] = [],
+    context: RecoveryContext
   ): void {
     this.registry.clearCancelled(sessionId);
     // Nothing from an earlier turn can still be waiting for an answer, and a
     // leftover would sit at the head of this session's queue and swallow every
     // request this turn makes.
-    this.sessions.releaseParkedRequests(taskId, sessionId);
+    this.sessions.releaseParkedRequests(task.id, sessionId);
     this.registry.markInFlight(sessionId);
 
     // The bytes are read here and nowhere else: a queued turn waits as a list
     // of filenames, not as megabytes of base64 held for however long the turn
     // in front of it takes.
-    const prompt = promptBlocks(text, loadImageData(images));
+    const loadedImages = loadImageData(images);
+    const prompt = promptBlocks(text, loadedImages);
+    void this.runPromptTurn(task, sessionId, generation, prompt, text, loadedImages.length, context, false);
+  }
 
-    void this.sendPrompt(sessionId, prompt)
-      .then((res) => {
-        if (this.settle(taskId, sessionId, generation)) return;
-        const stopReason = promptResultSchema.safeParse(res).data?.stopReason || 'end_turn';
-        console.log(`[ACP] Task ${taskId} prompt finished:`, stopReason);
-        this.emit(taskId, turnFinished(sessionId, stopReason));
-      })
-      .catch((err: Error) => {
-        if (this.settle(taskId, sessionId, generation)) return;
-        console.error(`[ACP] Task ${taskId} prompt execution error:`, err);
-        this.emit(taskId, turnFailed(sessionId, err.message));
+  private async runPromptTurn(
+    task: BoardTask,
+    sessionId: string,
+    generation: number,
+    prompt: unknown[],
+    promptText: string,
+    newImageCount: number,
+    context: RecoveryContext,
+    retried: boolean
+  ): Promise<void> {
+    const turnStartedAt = Date.now();
+    try {
+      const res = await this.sendPrompt(sessionId, prompt);
+      if (this.settle(task.id, sessionId, generation)) return;
+      const stopReason = promptResultSchema.safeParse(res).data?.stopReason || 'end_turn';
+      console.log(`[ACP] Task ${task.id} prompt finished:`, stopReason);
+      this.emit(task.id, turnFinished(sessionId, stopReason));
+    } catch (err) {
+      if (!retried) {
+        const recovered = await this.recoverImageLimitedSession(
+          task,
+          sessionId,
+          generation,
+          err,
+          newImageCount,
+          turnStartedAt,
+          promptText,
+          context
+        );
+        if (recovered) {
+          await this.runPromptTurn(
+            task,
+            recovered.sessionId,
+            recovered.generation,
+            prompt,
+            promptText,
+            newImageCount,
+            context,
+            true
+          );
+          return;
+        }
+      }
+      if (this.settle(task.id, sessionId, generation)) return;
+      const message = this.formatTurnError(err, newImageCount);
+      console.error(`[ACP] Task ${task.id} prompt execution error:`, err);
+      this.emit(task.id, turnFailed(sessionId, message));
+    }
+  }
+
+  /**
+   * Recover automatically when a model rejects a turn for having too many
+   * accumulated images in session history: fork a clean copy of the OpenCode
+   * session keeping only the newest images inside budget, load it, and let the
+   * caller retry once cleanly.
+   */
+  private async recoverImageLimitedSession(
+    task: BoardTask,
+    sessionId: string,
+    generation: number,
+    err: unknown,
+    newImageCount: number,
+    turnStartedAt: number,
+    retryPromptText: string,
+    context: RecoveryContext
+  ): Promise<{ sessionId: string; generation: number } | null> {
+    const rawMessage = messageOf(err);
+    const limit = parseImageLimitError(rawMessage);
+    if (!limit) return null;
+    if (!this.registry.isCurrentGeneration(sessionId, generation) || this.registry.isCancelled(sessionId)) {
+      return null;
+    }
+    if (limit.maxAllowed !== undefined && newImageCount > limit.maxAllowed) {
+      return null;
+    }
+
+    const keepBudget = imageKeepBudget(limit.maxAllowed, newImageCount);
+    const cloned = cloneSessionWithoutExcessImages(sessionId, undefined, {
+      keepImages: keepBudget,
+      dropSinceMs: turnStartedAt - 2_000,
+      retryPromptText
+    });
+    if (!cloned || cloned.removedImages === 0) return null;
+
+    if (this.registry.isCancelled(sessionId) || !this.registry.isCurrentGeneration(sessionId, generation)) {
+      return null;
+    }
+
+    const nextGen = this.registry.nextGeneration(cloned.sessionId);
+    this.registry.clearCancelled(cloned.sessionId);
+    this.registry.markInFlight(cloned.sessionId);
+    this.registry.bind(cloned.sessionId, task.id);
+
+    try {
+      await this.sessions.importSession(task.id, cloned.sessionId, context.cwd, {
+        replayLogs: false,
+        primary: context.isPrimary
       });
+      if (context.chosen) {
+        const configOptions = this.registry.configOptions(cloned.sessionId) ?? [];
+        await this.config.applyTo(task, cloned.sessionId, configOptions, context.chosen).catch(() => undefined);
+      }
+    } catch (loadErr) {
+      this.registry.clearInFlight(cloned.sessionId);
+      console.warn(`[ACP] Could not load trimmed recovery session ${cloned.sessionId}:`, loadErr);
+      return null;
+    }
+
+    if (this.registry.isCancelled(sessionId) || !this.registry.isCurrentGeneration(sessionId, generation)) {
+      this.registry.clearInFlight(cloned.sessionId);
+      return null;
+    }
+
+    this.sessions.releaseParkedRequests(task.id, sessionId);
+    this.registry.clearInFlight(sessionId);
+
+    this.emit(
+      task.id,
+      sessionRecovered({
+        previousSessionId: sessionId,
+        sessionId: cloned.sessionId,
+        primary: context.isPrimary,
+        costAtFork: cloned.costAtFork,
+        chosen: context.chosen,
+        removedImages: cloned.removedImages,
+        keptImages: cloned.keptImages,
+        model: limit.model,
+        maxAllowed: limit.maxAllowed
+      })
+    );
+
+    return { sessionId: cloned.sessionId, generation: nextGen };
+  }
+
+  private formatTurnError(err: unknown, newImageCount: number): string {
+    const raw = messageOf(err);
+    const limit = parseImageLimitError(raw);
+    if (!limit) return raw;
+    if (limit.maxAllowed !== undefined && newImageCount > limit.maxAllowed) {
+      return `Too many images attached (${newImageCount}): ${limit.model || 'this model'} allows at most ${limit.maxAllowed} per request.`;
+    }
+    return `${raw} — open Sessions and start a blank new session (or retry without older images) to continue.`;
   }
 
   /**

@@ -64,9 +64,9 @@ export const ReasoningBlock: React.FC<ReasoningBlockProps> = ({ text, isStreamin
           {isStreaming
             ? <Loader2 className="w-3.5 h-3.5 text-ink-3 shrink-0 animate-spin" />
             : <Brain className="w-3.5 h-3.5 text-ink-3 shrink-0" />}
-          <span className="tool-name font-mono font-medium text-ink-2 shrink-0 whitespace-nowrap">{label}</span>
+          <span className="text-[12.5px] font-medium text-ink-2 shrink-0 whitespace-nowrap">{label}</span>
           {!open && (
-            <span className="tool-name font-mono text-ink-4 truncate min-w-0">
+            <span className="text-[12.5px] text-ink-4 truncate min-w-0">
               {preview(text)}
             </span>
           )}

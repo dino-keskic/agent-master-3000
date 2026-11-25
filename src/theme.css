@@ -138,10 +138,12 @@
     --c-line: 35 48 73;
     --c-line-strong: 51 65 85;
     --c-ink: 241 245 249;
-    --c-ink-2: 172 184 204;
-    --c-ink-3: 128 142 166;
-    --c-ink-4: 88 102 126;
+    --c-ink-2: 184 195 212;
+    --c-ink-3: 136 149 170;
+    --c-ink-4: 94 108 132;
     --c-accent: 59 130 246;
+    --c-link: 125 180 255;
+    --c-link-hover: 168 208 255;
     --c-tok-key: 196 181 253;
     --c-tok-str: 134 239 172;
     --c-tok-num: 253 186 116;
@@ -150,6 +152,28 @@
     --c-tok-punct: 148 163 184;
     --c-add: 52 211 153;
     --c-del: 251 113 133;
+
+    /*
+     * Dedicated calm reading palette for the session workspace: neutral
+     * obsidian-slate surfaces so long transcripts stay restful instead of
+     * competing with saturated navy or background blobs, plus luminous links
+     * and tonal context-meter gradients.
+     */
+    --link-bg: rgba(125, 180, 255, 0.11);
+    --link-bd: rgba(125, 180, 255, 0.24);
+    --session-bg: #0c0f16;
+    --session-rail: #10141e;
+    --session-agent-bg: rgba(255, 255, 255, 0.028);
+    --session-agent-bd: rgba(255, 255, 255, 0.07);
+    --session-user-bg: rgba(125, 180, 255, 0.085);
+    --session-user-bd: rgba(125, 180, 255, 0.22);
+    --session-code-bg: #080a10;
+    --session-inline-code-bg: rgba(255, 255, 255, 0.065);
+    --ctx-track: rgba(255, 255, 255, 0.085);
+    --ctx-tick: rgba(12, 15, 22, 0.75);
+    --ctx-ok: linear-gradient(90deg, #38bdf8, #34d399);
+    --ctx-warn: linear-gradient(90deg, #f59e0b, #fbbf24);
+    --ctx-full: linear-gradient(90deg, #f43f5e, #fb7185);
 
     /*
      * Roles that are a flat colour in one scheme and a wash in the other.
@@ -334,6 +358,8 @@
     --c-ink-3: 100 116 139;
     --c-ink-4: 148 163 184;
     --c-accent: 37 99 235;
+    --c-link: 29 78 216;
+    --c-link-hover: 30 64 175;
     --c-tok-key: 124 58 237;
     --c-tok-str: 21 128 61;
     --c-tok-num: 194 65 12;
@@ -342,6 +368,22 @@
     --c-tok-punct: 100 116 139;
     --c-add: 5 150 105;
     --c-del: 225 29 72;
+
+    --link-bg: rgba(29, 78, 216, 0.07);
+    --link-bd: rgba(29, 78, 216, 0.18);
+    --session-bg: #f8fafc;
+    --session-rail: #ffffff;
+    --session-agent-bg: #ffffff;
+    --session-agent-bd: rgba(15, 23, 42, 0.08);
+    --session-user-bg: #eff5ff;
+    --session-user-bd: rgba(37, 99, 235, 0.18);
+    --session-code-bg: #f1f5f9;
+    --session-inline-code-bg: rgba(15, 23, 42, 0.055);
+    --ctx-track: rgba(15, 23, 42, 0.08);
+    --ctx-tick: rgba(255, 255, 255, 0.85);
+    --ctx-ok: linear-gradient(90deg, #2563eb, #0d9488);
+    --ctx-warn: linear-gradient(90deg, #d97706, #f59e0b);
+    --ctx-full: linear-gradient(90deg, #e11d48, #f43f5e);
 
     /* The light scheme keeps its washes as solid tints — they have to stay
        readable on frosted white — and frosts the surfaces under them. */
@@ -416,7 +458,7 @@ html:root[data-mantine-color-scheme] {
     --mantine-color-default-hover: rgb(var(--c-surface-2));
     --mantine-color-default-color: rgb(var(--c-ink));
     --mantine-color-default-border: rgb(var(--c-line));
-    --mantine-color-anchor: rgb(var(--c-accent));
+    --mantine-color-anchor: rgb(var(--c-link));
 }
 
 /*

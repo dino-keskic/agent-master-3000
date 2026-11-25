@@ -9,7 +9,9 @@ import {
   MessageSquare,
   PenLine,
   Settings,
-  SunMoon
+  SunMoon,
+  WandSparkles,
+  Wrench
 } from 'lucide-react';
 import { PaletteCommand } from '../../../shared/palette/search';
 
@@ -27,6 +29,9 @@ export interface PaletteHandlers {
   onOpenSpend: () => void;
   onOpenNotifications: () => void;
   onOpenComments: () => void;
+  onOpenTools: () => void;
+  onOpenAgents: () => void;
+  onOpenSkills: () => void;
   onOpenColumnEditor: () => void;
   onOpenArchive: () => void;
   onOpenSessionImport: () => void;
@@ -42,6 +47,9 @@ export interface PaletteAction extends PaletteCommand {
 export const PALETTE_ACTIONS: PaletteAction[] = [
   { id: 'new-task', title: 'Write a new task', keywords: 'create add ticket compose prompt', Icon: PenLine, run: (h) => h.onNewTask() },
   { id: 'manager', title: 'Talk to the manager', keywords: 'chat overview board assistant', Icon: Bot, run: (h) => h.onOpenManager() },
+  { id: 'tools', title: 'Tools', keywords: 'mcp servers permissions enable disable catalog', Icon: Wrench, run: (h) => h.onOpenTools() },
+  { id: 'agents', title: 'Agents', keywords: 'custom subagents personas markdown prompts', Icon: Bot, run: (h) => h.onOpenAgents() },
+  { id: 'skills', title: 'Skills', keywords: 'slash commands skill.md workflows instructions', Icon: WandSparkles, run: (h) => h.onOpenSkills() },
   { id: 'notifications', title: 'Notifications', keywords: 'inbox alerts waiting background', Icon: Bell, run: (h) => h.onOpenNotifications() },
   { id: 'comments', title: 'Review comments', keywords: 'notes feedback', Icon: MessageSquare, run: (h) => h.onOpenComments() },
   { id: 'spend', title: 'Spend', keywords: 'cost money usage tokens week month', Icon: DollarSign, run: (h) => h.onOpenSpend() },

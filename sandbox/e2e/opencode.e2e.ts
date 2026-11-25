@@ -7,6 +7,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import WebSocket from 'ws';
+import { deriveTaskTitle } from '../../shared/format.js';
 import type { AcpSessionSummary } from '../../shared/sessions/types.js';
 import type { BoardTask, PendingPermission, TaskLogItem, WebSocketMessage } from '../../shared/types.js';
 import {
@@ -15,6 +16,7 @@ import {
   PROVIDER_ID,
   REPLY,
   SLOW_TRIGGER,
+  STUB_TITLE,
   StubLlm,
   TOOL_OUTPUT,
   TOOL_REPLY_PREFIX,
@@ -299,6 +301,36 @@ describe('board ↔ opencode acp ↔ stub LLM', () => {
       assert.deepStrictEqual(warnings.map((l) => l.text), [], 'the board could not configure the session');
       assert.ok(stub.requests.length > 0, 'the stub never heard from OpenCode');
       task = done;
+    } catch (e) { withServerLog(e); }
+  });
+
+  it('names a task created from a prompt, and its session, after OpenCode\'s title', async () => {
+    try {
+      // What the composer sends when nobody typed a title.
+      const prompt = 'Say hello to the e2e test, unnamed.';
+      const unnamed = await api<BoardTask>(board, 'POST', '/api/tasks', {
+        title: deriveTaskTitle(prompt),
+        prompt,
+        model: MODEL,
+        cwd: workspace,
+        permissionMode: 'review-writes'
+      });
+      assert.notStrictEqual(unnamed.title, STUB_TITLE);
+      await api(board, 'POST', `/api/tasks/${unnamed.id}/run`, {});
+
+      // OpenCode names the session in the background, after the turn has
+      // started. A browser already open on the board only hears about it
+      // over the socket: no board reload may be needed for the card to change.
+      const pushed = await waitFor('the title to be pushed to the browser', () => {
+        for (const p of pushes) {
+          if (p.type === 'TASK_UPDATED' && p.taskId === unnamed.id && p.task.title === STUB_TITLE) return p.task;
+        }
+        return undefined;
+      });
+      const link = pushed.sessions?.find((s) => s.sessionId === pushed.sessionId);
+      assert.strictEqual(link?.title, STUB_TITLE, 'the session link did not take the title');
+      const stored = await api<BoardTask>(board, 'GET', `/api/tasks/${unnamed.id}`);
+      assert.strictEqual(stored.title, STUB_TITLE, 'the title was pushed but not kept');
     } catch (e) { withServerLog(e); }
   });
 

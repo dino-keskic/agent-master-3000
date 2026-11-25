@@ -388,6 +388,18 @@
   color: var(--run-fg);
 }
 
+.chip.is-wait {
+  border-color: transparent;
+  background: var(--wait-bg);
+  color: var(--wait-fg);
+}
+
+.chip.is-err {
+  border-color: transparent;
+  background: var(--err-bg);
+  color: var(--err-fg);
+}
+
 /*
  * A length passed as Mantine `size` (`size="10px"`) is used as the line-height
  * as well, so the line box is exactly the font size and descenders are clipped.
@@ -595,13 +607,13 @@
  * itself carries the indicator.
  */
 .drawer-tab {
-  padding: 11px 14px !important;
+  padding: 8px 11px !important;
   border: 0 !important;
   border-bottom: 2px solid transparent !important;
   border-radius: 0 !important;
   background: transparent !important;
   color: rgb(var(--c-ink-3)) !important;
-  font-size: 13px !important;
+  font-size: 12.5px !important;
   font-weight: 500 !important;
 }
 
@@ -644,7 +656,7 @@
   position: relative;
   display: block;
   width: 100%;
-  min-height: 52px;
+  min-height: 40px;
   max-height: 160px;
   resize: none;
   overflow-y: auto;
@@ -696,13 +708,14 @@
  * never restyle the app around it.
  */
 .md {
-  /* The transcript is set in the same face and size as a card's copy, so
-     opening a task does not feel like a different product. Color is inherited
-     so a message can be ink the way a title is; code stays mono below. */
+  /* Calm, editorial prose rhythm for long conversations; code stays mono below. */
   font-family: var(--font-sans);
-  font-size: 14px;
-  line-height: 1.55;
+  font-size: 13.75px;
+  line-height: 1.64;
+  letter-spacing: -0.004em;
   color: inherit;
+  min-width: 0;
+  max-width: 100%;
   overflow-wrap: break-word;
   text-wrap: pretty;
 }
@@ -864,14 +877,16 @@
 }
 
 .md a {
-  color: rgb(var(--c-accent));
+  color: rgb(var(--c-link));
   text-decoration: underline;
-  text-decoration-color: rgb(var(--c-accent) / 0.4);
-  text-underline-offset: 2px;
+  text-decoration-thickness: 1px;
+  text-decoration-color: rgb(var(--c-link) / 0.35);
+  text-underline-offset: 3px;
 }
 
 .md a:hover {
-  text-decoration-color: rgb(var(--c-accent));
+  color: rgb(var(--c-link-hover));
+  text-decoration-color: rgb(var(--c-link-hover) / 0.85);
 }
 
 .md strong {
@@ -881,12 +896,12 @@
 
 .md code {
   font-family: var(--font-mono);
-  font-size: 12.5px;
+  font-size: 0.855em;
   line-height: 1.45;
-  padding: 1px 5px;
-  border-radius: 4px;
-  background: var(--code);
-  border: 1px solid rgb(var(--c-line));
+  padding: 1.5px 5px;
+  border-radius: 5px;
+  background: var(--session-inline-code-bg);
+  border: 1px solid var(--hairline);
   color: rgb(var(--c-ink));
   white-space: break-spaces;
 }
@@ -960,10 +975,10 @@
 
 /* Code blocks */
 .md-code {
-  margin: 0.7em 0;
-  border-radius: 6px;
-  border: 1px solid rgb(var(--c-line));
-  background: var(--code);
+  margin: 0.75em 0;
+  border-radius: 10px;
+  border: 1px solid var(--session-agent-bd);
+  background: var(--session-code-bg);
   overflow: hidden;
 }
 
@@ -972,12 +987,11 @@
   align-items: center;
   justify-content: space-between;
   gap: 0.75em;
-  padding: 0.3em 0.7em;
-  background: rgb(var(--c-surface-2));
-  border-bottom: 1px solid rgb(var(--c-line));
+  padding: 0.35em 0.75em;
+  background: var(--session-agent-bg);
+  border-bottom: 1px solid var(--hairline);
   font-size: 11px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  letter-spacing: 0.03em;
   color: rgb(var(--c-ink-3));
 }
 
@@ -1156,4 +1170,80 @@ pre.text-log-code {
 .composer-stop:hover {
   border-color: var(--err-bd);
   color: var(--err-fg);
+}
+
+/* Context window meter in the session sidebar; ticks mark the 70% warn and 90% full thresholds. */
+.ctx-bar-track {
+  position: relative;
+  height: 7px;
+  border-radius: 999px;
+  background: var(--ctx-track);
+  box-shadow: inset 0 0 0 1px var(--hairline);
+  overflow: hidden;
+}
+
+.ctx-bar-fill {
+  height: 100%;
+  border-radius: inherit;
+  transition: width 260ms ease-out;
+}
+
+.ctx-bar-fill.is-ok {
+  background: var(--ctx-ok);
+}
+
+.ctx-bar-fill.is-warn {
+  background: var(--ctx-warn);
+}
+
+.ctx-bar-fill.is-full {
+  background: var(--ctx-full);
+}
+
+.ctx-bar-tick {
+  position: absolute;
+  top: 1px;
+  bottom: 1px;
+  width: 1px;
+  background: var(--ctx-tick);
+  pointer-events: none;
+}
+
+.full-dvh {
+  height: 100vh;
+  height: 100dvh;
+}
+
+.no-scrollbar {
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* Keep hover-revealed action rows reachable on touch devices without a hover state. */
+@media (hover: none) {
+  .msg-actions {
+    opacity: 0.78 !important;
+  }
+
+  .session-row-actions {
+    opacity: 0.85 !important;
+  }
+}
+
+/* Prevent iOS Safari zoom on focused inputs and tighten chrome on phone screens. */
+@media (max-width: 767px) {
+  .composer-input,
+  .composer-backdrop {
+    font-size: 16px;
+    line-height: 1.45;
+  }
+
+  .drawer-tab {
+    padding: 8px 9px !important;
+    font-size: 12px !important;
+  }
 }

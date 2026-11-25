@@ -1,8 +1,9 @@
 import React from 'react';
-import { Badge, Checkbox, Group, Stack, Text, Tooltip } from '@mantine/core';
+import { Checkbox, Group, Stack, Text, Tooltip } from '@mantine/core';
 import { GitBranch } from 'lucide-react';
 import { WorktreeEntry } from '../../../shared/git/worktree';
 import { WorktreeTarget } from '../header/useWorktreeTarget';
+import { Chip } from '../ui';
 import { InlineSelect } from '../ui/InlineSelect';
 import { usePullRequestBranch } from './usePullRequestBranch';
 
@@ -81,11 +82,7 @@ export const WorktreePicker: React.FC<WorktreePickerProps> = ({ worktree, projec
                   <Text size="xs" fw={600} className="truncate">
                     {folderName(option.value)}
                   </Text>
-                  {isMain && (
-                    <Badge size="xs" variant="light" color="gray" className="font-mono">
-                      main
-                    </Badge>
-                  )}
+                  {isMain && <Chip className="font-mono">main</Chip>}
                 </Group>
                 {entry && (
                   <Text size="11px" c="dimmed" className="font-mono truncate">

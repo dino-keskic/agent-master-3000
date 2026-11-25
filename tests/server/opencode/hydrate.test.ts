@@ -97,7 +97,10 @@ test('OpenCode task hydration', async (t) => {
       updatedAt: new Date(NOW).toISOString(),
       cost: 10,
       contextTokens: 206648,
-      contextLimit: 500000
+      contextLimit: 500000,
+      durationMs: 90_000,
+      lastPromptStartedAt: NOW - 20_000,
+      lastTurnDurationMs: 18_000
     };
     const forkLive: AcpSessionSummary = {
       sessionId: 'ses_fork',
@@ -106,7 +109,10 @@ test('OpenCode task hydration', async (t) => {
       updatedAt: new Date(NOW).toISOString(),
       cost: 6,
       contextTokens: 152224,
-      contextLimit: 200000
+      contextLimit: 200000,
+      durationMs: 12_000,
+      lastPromptStartedAt: NOW - 12_000,
+      lastTurnDurationMs: 12_000
     };
     const live = overlayLiveStatus(
       task,
@@ -122,8 +128,12 @@ test('OpenCode task hydration', async (t) => {
     const fork = live.sessions?.find((s) => s.sessionId === 'ses_fork');
     assert.strictEqual(main?.contextTokens, 206648);
     assert.strictEqual(main?.contextLimit, 500000);
+    assert.strictEqual(main?.durationMs, 90_000);
+    assert.strictEqual(main?.lastTurnDurationMs, 18_000);
     assert.strictEqual(fork?.contextTokens, 152224);
     assert.strictEqual(fork?.contextLimit, 200000);
+    assert.strictEqual(fork?.durationMs, 12_000);
+    assert.strictEqual(fork?.lastTurnDurationMs, 12_000);
     assert.notStrictEqual(main?.contextTokens, fork?.contextTokens);
   });
 

@@ -19,6 +19,7 @@ import { ArchivePanel } from '../components/archive/ArchivePanel';
 import { ReviewNotesDrawer } from '../components/notes/ReviewNotesDrawer';
 import { SettingsModal } from '../components/setup/SettingsModal';
 import { Setup } from '../components/setup/useSetup';
+import { StudioPage } from '../components/studio/StudioPage';
 
 /**
  * Everything that opens over the board. None of it is on screen at rest, and
@@ -149,6 +150,16 @@ export const BoardOverlays: React.FC<BoardOverlaysProps> = ({
         actions={actions}
         changes={changes}
         onApplyTask={board.applySnapshot}
+      />
+
+      {/* Mounted after TaskWorkspace so opening a studio page via ⌘P layers cleanly above an open task. */}
+      <StudioPage
+        section={overlays.studio.section}
+        onChangeSection={overlays.studio.openPage}
+        onClose={overlays.studio.close}
+        projects={projects}
+        defaultProjectId={settings.selectedProjectId}
+        models={models}
       />
     </>
   );

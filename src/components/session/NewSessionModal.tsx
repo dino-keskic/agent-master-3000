@@ -1,10 +1,11 @@
 import React from 'react';
-import { Button, Group, Modal, Stack, Text } from '@mantine/core';
+import { Modal } from '@mantine/core';
 import { GitFork, Plus } from 'lucide-react';
 import { OpenCodeAgent, OpenCodeModel } from '../../../shared/sessions/types';
 import { PermissionMode, ProjectFolder } from '../../../shared/types';
 import { StartSessionInput } from '../../api';
 import { Composer } from '../composer/Composer';
+import { Button } from '../ui';
 import { MODE_COPY, SessionStartMode } from './sessionMode';
 import { useNewSessionForm } from './useNewSessionForm';
 import { SessionModeChooser } from './SessionModeChooser';
@@ -13,9 +14,9 @@ import { SessionProjectFields } from './SessionProjectFields';
 /** Starting a second conversation on a task — forked from one, or empty. */
 
 const MODAL_STYLES = {
-  content: { backgroundColor: 'rgb(var(--c-canvas))', color: 'rgb(var(--c-ink))' },
-  header: { backgroundColor: 'rgb(var(--c-surface-3))', borderBottom: '1px solid rgb(var(--c-line) / 0.7)' },
-  body: { backgroundColor: 'rgb(var(--c-canvas))', padding: '16px' }
+  content: { backgroundColor: 'var(--glass-pane)', color: 'rgb(var(--c-ink))' },
+  header: { backgroundColor: 'rgb(var(--c-surface))', borderBottom: '1px solid rgb(var(--c-line))' },
+  body: { backgroundColor: 'transparent', padding: '16px' }
 } as const;
 
 interface NewSessionModalProps {
@@ -81,21 +82,19 @@ export const NewSessionModal: React.FC<NewSessionModalProps> = ({
       opened={opened}
       onClose={onClose}
       title={
-        <Group gap="xs">
+        <div className="flex items-center gap-2">
           {mode === 'fork' ? (
             <GitFork className="w-4 h-4 text-accent" />
           ) : (
-            <Plus className="w-4 h-4 text-teal-400" />
+            <Plus className="w-4 h-4 text-run-fg" />
           )}
-          <Text fw={600} size="sm">
-            {copy.title}
-          </Text>
-        </Group>
+          <span className="text-[14px] font-semibold text-ink">{copy.title}</span>
+        </div>
       }
       size="lg"
       styles={MODAL_STYLES}
     >
-      <Stack gap="sm">
+      <div className="flex flex-col gap-3">
         <SessionModeChooser
           mode={mode}
           canFork={canFork}
@@ -106,9 +105,6 @@ export const NewSessionModal: React.FC<NewSessionModalProps> = ({
 
         {mode === 'new' && projects.length > 0 && <SessionProjectFields form={form} projects={projects} />}
 
-        {/* The same box as the one in the session below, so a fork is written
-            with the `@` files, `/` commands, images and dictation the prompt it
-            follows up on was — and picks its model in the same row. */}
         <Composer
           value={form.prompt}
           onChange={form.setPrompt}
@@ -134,16 +130,14 @@ export const NewSessionModal: React.FC<NewSessionModalProps> = ({
           submitTooltip={`${copy.action} (⌘Enter)`}
         />
 
-        <Group justify="flex-end" gap="xs">
-          <Button size="xs" variant="subtle" color="gray" onClick={onClose}>
+        <div className="flex items-center justify-end gap-2 pt-1">
+          <Button size="sm" variant="ghost" onClick={onClose}>
             Cancel
           </Button>
-          {/* A blank session is allowed to start with nothing to say; a fork is
-              the question you are asking the copy, so it needs the box. */}
           {!form.promptRequired && (
             <Button
-              size="xs"
-              variant="default"
+              size="sm"
+              variant="secondary"
               loading={form.isSubmitting}
               disabled={!!form.prompt.trim()}
               onClick={() => void form.submit()}
@@ -151,8 +145,8 @@ export const NewSessionModal: React.FC<NewSessionModalProps> = ({
               Start empty
             </Button>
           )}
-        </Group>
-      </Stack>
+        </div>
+      </div>
     </Modal>
   );
 };

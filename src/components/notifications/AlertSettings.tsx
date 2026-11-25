@@ -1,8 +1,9 @@
 import React from 'react';
-import { Checkbox, Stack, Switch, Text } from '@mantine/core';
+import { BellOff } from 'lucide-react';
 import { NotificationSettings } from '../../../shared/types';
 import { DesktopPermission } from '../../../shared/notifications/delivery';
 import { NOTIFICATION_EVENT_TOGGLES } from '../../../shared/notifications/settings';
+import { Banner, ToggleRow } from '../ui';
 
 export type { DesktopPermission };
 
@@ -25,18 +26,17 @@ export const AlertSettings: React.FC<AlertSettingsProps> = ({
   onPatch,
   onEnableDesktop
 }) => (
-  <Stack gap={8}>
+  <div className="flex flex-col gap-2">
     {permission === 'unsupported' ? (
-      <Text size="xs" c="dimmed" className="font-mono">
+      <Banner tone="neutral" icon={<BellOff className="w-3.5 h-3.5" />}>
         This browser does not support desktop notifications.
-      </Text>
+      </Banner>
     ) : permission === 'denied' ? (
-      <Text size="xs" c="dimmed">
+      <Banner tone="wait" icon={<BellOff className="w-3.5 h-3.5" />}>
         Desktop notifications are blocked in the browser. Allow them for this site to get alerts while the board is in the background.
-      </Text>
+      </Banner>
     ) : (
-      <Switch
-        size="xs"
+      <ToggleRow
         label="Desktop notifications"
         description={
           permission === 'default'
@@ -46,36 +46,38 @@ export const AlertSettings: React.FC<AlertSettingsProps> = ({
             : 'macOS banners while the board is in the background. Send a test to confirm they appear.'
         }
         checked={settings.enabled && permission === 'granted'}
-        onChange={(event) => {
-          if (event.currentTarget.checked) onEnableDesktop();
+        onChange={(checked) => {
+          if (checked) onEnableDesktop();
           else onPatch({ enabled: false });
         }}
       />
     )}
-    {NOTIFICATION_EVENT_TOGGLES.map((toggle) => (
-      <Checkbox
-        key={toggle.setting}
-        size="xs"
-        label={toggle.label}
-        description={toggle.description}
-        checked={settings[toggle.setting]}
-        onChange={(event) => onPatch({ [toggle.setting]: event.currentTarget.checked })}
+
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+      {NOTIFICATION_EVENT_TOGGLES.map((toggle) => (
+        <ToggleRow
+          key={toggle.setting}
+          label={toggle.label}
+          description={toggle.description}
+          checked={settings[toggle.setting]}
+          onChange={(checked) => onPatch({ [toggle.setting]: checked })}
+          disabled={!settings.enabled}
+        />
+      ))}
+      <ToggleRow
+        label="Only while unfocused"
+        description="Suppress banners while this tab is in the foreground."
+        checked={settings.onlyWhenUnfocused}
+        onChange={(checked) => onPatch({ onlyWhenUnfocused: checked })}
         disabled={!settings.enabled}
       />
-    ))}
-    <Checkbox
-      size="xs"
-      label="Only while this tab is in the background"
-      checked={settings.onlyWhenUnfocused}
-      onChange={(event) => onPatch({ onlyWhenUnfocused: event.currentTarget.checked })}
-      disabled={!settings.enabled}
-    />
-    <Checkbox
-      size="xs"
-      label="Play a short tone"
-      checked={settings.sound}
-      onChange={(event) => onPatch({ sound: event.currentTarget.checked })}
-      disabled={!settings.enabled}
-    />
-  </Stack>
+      <ToggleRow
+        label="Play a short tone"
+        description="Audible chime when a turn finishes or asks for you."
+        checked={settings.sound}
+        onChange={(checked) => onPatch({ sound: checked })}
+        disabled={!settings.enabled}
+      />
+    </div>
+  </div>
 );

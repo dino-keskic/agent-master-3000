@@ -1,8 +1,10 @@
 import React, { useMemo, useState } from 'react';
-import { Badge, Drawer, Group, SegmentedControl, Stack, Text } from '@mantine/core';
+import { Drawer } from '@mantine/core';
+import { Bell, Terminal } from 'lucide-react';
 import { BoardColumn, BoardTask, PermissionAnswer } from '../../../shared/types';
 import { BoardNotification, unreadCount } from '../../../shared/notifications/inbox';
 import { listBackgroundTasks } from '../../../shared/agent/backgroundTasks';
+import { Chip, PaneToolbar, SegmentedControl } from '../ui';
 import { BackgroundPane } from './BackgroundPane';
 import { InboxPane } from './InboxPane';
 
@@ -27,7 +29,7 @@ interface NotificationPanelProps {
 
 const DRAWER_STYLES = {
   content: { backgroundColor: 'var(--glass-pane)', color: 'rgb(var(--c-ink))' },
-  header: { backgroundColor: 'rgb(var(--c-surface-3))', borderBottom: '1px solid rgb(var(--c-line) / 0.7)' },
+  header: { backgroundColor: 'rgb(var(--c-surface))', borderBottom: '1px solid rgb(var(--c-line))' },
   body: { padding: 0, height: 'calc(100vh - 60px)', display: 'flex', flexDirection: 'column' }
 } as const;
 
@@ -78,38 +80,33 @@ export const NotificationPanel: React.FC<NotificationPanelProps> = ({
       position="right"
       size="lg"
       title={
-        <Group gap="xs" wrap="nowrap">
-          <Text fw={600} size="sm" className="text-ink">
-            Notifications
-          </Text>
-          {unread > 0 && (
-            <Badge size="xs" color="accent" variant="filled" className="font-mono">
-              {unread} new
-            </Badge>
-          )}
-          {background.length > 0 && (
-            <Badge size="xs" color="teal" variant="light" className="font-mono">
-              {background.length} running
-            </Badge>
-          )}
-        </Group>
+        <div className="flex items-center gap-2">
+          <Bell className="w-4 h-4 text-accent" />
+          <span className="text-[14px] font-semibold text-ink">Notifications</span>
+          {unread > 0 && <Chip tone="accent">{unread} new</Chip>}
+          {background.length > 0 && <Chip tone="run">{background.length} running</Chip>}
+        </div>
       }
       styles={DRAWER_STYLES}
     >
-      <Stack gap="xs" p="sm" className="shrink-0 border-b border-line/70">
-        <SegmentedControl
-          size="xs"
-          value={tab}
-          onChange={(value) => setTab(value as PanelTab)}
-          data={[
-            { value: 'inbox', label: `Inbox (${inbox.length})` },
-            {
-              value: 'background',
-              label: background.length > 0 ? `Background (${background.length})` : 'Background'
-            }
-          ]}
-        />
-      </Stack>
+      <PaneToolbar
+        left={
+          <SegmentedControl<PanelTab>
+            size="xs"
+            value={tab}
+            onChange={setTab}
+            options={[
+              { value: 'inbox', label: 'Inbox', icon: <Bell className="w-3 h-3" />, count: inbox.length },
+              {
+                value: 'background',
+                label: 'Background',
+                icon: <Terminal className="w-3 h-3" />,
+                count: background.length
+              }
+            ]}
+          />
+        }
+      />
 
       {tab === 'inbox' ? (
         <InboxPane

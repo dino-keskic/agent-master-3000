@@ -194,11 +194,50 @@ export function checkRequest(input: GuardInput, config: RequestGuardConfig): Gua
 }
 
 /**
+ * Returns `true` when `address` is a loopback peer address (`127.0.0.0/8`,
+ * `::1`, or IPv4-mapped `::ffff:127.0.0.0/8`).
+ */
+export function isLoopbackRemoteAddress(address: string | undefined): boolean {
+  if (!address) return false;
+  const cleaned = address.trim().toLowerCase();
+  if (cleaned === '::1') return true;
+  const ipv4 = cleaned.startsWith('::ffff:') ? cleaned.slice('::ffff:'.length) : cleaned;
+  const parts = ipv4.split('.');
+  if (parts.length !== 4) return false;
+  for (let i = 0; i < parts.length; i++) {
+    const part = parts[i]!;
+    if (!/^\d{1,3}$/.test(part)) return false;
+    if (part.length > 1 && part.startsWith('0')) return false;
+    const n = Number(part);
+    if (!Number.isInteger(n) || n < 0 || n > 255) return false;
+    if (i === 0 && n !== 127) return false;
+  }
+  return true;
+}
+
+/**
+ * Determines whether a request arrived over HTTPS — directly via TLS or
+ * forwarded by a trusted loopback TLS terminator such as `tailscale serve`.
+ */
+export function isRequestSecure(input: {
+  reqSecure: boolean;
+  trustLoopbackProxy: boolean;
+  remoteAddress?: string;
+  forwardedProto?: string;
+}): boolean {
+  if (input.reqSecure) return true;
+  if (!input.trustLoopbackProxy || !isLoopbackRemoteAddress(input.remoteAddress)) return false;
+  const firstProto = input.forwardedProto?.split(',')[0]?.trim().toLowerCase();
+  return firstProto === 'https';
+}
+
+/**
  * The cookie the UI stores a token link's token in. `SameSite=Strict` keeps it
  * off every request another site starts; a year is "until the token changes".
  */
-export function tokenCookie(token: string, secure: boolean): string {
+export function tokenCookie(token: string, secure: boolean, httpOnly = false): string {
   const attributes = ['Path=/', 'Max-Age=31536000', 'SameSite=Strict'];
+  if (httpOnly) attributes.push('HttpOnly');
   if (secure) attributes.push('Secure');
   return [`${TOKEN_COOKIE}=${encodeURIComponent(token)}`, ...attributes].join('; ');
 }
@@ -241,5 +280,5 @@ export function tokenLinkHandoff(
   if (!checkRequest({ ...input, authorization: `Bearer ${token}` }, config).ok) return undefined;
 
   const clean = new URL(href);
-  return { cookie: tokenCookie(token, input.secure), location: `${clean.pathname}${clean.search}` };
+  return { cookie: tokenCookie(token, input.secure, true), location: `${clean.pathname}${clean.search}` };
 }

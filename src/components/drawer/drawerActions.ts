@@ -1,8 +1,8 @@
 import { api, MoveTargetInput, StartSessionInput } from '../../api';
 import { notifySuccess, reportError } from '../../app/notify';
-import { BoardTask, PromptImage } from '../../../shared/types';
+import { BoardTask, PromptImage, SessionChoice } from '../../../shared/types';
 import { listTaskSessions } from '../../../shared/task/sessions';
-import { SessionChoice } from '../../../shared/types';
+import { ForkAnchor } from '../../../shared/transcript/forkPoint';
 import { PendingPrompts } from './usePendingPrompts';
 
 /**
@@ -24,6 +24,7 @@ export interface DrawerActionContext {
   onStartBlank: () => void;
   onCancelBlank: () => void;
   onClearComposer: () => void;
+  onClearForkAnchor?: () => void;
   setCompacting: (value: boolean) => void;
   /** Resolves false when the server refused the prompt. */
   onSendPrompt: (taskId: string, prompt: string, images?: PromptImage[]) => Promise<boolean>;
@@ -37,6 +38,8 @@ export interface DrawerActionContext {
 export interface DrawerActions {
   sendPrompt: (prompt: string, images?: PromptImage[]) => Promise<void>;
   startSession: (data: StartSessionInput) => Promise<void>;
+  /** Fork from a specific message in the currently viewed session (prompt optional). */
+  forkFromPoint: (anchor: ForkAnchor, prompt?: string, images?: PromptImage[]) => Promise<void>;
   /**
    * Carry the work on in a blank session, at once: where the main session
    * runs, on what the task runs as. The dialog is only for a fork, which needs
@@ -112,8 +115,10 @@ export function drawerActions(ctx: DrawerActionContext): DrawerActions {
       try {
         const updated = await api.startSession(task.id, {
           ...data,
-          // Fork what is on screen, falling back to the task's own session.
-          sourceSessionId: isFork ? (isLinked(sessionId) ? sessionId : task.sessionId) : undefined
+          // Fork the requested session, else what is on screen, else the task's own.
+          sourceSessionId: isFork
+            ? (data.sourceSessionId || (isLinked(sessionId) ? sessionId : task.sessionId))
+            : undefined
         });
         // The fork appearing in the list and on screen says it started. A
         // blank one is linked a moment after this answer, as the task's main
@@ -122,6 +127,28 @@ export function drawerActions(ctx: DrawerActionContext): DrawerActions {
       } catch (e) {
         if (!isFork) ctx.onCancelBlank();
         reportError(isFork ? 'Could not fork this session' : 'Could not start a new session', e);
+      }
+    },
+
+    async forkFromPoint(anchor, prompt, images) {
+      const sourceSessionId = isLinked(sessionId) ? sessionId : task.sessionId;
+      if (!sourceSessionId) return;
+      const text = prompt?.trim() || undefined;
+      try {
+        const updated = await api.startSession(task.id, {
+          mode: 'fork',
+          sourceSessionId,
+          upToMessageId: anchor.messageId,
+          exclusive: anchor.mode === 'before',
+          forkedAtLabel: anchor.label,
+          prompt: text,
+          images
+        });
+        ctx.onClearComposer();
+        ctx.onClearForkAnchor?.();
+        ctx.onViewSession(updated.activeSessionId);
+      } catch (e) {
+        reportError('Could not fork from this message', e);
       }
     },
 

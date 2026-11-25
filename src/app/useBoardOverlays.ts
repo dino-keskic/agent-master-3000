@@ -1,12 +1,15 @@
 import { useState } from 'react';
+import { StudioSection } from '../components/studio/StudioPage';
 
 /**
  * The panels that sit over the board: importing a session, editing the columns,
- * what the week cost, the archive tasks are recovered from, and the settings.
+ * what the week cost, the archive tasks are recovered from, the settings, and
+ * the full-screen studio pages (Tools, Agents, Skills).
  *
- * Each is opened from the header and closed from itself, so the flag has to
- * live above both. The notification panel and the task drawer are not here —
- * they belong to the inbox and the selected task, which own more than a flag.
+ * Each is opened from the header or palette and closed from itself, so the flag
+ * has to live above both. The notification panel and the task drawer are not
+ * here — they belong to the inbox and the selected task, which own more than a
+ * flag.
  */
 
 export interface Overlay {
@@ -21,6 +24,14 @@ export interface ImportOverlay extends Overlay {
   openFor: (projectId: string) => void;
 }
 
+/** Full-screen Tools, Agents, and Skills pages. */
+export interface StudioOverlay {
+  opened: boolean;
+  section: StudioSection | null;
+  openPage: (section: StudioSection) => void;
+  close: () => void;
+}
+
 export interface BoardOverlayState {
   sessionImport: ImportOverlay;
   columnEditor: Overlay;
@@ -28,6 +39,7 @@ export interface BoardOverlayState {
   comments: Overlay;
   archive: Overlay;
   settings: Overlay;
+  studio: StudioOverlay;
 }
 
 function useOverlay(onOpen?: () => void): Overlay {
@@ -60,6 +72,16 @@ function useImportOverlay(): ImportOverlay {
   };
 }
 
+function useStudioOverlay(): StudioOverlay {
+  const [section, setSection] = useState<StudioSection | null>(null);
+  return {
+    opened: section !== null,
+    section,
+    openPage: (next) => setSection(next),
+    close: () => setSection(null)
+  };
+}
+
 /**
  * `onOpenSpend` and `onOpenSettings` run when those panels open, to fetch
  * what they show fresh.
@@ -71,6 +93,7 @@ export function useBoardOverlays(onOpenSpend: () => void, onOpenSettings: () => 
     spend: useOverlay(onOpenSpend),
     comments: useOverlay(),
     archive: useOverlay(),
-    settings: useOverlay(onOpenSettings)
+    settings: useOverlay(onOpenSettings),
+    studio: useStudioOverlay()
   };
 }

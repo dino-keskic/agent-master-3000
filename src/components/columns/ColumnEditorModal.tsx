@@ -1,8 +1,9 @@
 import React from 'react';
-import { Button, Group, Modal, Paper, Text } from '@mantine/core';
+import { Modal } from '@mantine/core';
 import { Columns3 } from 'lucide-react';
 import { OpenCodeAgent, OpenCodeModel } from '../../../shared/sessions/types';
 import { BoardColumn } from '../../../shared/types';
+import { Button, Chip, EmptyState } from '../ui';
 import { useColumnDraft } from './useColumnDraft';
 import { useProjectPrompts } from './useProjectPrompts';
 import { ColumnForm } from './ColumnForm';
@@ -41,9 +42,6 @@ export const ColumnEditorModal: React.FC<ColumnEditorModalProps> = ({
   const handleSave = () => {
     const cleaned = draft.cleaned();
     void onSave(cleaned);
-    // After the columns, and with the surviving ids, so instructions for a
-    // column the user just deleted are dropped rather than left to be
-    // inherited by the next column that slugs to the same id.
     void projectPrompts.save(cleaned.map((column) => column.id));
     onClose();
   };
@@ -53,19 +51,20 @@ export const ColumnEditorModal: React.FC<ColumnEditorModalProps> = ({
       opened={opened}
       onClose={onClose}
       title={
-        <Group gap="xs">
-          <Columns3 className="w-4 h-4 text-ink-2" />
-          <Text fw={600}>Board columns</Text>
-        </Group>
+        <div className="flex items-center gap-2">
+          <Columns3 className="w-4 h-4 text-accent" />
+          <span className="text-[14px] font-semibold text-ink">Board columns</span>
+          <Chip className="font-mono">{draft.columns.length} stages</Chip>
+        </div>
       }
       size="xl"
       styles={{
         content: { backgroundColor: 'var(--glass-pane)', color: 'rgb(var(--c-ink))' },
-        header: { backgroundColor: 'rgb(var(--c-surface-3))', borderBottom: '1px solid rgb(var(--c-line) / 0.7)' },
+        header: { backgroundColor: 'rgb(var(--c-surface))', borderBottom: '1px solid rgb(var(--c-line))' },
         body: { backgroundColor: 'transparent', padding: 0 }
       }}
     >
-      <div className="flex flex-col md:flex-row min-h-[460px]">
+      <div className="flex flex-col md:flex-row h-[min(680px,78vh)] min-h-0 overflow-hidden">
         <ColumnList
           columns={draft.columns}
           selectedId={draft.selectedId}
@@ -74,23 +73,33 @@ export const ColumnEditorModal: React.FC<ColumnEditorModalProps> = ({
           onAdd={draft.add}
         />
 
-        <div className="flex-1 flex flex-col min-w-0">
+        <div className="flex-1 flex flex-col min-w-0 min-h-0">
           {draft.selected ? (
-            <ColumnForm draft={draft} projectPrompts={projectPrompts} models={models} agents={agents} taskCounts={taskCounts} />
+            <ColumnForm
+              draft={draft}
+              projectPrompts={projectPrompts}
+              models={models}
+              agents={agents}
+              taskCounts={taskCounts}
+            />
           ) : (
-            <Paper p="xl" bg="transparent">
-              <Text size="sm" c="dimmed">Select a column to edit.</Text>
-            </Paper>
+            <div className="p-6 flex-1 flex items-center justify-center">
+              <EmptyState
+                icon={<Columns3 className="w-4 h-4" />}
+                title="Select a column"
+                description="Choose a column on the left to configure its prompt, defaults, and stage behavior."
+              />
+            </div>
           )}
 
-          <Group justify="flex-end" gap="xs" p="sm" className="border-t border-line">
-            <Button size="xs" variant="subtle" color="gray" onClick={onClose}>
+          <div className="flex items-center justify-end gap-2 px-4 py-3 border-t border-line bg-surface shrink-0">
+            <Button size="sm" variant="ghost" onClick={onClose}>
               Cancel
             </Button>
-            <Button size="xs" color="accent" onClick={handleSave} disabled={!draft.canSave}>
+            <Button size="sm" variant="primary" onClick={handleSave} disabled={!draft.canSave}>
               Save columns
             </Button>
-          </Group>
+          </div>
         </div>
       </div>
     </Modal>

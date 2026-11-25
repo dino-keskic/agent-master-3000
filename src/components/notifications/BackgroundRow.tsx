@@ -1,15 +1,15 @@
 import React from 'react';
-import { Badge, Group, Paper, Text } from '@mantine/core';
 import { Terminal } from 'lucide-react';
 import { BoardTask } from '../../../shared/types';
 import { BackgroundTaskItem, isExecuteTool, toolCallSummary } from '../../../shared/agent/backgroundTasks';
 import { listTaskSessions, sessionRunState } from '../../../shared/task/sessions';
 import { relativeTime } from '../../../shared/format';
 import { SessionStateDot } from '../session/SessionStateDot';
+import { Chip, Surface } from '../ui';
 
 /**
- * One tool call still running. `execute` gets its own colour because a shell
- * command is the one people watch for.
+ * One tool call still running. `execute` gets its own running highlight because
+ * a shell command is the one people watch for.
  */
 export const BackgroundRow: React.FC<{
   item: BackgroundTaskItem;
@@ -24,42 +24,40 @@ export const BackgroundRow: React.FC<{
   const state = task && session ? sessionRunState(task, session) : 'running';
 
   return (
-    <Paper
-      p="xs"
-      radius="md"
-      className={`bg-surface border cursor-pointer flex flex-col gap-2 ${
-        execute ? 'border-teal-500/40 hover:border-teal-500/80' : 'border-line/80 hover:border-line-strong'
-      }`}
+    <Surface
+      level="s1"
+      variant={execute ? 'running' : 'default'}
+      radius="lg"
+      interactive
+      className="p-3 flex flex-col gap-2"
       onClick={onOpen}
     >
-      <Group justify="space-between" align="center" wrap="nowrap">
-        <Group gap={6} wrap="nowrap" className="min-w-0">
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-1.5 min-w-0">
           <SessionStateDot state={state} />
-          {execute ? (
-            <Terminal className="w-3.5 h-3.5 text-teal-300 shrink-0" />
-          ) : null}
-          <Badge size="xs" color="gray" variant="dot" className="font-mono shrink-0">
-            {item.taskId}
-          </Badge>
-          <Text size="xs" fw={600} className="text-ink truncate">
+          {execute && <Terminal className="w-3.5 h-3.5 text-run-fg shrink-0" />}
+          <Chip className="font-mono shrink-0">{item.taskId}</Chip>
+          <span className="font-mono text-[12.5px] font-semibold text-ink truncate">
             {item.toolCall.name}
-          </Text>
-        </Group>
-        <Badge size="xs" color="teal" variant="light" className="font-mono shrink-0">
+          </span>
+        </div>
+        <Chip tone="run" className="shrink-0">
           {item.toolCall.status === 'pending' ? 'Pending' : 'Running'}
-        </Badge>
-      </Group>
+        </Chip>
+      </div>
+
       {summary && (
-        <Text size="12px" className="font-mono text-ink-2 truncate">
+        <div className="font-mono text-[12px] text-ink-2 truncate bg-code px-2 py-1 rounded border border-hairline">
           {summary}
-        </Text>
+        </div>
       )}
-      <Group gap={6} wrap="wrap" className="text-[11px] text-ink-3 font-mono">
-        <span className="truncate max-w-[180px]">{item.taskTitle}</span>
+
+      <div className="flex items-center gap-1.5 flex-wrap text-[11px] text-ink-3 font-mono">
+        <span className="truncate max-w-[200px]">{item.taskTitle}</span>
         {item.sessionTitle && item.sessionTitle !== item.taskTitle && <span>· {item.sessionTitle}</span>}
         {item.projectName && <span>· {item.projectName}</span>}
         <span>· started {relativeTime(item.startedAt)}</span>
-      </Group>
-    </Paper>
+      </div>
+    </Surface>
   );
 };

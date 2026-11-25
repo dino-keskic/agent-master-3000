@@ -5,7 +5,7 @@ import { ChangeSummary } from '../../shared/types.js';
 import { modelInfoForSession, parseSessionModel } from './models.js';
 import { directoryExists, readDb, toIso } from './db.js';
 import { CwdProbe, findProject, matchProjectName, probeDirectories, worktreeLabel } from './projects.js';
-import { inheritedSessionCosts, lastTurnSnapshot, sessionTreeExtras } from './sessionMetrics.js';
+import { inheritedSessionCosts, lastTurnSnapshot, sessionRunDurations, sessionTreeExtras } from './sessionMetrics.js';
 
 const DEFAULT_LIMIT = 500;
 const MAX_LIMIT = 2000;
@@ -27,6 +27,10 @@ function toSummary(
     treeTokens?: number;
     childCount?: number;
     inheritedCost?: number;
+    durationMs?: number;
+    activeTurnStartedAt?: number;
+    lastPromptStartedAt?: number;
+    lastTurnDurationMs?: number;
   }
 ): AcpSessionSummary {
   const files = Number(row.summary_files) || 0;
@@ -76,7 +80,11 @@ function toSummary(
     inheritedCost: extras?.inheritedCost && extras.inheritedCost > 0 ? extras.inheritedCost : undefined,
     subagentCount: childCount > 0 ? childCount : undefined,
     contextTokens: extras?.contextTokens,
-    contextLimit: modelInfo?.contextLimit
+    contextLimit: modelInfo?.contextLimit,
+    durationMs: extras?.durationMs && extras.durationMs > 0 ? extras.durationMs : undefined,
+    activeTurnStartedAt: extras?.activeTurnStartedAt,
+    lastPromptStartedAt: extras?.lastPromptStartedAt,
+    lastTurnDurationMs: extras?.lastTurnDurationMs && extras.lastTurnDurationMs > 0 ? extras.lastTurnDurationMs : undefined
   };
 }
 
@@ -296,10 +304,12 @@ export function getOpenCodeSessionsById(ids: string[]): Map<string, AcpSessionSu
     const treeById = sessionTreeExtras(db, unique);
     const turnById = lastTurnSnapshot(db, unique);
     const inheritedById = inheritedSessionCosts(db, unique);
+    const durationById = sessionRunDurations(db, unique);
     for (const row of rows) {
       const dir = row.directory || '';
       const tree = treeById.get(row.id);
       const turn = turnById.get(row.id);
+      const dur = durationById.get(row.id);
       map.set(row.id, toSummary(row, undefined, {
         exists: !!existsByDir.get(dir),
         dirty: false
@@ -309,7 +319,11 @@ export function getOpenCodeSessionsById(ids: string[]): Map<string, AcpSessionSu
         treeCost: tree?.cost,
         treeTokens: tree?.tokenCount,
         childCount: tree?.childCount,
-        inheritedCost: inheritedById.get(row.id)
+        inheritedCost: inheritedById.get(row.id),
+        durationMs: dur?.durationMs,
+        activeTurnStartedAt: dur?.activeTurnStartedAt,
+        lastPromptStartedAt: dur?.lastPromptStartedAt,
+        lastTurnDurationMs: dur?.lastTurnDurationMs
       }));
     }
   } catch (e) {

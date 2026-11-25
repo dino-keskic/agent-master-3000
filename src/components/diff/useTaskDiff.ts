@@ -59,6 +59,8 @@ export interface TaskDiffView {
   /** Open a file. A note that predates multi-folder tasks names no folder,
    *  so an absent `cwd` opens that path wherever it appears. */
   expand: (path: string, cwd?: string) => void;
+  expandAll: () => void;
+  collapseAll: () => void;
 }
 
 export function useTaskDiff(
@@ -171,6 +173,28 @@ export function useTaskDiff(
         for (const folder of folders) next[fileKey(folder, path)] = false;
         return next;
       });
-    }, [])
+    }, []),
+    expandAll: useCallback(() => {
+      setCollapsed((prev) => {
+        if (!workspaces) return prev;
+        const next = { ...prev };
+        for (const workspace of workspaces) {
+          if (workspace.error) continue;
+          for (const file of workspace.files) next[fileKey(workspace.cwd, file.path)] = false;
+        }
+        return next;
+      });
+    }, [workspaces]),
+    collapseAll: useCallback(() => {
+      setCollapsed((prev) => {
+        if (!workspaces) return prev;
+        const next = { ...prev };
+        for (const workspace of workspaces) {
+          if (workspace.error) continue;
+          for (const file of workspace.files) next[fileKey(workspace.cwd, file.path)] = true;
+        }
+        return next;
+      });
+    }, [workspaces])
   };
 }

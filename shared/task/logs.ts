@@ -82,6 +82,7 @@ export function combineLogItems(held: TaskLogItem, incoming: TaskLogItem): TaskL
     title: incoming.title || held.title,
     toolCall: combineTool(held.toolCall, incoming.toolCall),
     metadata: mergeMeta(incoming.metadata, held.metadata),
+    messageId: held.messageId || incoming.messageId,
     timestamp: held.timestamp || incoming.timestamp,
     sessionId: held.sessionId || incoming.sessionId
   };

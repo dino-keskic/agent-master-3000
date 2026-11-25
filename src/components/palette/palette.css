@@ -174,3 +174,26 @@
     animation: none;
   }
 }
+
+@media (max-width: 639px) {
+  .palette-scrim {
+    padding: max(10px, env(safe-area-inset-top)) 10px 10px;
+  }
+
+  .palette {
+    max-height: calc(100dvh - 20px);
+    border-radius: 16px;
+  }
+
+  .palette-field {
+    padding: 12px 14px;
+  }
+
+  .palette-input {
+    font-size: 16px;
+  }
+
+  .palette-foot {
+    display: none;
+  }
+}
